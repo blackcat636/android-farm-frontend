@@ -1,4 +1,5 @@
 'use client';
+export const runtime = 'nodejs';
 
 import { useState } from 'react';
 import { Form, Input, Select, Button, Card, Alert, Space, Result, InputNumber } from 'antd';
@@ -48,8 +49,8 @@ export default function InstagramPostPage() {
         'instagram',
         'post',
         {
-          emulatorId: values.emulatorId,
-          params,
+        emulatorId: values.emulatorId,
+        params,
         },
         emulator?.agentBaseURL
       );

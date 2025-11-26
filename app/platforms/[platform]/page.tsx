@@ -1,5 +1,5 @@
-export const runtime = 'edge';
 'use client';
+export const runtime = 'nodejs';
 
 import { Card, Button, Space } from 'antd';
 import { useRouter, useParams } from 'next/navigation';

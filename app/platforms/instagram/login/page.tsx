@@ -1,5 +1,6 @@
-export const runtime = 'edge';
 'use client';
+export const runtime = 'nodejs';
+
 
 import { useState } from 'react';
 import { Form, Input, Select, Button, Card, Alert, Space, Result } from 'antd';

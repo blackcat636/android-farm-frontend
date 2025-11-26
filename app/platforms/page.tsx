@@ -1,4 +1,5 @@
 'use client';
+export const runtime = 'nodejs';
 
 import { useEffect, useState } from 'react';
 import { Card, List, Button, Tag, Space } from 'antd';

@@ -1,4 +1,5 @@
 'use client';
+export const runtime = 'nodejs';
 
 import { useState } from 'react';
 import { Form, Input, InputNumber, Select, Button, Card, Alert, Space, Result } from 'antd';
@@ -30,11 +31,11 @@ export default function YouTubeSearchPage() {
         'youtube',
         'search',
         {
-          emulatorId: values.emulatorId,
-          params: {
-            query: values.query,
-            watchSeconds: values.watchSeconds || 15,
-          },
+        emulatorId: values.emulatorId,
+        params: {
+          query: values.query,
+          watchSeconds: values.watchSeconds || 15,
+        },
         },
         emulator?.agentBaseURL
       );
