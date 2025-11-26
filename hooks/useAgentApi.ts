@@ -2,11 +2,12 @@
 
 import { useState, useCallback } from 'react';
 import { type ExecuteActionRequest } from '@/lib/api/agent';
+import { createAgentApi } from '@/lib/api/agent';
 import { message } from 'antd';
 import { useActiveAgentApi } from './useActiveAgentApi';
 
 export function useAgentApi() {
-  const { agentApi } = useActiveAgentApi();
+  const { agentApi: defaultAgentApi } = useActiveAgentApi();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -14,7 +15,8 @@ export function useAgentApi() {
     async (
       platform: string,
       action: string,
-      data: ExecuteActionRequest
+      data: ExecuteActionRequest,
+      agentBaseURL?: string // Опціональний baseURL для виконання через конкретного агента
     ) => {
       setLoading(true);
       setError(null);
@@ -23,7 +25,9 @@ export function useAgentApi() {
       const loadingMessage = message.loading('Виконується дія... Це може зайняти деякий час.', 0);
       
       try {
-        const result = await agentApi.executeAction(platform, action, data);
+        // Якщо вказано agentBaseURL, використовуємо його, інакше - активний агент
+        const api = agentBaseURL ? createAgentApi(agentBaseURL) : defaultAgentApi;
+        const result = await api.executeAction(platform, action, data);
         loadingMessage(); // Закриваємо повідомлення про завантаження
         message.success('Дію виконано успішно!');
         return result;
@@ -49,7 +53,7 @@ export function useAgentApi() {
         setLoading(false);
       }
     },
-    [agentApi]
+    [defaultAgentApi]
   );
 
   return {

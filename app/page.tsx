@@ -4,15 +4,16 @@ import { useEffect, useState } from 'react';
 import { Card, Row, Col, Statistic, Tag } from 'antd';
 import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { useActiveAgentApi } from '@/hooks/useActiveAgentApi';
-import { type PlatformsResponse, type EmulatorsResponse } from '@/lib/api/agent';
+import { useAllEmulators } from '@/hooks/useAllEmulators';
+import { type PlatformsResponse } from '@/lib/api/agent';
 import Loading from '@/components/common/Loading';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 
 export default function Dashboard() {
   const { agentApi, activeAgent } = useActiveAgentApi();
+  const { emulators, loading: loadingEmulators } = useAllEmulators(false);
   const [health, setHealth] = useState<any>(null);
   const [platforms, setPlatforms] = useState<string[]>([]);
-  const [emulators, setEmulators] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,7 +32,6 @@ export default function Dashboard() {
         // Отримуємо дані з детальною обробкою помилок
         let healthData = null;
         let platformsData: PlatformsResponse = { ok: false, platforms: [] };
-        let emulatorsData: EmulatorsResponse = { ok: false, emulators: [] };
 
         try {
           healthData = await agentApi.getHealth();
@@ -48,15 +48,8 @@ export default function Dashboard() {
           console.error('Помилка завантаження платформ:', err);
         }
 
-        try {
-          emulatorsData = await agentApi.getEmulators();
-        } catch (err: any) {
-          console.error('Помилка завантаження емуляторів:', err);
-        }
-
         setHealth(healthData);
         setPlatforms(platformsData.platforms || []);
-        setEmulators(emulatorsData.emulators || []);
       } catch (err: any) {
         console.error('Загальна помилка:', err);
         setError(err.message || 'Помилка завантаження даних');
@@ -68,7 +61,9 @@ export default function Dashboard() {
     fetchData();
   }, [agentApi, activeAgent]);
 
-  if (loading) {
+  const loadingState = loading || loadingEmulators;
+
+  if (loadingState) {
     return <Loading />;
   }
 
@@ -131,9 +126,14 @@ export default function Dashboard() {
             {emulators.length > 0 ? (
               <div>
                 {emulators.map((emulator) => (
-                  <div key={emulator.id} style={{ marginBottom: 12 }}>
+                  <div key={`${emulator.agentId}-${emulator.id}`} style={{ marginBottom: 12 }}>
                     <div>
                       <strong>{emulator.name}</strong> ({emulator.id})
+                      {emulator.agentName && (
+                        <Tag color="blue" style={{ marginLeft: 8 }}>
+                          {emulator.agentName}
+                        </Tag>
+                      )}
                     </div>
                     <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
                       {emulator.udid} -{' '}

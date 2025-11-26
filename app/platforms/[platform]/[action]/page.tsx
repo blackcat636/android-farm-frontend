@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Form, Input, InputNumber, Select, Button, Card, Alert, Space, Result } from 'antd';
+import { useState } from 'react';
+import { Form, Input, Select, Button, Card, Alert, Space, Result } from 'antd';
 import { ArrowLeftOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import { useRouter, useParams } from 'next/navigation';
 import { type Emulator } from '@/lib/api/agent';
 import { useAgentApi } from '@/hooks/useAgentApi';
-import { useActiveAgentApi } from '@/hooks/useActiveAgentApi';
+import { useAllEmulators } from '@/hooks/useAllEmulators';
 import Loading from '@/components/common/Loading';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 
@@ -16,31 +16,10 @@ export default function ExecuteActionPage() {
   const platform = params?.platform as string;
   const action = params?.action as string;
   const [form] = Form.useForm();
-  const { agentApi, activeAgent } = useActiveAgentApi();
-  const [emulators, setEmulators] = useState<Emulator[]>([]);
-  const [loadingEmulators, setLoadingEmulators] = useState(true);
+  const { emulators, loading: loadingEmulators } = useAllEmulators(true);
+  const [selectedEmulator, setSelectedEmulator] = useState<Emulator | null>(null);
   const [result, setResult] = useState<any>(null);
   const { executeAction, loading, error } = useAgentApi();
-
-  useEffect(() => {
-    if (!activeAgent) {
-      setLoadingEmulators(false);
-      return;
-    }
-
-    const fetchEmulators = async () => {
-      try {
-        const response = await agentApi.getEmulators();
-        setEmulators(response.emulators.filter((e) => e.status === 'active'));
-      } catch (err) {
-        console.error('Помилка завантаження емуляторів:', err);
-      } finally {
-        setLoadingEmulators(false);
-      }
-    };
-
-    fetchEmulators();
-  }, [agentApi, activeAgent]);
 
   const handleSubmit = async (values: any) => {
     if (!platform || !action) return;
@@ -48,6 +27,11 @@ export default function ExecuteActionPage() {
     try {
       setResult(null);
       const { emulatorId, params: paramsString } = values;
+      
+      // Знаходимо обраний емулятор для отримання agentBaseURL
+      const emulator = emulators.find((e) => e.id === emulatorId);
+      setSelectedEmulator(emulator || null);
+      
       let params = {};
       
       if (paramsString) {
@@ -58,10 +42,16 @@ export default function ExecuteActionPage() {
         }
       }
 
-      const response = await executeAction(platform, action, {
-        emulatorId,
-        params,
-      });
+      // Виконуємо дію через агента обраного емулятора
+      const response = await executeAction(
+        platform,
+        action,
+        {
+          emulatorId,
+          params,
+        },
+        emulator?.agentBaseURL // Передаємо baseURL агента для виконання дії
+      );
       setResult(response);
     } catch (err: any) {
       // Помилка вже оброблена в useAgentApi
@@ -121,10 +111,17 @@ export default function ExecuteActionPage() {
             label="Емулятор"
             rules={[{ required: true, message: 'Оберіть емулятор' }]}
           >
-            <Select placeholder="Оберіть емулятор" disabled={loading}>
+            <Select 
+              placeholder="Оберіть емулятор" 
+              disabled={loading}
+              onChange={(value) => {
+                const emulator = emulators.find((e) => e.id === value);
+                setSelectedEmulator(emulator || null);
+              }}
+            >
               {emulators.map((emulator) => (
-                <Select.Option key={emulator.id} value={emulator.id}>
-                  {emulator.name} ({emulator.id})
+                <Select.Option key={`${emulator.agentId}-${emulator.id}`} value={emulator.id}>
+                  {emulator.name} {emulator.agentName && `(${emulator.agentName})`}
                 </Select.Option>
               ))}
             </Select>
@@ -192,7 +189,8 @@ export default function ExecuteActionPage() {
                   <strong>Дія:</strong> {result.action}
                 </p>
                 <p>
-                  <strong>Емулятор:</strong> {result.emulatorId}
+                  <strong>Емулятор:</strong> {selectedEmulator?.name || result.emulatorId}
+                  {selectedEmulator?.agentName && ` (Агент: ${selectedEmulator.agentName})`}
                 </p>
                 {(
                   <div style={{ marginTop: 16 }}>

@@ -23,6 +23,9 @@ export interface Emulator {
   udid: string;
   deviceName: string;
   status: 'active' | 'inactive';
+  agentName?: string; // Назва агента (для режиму "всі агенти")
+  agentId?: string; // ID агента
+  agentBaseURL?: string; // BaseURL агента для виконання дій
 }
 
 export interface EmulatorsResponse {

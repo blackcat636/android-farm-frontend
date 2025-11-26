@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Form, Input, Select, Button, Card, Alert, Space, Result, InputNumber } from 'antd';
 import { ArrowLeftOutlined, FileTextOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import { type Emulator } from '@/lib/api/agent';
 import { useAgentApi } from '@/hooks/useAgentApi';
-import { useActiveAgentApi } from '@/hooks/useActiveAgentApi';
+import { useAllEmulators } from '@/hooks/useAllEmulators';
 import Loading from '@/components/common/Loading';
 
 const { TextArea } = Input;
@@ -14,35 +14,19 @@ const { TextArea } = Input;
 export default function InstagramPostPage() {
   const router = useRouter();
   const [form] = Form.useForm();
-  const { agentApi, activeAgent } = useActiveAgentApi();
-  const [emulators, setEmulators] = useState<Emulator[]>([]);
-  const [loadingEmulators, setLoadingEmulators] = useState(true);
+  const { emulators, loading: loadingEmulators } = useAllEmulators(true);
+  const [selectedEmulator, setSelectedEmulator] = useState<Emulator | null>(null);
   const [result, setResult] = useState<any>(null);
   const { executeAction, loading, error } = useAgentApi();
-
-  useEffect(() => {
-    if (!activeAgent) {
-      setLoadingEmulators(false);
-      return;
-    }
-
-    const fetchEmulators = async () => {
-      try {
-        const response = await agentApi.getEmulators();
-        setEmulators(response.emulators.filter((e) => e.status === 'active'));
-      } catch (err) {
-        console.error('Помилка завантаження емуляторів:', err);
-      } finally {
-        setLoadingEmulators(false);
-      }
-    };
-
-    fetchEmulators();
-  }, [agentApi, activeAgent]);
 
   const handleSubmit = async (values: any) => {
     try {
       setResult(null);
+      
+      // Знаходимо обраний емулятор для отримання agentBaseURL
+      const emulator = emulators.find((e) => e.id === values.emulatorId);
+      setSelectedEmulator(emulator || null);
+      
       const params: any = {
         caption: values.caption,
       };
@@ -60,10 +44,15 @@ export default function InstagramPostPage() {
         params.imagePath = values.imagePath;
       }
 
-      const response = await executeAction('instagram', 'post', {
-        emulatorId: values.emulatorId,
-        params,
-      });
+      const response = await executeAction(
+        'instagram',
+        'post',
+        {
+          emulatorId: values.emulatorId,
+          params,
+        },
+        emulator?.agentBaseURL
+      );
       setResult(response);
     } catch (err) {
       // Помилка вже оброблена в useAgentApi
@@ -102,10 +91,17 @@ export default function InstagramPostPage() {
             label="Емулятор"
             rules={[{ required: true, message: 'Оберіть емулятор' }]}
           >
-            <Select placeholder="Оберіть емулятор" disabled={loading}>
+            <Select 
+              placeholder="Оберіть емулятор" 
+              disabled={loading}
+              onChange={(value) => {
+                const emulator = emulators.find((e) => e.id === value);
+                setSelectedEmulator(emulator || null);
+              }}
+            >
               {emulators.map((emulator) => (
-                <Select.Option key={emulator.id} value={emulator.id}>
-                  {emulator.name} ({emulator.id})
+                <Select.Option key={`${emulator.agentId}-${emulator.id}`} value={emulator.id}>
+                  {emulator.name} {emulator.agentName && `(${emulator.agentName})`}
                 </Select.Option>
               ))}
             </Select>
@@ -193,7 +189,8 @@ export default function InstagramPostPage() {
                   <strong>Дія:</strong> {result.action}
                 </p>
                 <p>
-                  <strong>Емулятор:</strong> {result.emulatorId}
+                  <strong>Емулятор:</strong> {selectedEmulator?.name || result.emulatorId}
+                  {selectedEmulator?.agentName && ` (Агент: ${selectedEmulator.agentName})`}
                 </p>
                 {result.result && (
                   <div style={{ marginTop: 16 }}>
