@@ -5,6 +5,7 @@
 export interface AgentFromKV {
   id: string;
   tunnelUrl: string;
+  name?: string;
   updated_at: string | null;
 }
 
@@ -16,6 +17,8 @@ export interface AgentsListResponse {
 export interface AgentTunnelUrlResponse {
   ok: boolean;
   url?: string;
+  name?: string;
+  agentId?: string;
   message?: string;
 }
 
@@ -37,19 +40,33 @@ export async function getAgentsFromKV(): Promise<AgentFromKV[]> {
 }
 
 /**
- * Отримує URL тунелю для конкретного агента
+ * Отримує інформацію про агента (URL, назва)
  */
-export async function getAgentTunnelUrlFromKV(agentId: string): Promise<string | null> {
+export async function getAgentInfoFromKV(agentId: string): Promise<{ url: string; name: string } | null> {
   try {
     const response = await fetch(`/api/agents?agentId=${encodeURIComponent(agentId)}`);
     if (!response.ok) {
       return null;
     }
     const data: AgentTunnelUrlResponse = await response.json();
-    return data.url || null;
+    if (data.url) {
+      return {
+        url: data.url,
+        name: data.name || agentId
+      };
+    }
+    return null;
   } catch (error) {
-    console.error(`Помилка отримання URL тунелю для агента ${agentId}:`, error);
+    console.error(`Помилка отримання інформації про агента ${agentId}:`, error);
     return null;
   }
+}
+
+/**
+ * Отримує URL тунелю для конкретного агента (для зворотної сумісності)
+ */
+export async function getAgentTunnelUrlFromKV(agentId: string): Promise<string | null> {
+  const info = await getAgentInfoFromKV(agentId);
+  return info?.url || null;
 }
 

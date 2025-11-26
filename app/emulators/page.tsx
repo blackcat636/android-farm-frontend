@@ -49,9 +49,17 @@ export default function EmulatorsPage() {
       key: 'name',
     },
     {
+      title: 'Агент',
+      key: 'agent',
+      render: () => activeAgent?.name || 'Unknown',
+    },
+    {
       title: 'UDID',
       dataIndex: 'udid',
       key: 'udid',
+      render: (udid: string) => (
+        <span style={{ fontSize: '12px', color: '#666' }}>{udid}</span>
+      ),
     },
     {
       title: 'Device Name',

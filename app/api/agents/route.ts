@@ -22,7 +22,7 @@ async function listAllAgents() {
         headers: {
           'Authorization': `Bearer ${CLOUDFLARE_API_TOKEN}`
         }
-      }
+      } 
     );
 
     if (!response.ok) {
@@ -53,11 +53,13 @@ async function listAllAgents() {
           const urlData = await urlResponse.text();
           let tunnelUrl = urlData;
           let updatedAt: string | null = null;
+          let agentName = agentId; // Fallback на agentId
           
           try {
             const parsed = JSON.parse(urlData);
             tunnelUrl = parsed.url || urlData;
             updatedAt = parsed.updated_at || null;
+            agentName = parsed.name || agentId; // Використовуємо назву з KV
           } catch (e) {
             // Якщо не JSON, використовуємо як є
           }
@@ -65,6 +67,7 @@ async function listAllAgents() {
           agents.push({
             id: agentId,
             tunnelUrl: tunnelUrl,
+            name: agentName,
             updated_at: updatedAt
           });
         }
@@ -81,9 +84,9 @@ async function listAllAgents() {
 }
 
 /**
- * Отримує URL тунелю для конкретного агента
+ * Отримує інформацію про агента (URL, назва)
  */
-async function getAgentTunnelUrl(agentId: string): Promise<string | null> {
+async function getAgentTunnelUrl(agentId: string): Promise<{ url: string; name: string; agentId: string } | null> {
   if (!CLOUDFLARE_ACCOUNT_ID || !CLOUDFLARE_API_TOKEN || !CLOUDFLARE_KV_NAMESPACE_ID) {
     return null;
   }
@@ -113,9 +116,17 @@ async function getAgentTunnelUrl(agentId: string): Promise<string | null> {
 
     try {
       const parsed = JSON.parse(data);
-      return parsed.url || data;
+      return {
+        url: parsed.url || data,
+        name: parsed.name || agentId,
+        agentId: parsed.agentId || agentId
+      };
     } catch (e) {
-      return data;
+      return {
+        url: data,
+        name: agentId,
+        agentId: agentId
+      };
     }
   } catch (error) {
     console.error(`[api/agents] Помилка отримання URL для агента ${agentId}:`, error);
@@ -127,11 +138,11 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const agentId = searchParams.get('agentId');
 
-  // Якщо вказано конкретний agentId - повертаємо його URL
+  // Якщо вказано конкретний agentId - повертаємо його інформацію
   if (agentId) {
-    const tunnelUrl = await getAgentTunnelUrl(agentId);
-    if (tunnelUrl) {
-      return NextResponse.json({ ok: true, url: tunnelUrl });
+    const agentInfo = await getAgentTunnelUrl(agentId);
+    if (agentInfo) {
+      return NextResponse.json({ ok: true, ...agentInfo });
     }
     return NextResponse.json({ ok: false, message: 'Agent not found' }, { status: 404 });
   }

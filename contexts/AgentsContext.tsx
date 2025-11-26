@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Agent, AgentsContextType } from '@/types/agent';
 import { agentApi } from '@/lib/api/agent';
-import { getAgentsFromKV, getAgentTunnelUrlFromKV } from '@/lib/api/cloudflare-kv';
+import { getAgentsFromKV, getAgentInfoFromKV } from '@/lib/api/cloudflare-kv';
 
 const STORAGE_KEY = 'android-farm-agents';
 
@@ -33,7 +33,7 @@ export function AgentsProvider({ children }: { children: React.ReactNode }) {
               // Конвертуємо агентів з KV у формат Agent
               agentsFromKV = kvAgents.map((kvAgent, index) => ({
                 id: kvAgent.id,
-                name: `Agent ${kvAgent.id}`,
+                name: kvAgent.name || `Agent ${kvAgent.id}`, // Використовуємо назву з KV
                 url: '', // Базовий URL не відомий, використовуємо тільки tunnelUrl
                 tunnelUrl: kvAgent.tunnelUrl,
                 agentId: kvAgent.id,
@@ -173,15 +173,18 @@ export function AgentsProvider({ children }: { children: React.ReactNode }) {
     if (!agent) return;
 
     try {
-      // Спочатку спробувати отримати з KV (якщо фронтенд на Cloudflare)
-      const useTunnel = process.env.NEXT_PUBLIC_USE_TUNNEL === 'true';
-      if (useTunnel && agent.agentId) {
-        const tunnelUrl = await getAgentTunnelUrlFromKV(agent.agentId);
-        if (tunnelUrl) {
-          updateAgent(agentId, { tunnelUrl });
-          return;
-        }
-      }
+          // Спочатку спробувати отримати з KV (якщо фронтенд на Cloudflare)
+          const useTunnel = process.env.NEXT_PUBLIC_USE_TUNNEL === 'true';
+          if (useTunnel && agent.agentId) {
+            const agentInfo = await getAgentInfoFromKV(agent.agentId);
+            if (agentInfo) {
+              updateAgent(agentId, { 
+                tunnelUrl: agentInfo.url,
+                name: agentInfo.name || agent.name // Оновлюємо назву з KV, якщо є
+              });
+              return;
+            }
+          }
 
       // Fallback: якщо є базовий URL, запитуємо через нього
       if (agent.url) {
@@ -212,11 +215,13 @@ export function AgentsProvider({ children }: { children: React.ReactNode }) {
         try {
           // Спочатку спробувати отримати з KV
           if (activeAgent.agentId) {
-            const tunnelUrl = await getAgentTunnelUrlFromKV(activeAgent.agentId);
-            if (tunnelUrl) {
+            const agentInfo = await getAgentInfoFromKV(activeAgent.agentId);
+            if (agentInfo) {
               setAgents(prevAgents => {
                 const updated = prevAgents.map(a =>
-                  a.id === activeAgentId ? { ...a, tunnelUrl } : a
+                  a.id === activeAgentId 
+                    ? { ...a, tunnelUrl: agentInfo.url, name: agentInfo.name || a.name } 
+                    : a
                 );
                 if (typeof window !== 'undefined') {
                   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Card, Row, Col, Statistic, Tag } from 'antd';
 import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { useActiveAgentApi } from '@/hooks/useActiveAgentApi';
+import { type PlatformsResponse, type EmulatorsResponse } from '@/lib/api/agent';
 import Loading from '@/components/common/Loading';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 
@@ -29,8 +30,8 @@ export default function Dashboard() {
         
         // Отримуємо дані з детальною обробкою помилок
         let healthData = null;
-        let platformsData = { ok: false, platforms: [] };
-        let emulatorsData = { ok: false, emulators: [] };
+        let platformsData: PlatformsResponse = { ok: false, platforms: [] };
+        let emulatorsData: EmulatorsResponse = { ok: false, emulators: [] };
 
         try {
           healthData = await agentApi.getHealth();
