@@ -10,11 +10,12 @@ import { createBackendClient, tokenStorage } from '@/lib/api/backend';
  * Хук для отримання емуляторів з усіх агентів через бекенд
  */
 export function useAllEmulators(onlyActive = true) {
-  const { agents } = useAgents();
+  const { agents, refreshAgents, refreshAgentTunnelUrl } = useAgents();
   const { user } = useAuth();
   const [emulators, setEmulators] = useState<Emulator[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [agentErrors, setAgentErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const fetchAllEmulators = async () => {
@@ -42,6 +43,13 @@ export function useAllEmulators(onlyActive = true) {
         const emulatorPromises = agents.map(async (agent) => {
           try {
             const response = await backendClient.getEmulators(agent.id);
+            // Очищаємо помилку для цього агента, якщо запит успішний
+            setAgentErrors(prev => {
+              const newErrors = { ...prev };
+              delete newErrors[agent.id];
+              return newErrors;
+            });
+            
             // Додаємо назву агента та agentId до кожного емулятора
             return (response.emulators || [])
               .filter((e: any) => !onlyActive || e.status === 'active')
@@ -51,7 +59,45 @@ export function useAllEmulators(onlyActive = true) {
                 agentId: agent.id,
               }));
           } catch (err: any) {
-            console.error(`Помилка завантаження емуляторів з агента ${agent.name}:`, err.message);
+            const errorMessage = err.response?.data?.message || err.message || 'Unknown error';
+            const statusCode = err.response?.status;
+            const agentUrl = agent.tunnelUrl || agent.url || 'unknown';
+            
+            // Зберігаємо детальну інформацію про помилку для цього агента
+            let detailedError = `Помилка завантаження емуляторів з агента "${agent.name}"`;
+            
+            if (statusCode === 502) {
+              detailedError = `Не вдалося підключитися до агента "${agent.name}". ` +
+                `Агент може бути офлайн або URL неправильний. ` +
+                `Перевірте URL: ${agentUrl}. ` +
+                `Помилка бекенду: ${errorMessage}`;
+            } else {
+              detailedError = `Помилка завантаження емуляторів з агента "${agent.name}": ${errorMessage}`;
+            }
+            
+            console.error(detailedError, err);
+            
+            // Зберігаємо помилку для відображення
+            setAgentErrors(prev => ({
+              ...prev,
+              [agent.id]: detailedError
+            }));
+            
+            // ВИДАЛЕНО: Автоматичне оновлення URL при помилці 502 викликало безкінечний цикл
+            // Користувач може оновити URL вручну через кнопку "Retry & Update URL"
+            // Якщо помилка 502, спробуємо оновити URL агента з KV
+            // if (statusCode === 502 && agent.agentId) {
+            //   try {
+            //     console.log(`Спробую оновити URL агента ${agent.name} з KV...`);
+            //     await refreshAgentTunnelUrl(agent.id);
+            //     // Оновимо список агентів з бекенду
+            //     await refreshAgents();
+            //     console.log(`URL агента ${agent.name} оновлено, спробуйте оновити сторінку`);
+            //   } catch (updateError) {
+            //     console.warn(`Не вдалося оновити URL агента ${agent.name}:`, updateError);
+            //   }
+            // }
+            
             return []; // Повертаємо порожній масив при помилці
           }
         });
@@ -70,6 +116,6 @@ export function useAllEmulators(onlyActive = true) {
     fetchAllEmulators();
   }, [agents, onlyActive, user]);
 
-  return { emulators, loading, error };
+  return { emulators, loading, error, agentErrors };
 }
 

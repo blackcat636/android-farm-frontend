@@ -1,9 +1,8 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { Agent, AgentsContextType } from '@/types/agent';
 import { agentApi } from '@/lib/api/agent';
-import { getAgentsFromKV, getAgentInfoFromKV } from '@/lib/api/cloudflare-kv';
 import { createBackendClient, tokenStorage } from '@/lib/api/backend';
 
 const STORAGE_KEY = 'android-farm-agents';
@@ -13,6 +12,8 @@ const AgentsContext = createContext<AgentsContextType | undefined>(undefined);
 export function AgentsProvider({ children }: { children: React.ReactNode }) {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [activeAgentId, setActiveAgentId] = useState<string | null>(null);
+  const loadingTunnelUrlRef = useRef<Set<string>>(new Set());
+  const attemptedAgentsRef = useRef<Set<string>>(new Set());
 
   // Завантаження агентів з бекенду, KV або localStorage
   useEffect(() => {
@@ -22,7 +23,7 @@ export function AgentsProvider({ children }: { children: React.ReactNode }) {
 
     const loadAgents = async () => {
       try {
-        // Спочатку спробувати завантажити агентів з бекенду (якщо є токен)
+        // Завантажуємо агентів тільки з бекенду (якщо є токен)
         const token = tokenStorage.get();
         if (token) {
           try {
@@ -56,43 +57,7 @@ export function AgentsProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        const useTunnel = process.env.NEXT_PUBLIC_USE_TUNNEL === 'true';
-        let agentsFromKV: Agent[] = [];
-        let shouldUseKV = false;
-
-        // Спробувати завантажити агентів з KV (якщо увімкнено тунель)
-        if (useTunnel) {
-          try {
-            const kvAgents = await getAgentsFromKV();
-            if (kvAgents.length > 0) {
-              // Конвертуємо агентів з KV у формат Agent
-              agentsFromKV = kvAgents.map((kvAgent, index) => ({
-                id: kvAgent.id,
-                name: kvAgent.name || `Agent ${kvAgent.id}`, // Використовуємо назву з KV
-                url: '', // Базовий URL не відомий, використовуємо тільки tunnelUrl
-                tunnelUrl: kvAgent.tunnelUrl,
-                agentId: kvAgent.id,
-                isActive: index === 0,
-                createdAt: kvAgent.updated_at || new Date().toISOString(),
-              }));
-              shouldUseKV = true;
-            }
-          } catch (error) {
-            console.debug('Не вдалося завантажити агентів з KV:', error);
-          }
-        }
-
-        // Якщо знайшли агентів в KV - використовуємо їх
-        if (shouldUseKV && agentsFromKV.length > 0) {
-          setAgents(agentsFromKV);
-          // Зберігаємо в localStorage для швидкого доступу
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(agentsFromKV));
-          setActiveAgentId(agentsFromKV[0].id);
-          localStorage.setItem('android-farm-active-agent-id', agentsFromKV[0].id);
-          return;
-        }
-
-        // Якщо агентів в KV немає - завантажуємо з localStorage
+        // Fallback: завантажуємо з localStorage якщо бекенд недоступний
         const stored = localStorage.getItem(STORAGE_KEY);
         const storedActiveId = localStorage.getItem('android-farm-active-agent-id');
         
@@ -208,20 +173,22 @@ export function AgentsProvider({ children }: { children: React.ReactNode }) {
     if (!agent) return;
 
     try {
-          // Спочатку спробувати отримати з KV (якщо фронтенд на Cloudflare)
-          const useTunnel = process.env.NEXT_PUBLIC_USE_TUNNEL === 'true';
-          if (useTunnel && agent.agentId) {
-            const agentInfo = await getAgentInfoFromKV(agent.agentId);
-            if (agentInfo) {
-              updateAgent(agentId, { 
-                tunnelUrl: agentInfo.url,
-                name: agentInfo.name || agent.name // Оновлюємо назву з KV, якщо є
-              });
-              return;
-            }
-          }
+      // Оновлюємо список агентів з бекенду, щоб отримати актуальний tunnelUrl
+      const token = tokenStorage.get();
+      if (token) {
+        const backendClient = createBackendClient(token);
+        const backendAgents = await backendClient.getAgents();
+        const updatedAgent = backendAgents.find((a: any) => a.id === agentId);
+        if (updatedAgent && updatedAgent.tunnel_url) {
+          updateAgent(agentId, { 
+            tunnelUrl: updatedAgent.tunnel_url,
+            name: updatedAgent.name || agent.name
+          });
+          return;
+        }
+      }
 
-      // Fallback: якщо є базовий URL, запитуємо через нього
+      // Fallback: якщо є базовий URL агента, запитуємо напряму
       if (agent.url) {
         const axios = (await import('axios')).default;
         const response = await axios.get(`${agent.url}/api/tunnel/url${agent.agentId ? `?agentId=${encodeURIComponent(agent.agentId)}` : ''}`, {
@@ -237,61 +204,97 @@ export function AgentsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [agents, updateAgent]);
 
-  // Автоматично завантажуємо tunnelUrl для активного агента якщо його немає
+  // Очищаємо attemptedAgentsRef при зміні активного агента
   useEffect(() => {
-    if (!activeAgentId || agents.length === 0 || typeof window === 'undefined') {
-      return;
+    if (activeAgentId) {
+      // Очищаємо спроби для попереднього агента, якщо він змінився
+      attemptedAgentsRef.current.clear();
     }
+  }, [activeAgentId]);
 
-    const activeAgent = agents.find(a => a.id === activeAgentId);
-    // Завантажуємо tunnelUrl тільки якщо він відсутній та увімкнено використання тунелю
-    if (activeAgent && !activeAgent.tunnelUrl && process.env.NEXT_PUBLIC_USE_TUNNEL === 'true') {
-      const loadTunnelUrl = async () => {
-        try {
-          // Спочатку спробувати отримати з KV
-          if (activeAgent.agentId) {
-            const agentInfo = await getAgentInfoFromKV(activeAgent.agentId);
-            if (agentInfo) {
-              setAgents(prevAgents => {
-                const updated = prevAgents.map(a =>
-                  a.id === activeAgentId 
-                    ? { ...a, tunnelUrl: agentInfo.url, name: agentInfo.name || a.name } 
-                    : a
-                );
-                if (typeof window !== 'undefined') {
-                  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-                }
-                return updated;
-              });
-              return;
-            }
-          }
+  // ТИМЧАСОВО ВИМКНЕНО: Автоматичне завантаження tunnelUrl викликало безкінечний цикл
+  // Користувач може завантажити tunnelUrl вручну через refreshAgentTunnelUrl
+  // Або через кнопку "Retry & Update URL" на сторінці
+  // 
+  // Автоматично завантажуємо tunnelUrl для активного агента якщо його немає
+  // Використовуємо тільки activeAgentId як залежність, щоб уникнути безкінечного циклу
+  // useEffect(() => {
+  //   if (!activeAgentId || typeof window === 'undefined') {
+  //     return;
+  //   }
 
-          // Fallback: якщо є базовий URL, запитуємо через нього
-          if (activeAgent.url) {
-            const axios = (await import('axios')).default;
-            const response = await axios.get(`${activeAgent.url}/api/tunnel/url${activeAgent.agentId ? `?agentId=${encodeURIComponent(activeAgent.agentId)}` : ''}`, {
-              timeout: 5000
-            });
-            if (response.data.ok && response.data.url) {
-              setAgents(prevAgents => {
-                const updated = prevAgents.map(a =>
-                  a.id === activeAgentId ? { ...a, tunnelUrl: response.data.url } : a
-                );
-                if (typeof window !== 'undefined') {
-                  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-                }
-                return updated;
-              });
-            }
-          }
-        } catch (error) {
-          console.debug('Не вдалося автоматично завантажити tunnelUrl:', error);
-        }
-      };
-      loadTunnelUrl();
-    }
-  }, [activeAgentId, agents]);
+  //   // Перевіряємо, чи вже намагалися завантажити для цього агента
+  //   if (attemptedAgentsRef.current.has(activeAgentId)) {
+  //     return;
+  //   }
+
+  //   // Отримуємо поточний стан агента зі стану
+  //   const activeAgent = agents.find(a => a.id === activeAgentId);
+  //   if (!activeAgent) {
+  //     return;
+  //   }
+
+  //   // Перевіряємо, чи потрібно завантажувати tunnelUrl
+  //   if (
+  //     activeAgent.tunnelUrl || // Якщо tunnelUrl вже є
+  //     process.env.NEXT_PUBLIC_USE_TUNNEL !== 'true' || // Або тунель вимкнено
+  //     loadingTunnelUrlRef.current.has(activeAgentId) // Або вже завантажуємо
+  //   ) {
+  //     return;
+  //   }
+
+  //   // Позначаємо, що намагаємося завантажити
+  //   loadingTunnelUrlRef.current.add(activeAgentId);
+  //   attemptedAgentsRef.current.add(activeAgentId);
+    
+  //   const loadTunnelUrl = async () => {
+  //     try {
+  //       // Спочатку спробувати отримати з KV
+  //       if (activeAgent.agentId) {
+  //         const agentInfo = await getAgentInfoFromKV(activeAgent.agentId);
+  //         if (agentInfo && agentInfo.url) {
+  //           setAgents(prevAgents => {
+  //             const updated = prevAgents.map(a =>
+  //               a.id === activeAgentId 
+  //                 ? { ...a, tunnelUrl: agentInfo.url, name: agentInfo.name || a.name } 
+  //                 : a
+  //             );
+  //             if (typeof window !== 'undefined') {
+  //               localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  //             }
+  //             return updated;
+  //           });
+  //           loadingTunnelUrlRef.current.delete(activeAgentId);
+  //           return;
+  //         }
+  //       }
+
+  //       // Fallback: якщо є базовий URL, запитуємо через нього
+  //       if (activeAgent.url) {
+  //         const axios = (await import('axios')).default;
+  //         const response = await axios.get(`${activeAgent.url}/api/tunnel/url${activeAgent.agentId ? `?agentId=${encodeURIComponent(activeAgent.agentId)}` : ''}`, {
+  //           timeout: 5000
+  //         });
+  //         if (response.data.ok && response.data.url) {
+  //           setAgents(prevAgents => {
+  //             const updated = prevAgents.map(a =>
+  //               a.id === activeAgentId ? { ...a, tunnelUrl: response.data.url } : a
+  //             );
+  //             if (typeof window !== 'undefined') {
+  //               localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  //             }
+  //             return updated;
+  //           });
+  //         }
+  //       }
+  //     } catch (error) {
+  //       console.debug('Не вдалося автоматично завантажити tunnelUrl:', error);
+  //     } finally {
+  //       loadingTunnelUrlRef.current.delete(activeAgentId);
+  //     }
+  //   };
+  //   loadTunnelUrl();
+  // }, [activeAgentId]); // Залежність тільки від activeAgentId - викликається тільки при зміні активного агента
 
   const refreshAgents = useCallback(async () => {
     try {

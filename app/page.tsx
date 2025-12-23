@@ -1,20 +1,24 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, Row, Col, Statistic, Tag } from 'antd';
-import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Statistic, Tag, Button, Space } from 'antd';
+import { CheckCircleOutlined, CloseCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useBackendAgentApi } from '@/hooks/useBackendAgentApi';
 import { useAllEmulators } from '@/hooks/useAllEmulators';
+import { useAgents } from '@/contexts/AgentsContext';
+import { createBackendClient, tokenStorage } from '@/lib/api/backend';
 import Loading from '@/components/common/Loading';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 
 export default function Dashboard() {
   const { backendClient, activeAgent } = useBackendAgentApi();
   const { emulators, loading: loadingEmulators } = useAllEmulators(false);
+  const { refreshAgents, refreshAgentTunnelUrl } = useAgents();
   const [health, setHealth] = useState<any>(null);
   const [platforms, setPlatforms] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
 
   useEffect(() => {
     if (!activeAgent) {
@@ -42,8 +46,22 @@ export default function Dashboard() {
           healthData = await backendClient.getHealth(activeAgent.id);
         } catch (err: any) {
           console.error('Healthcheck error:', err);
-          if (err.code === 'ECONNREFUSED' || err.message?.includes('Network Error')) {
+          const errorMessage = err.response?.data?.message || err.message || 'Unknown error';
+          const statusCode = err.response?.status;
+          
+          if (statusCode === 502) {
+            // Bad Gateway - агент недоступний
+            const agentUrl = activeAgent.tunnelUrl || activeAgent.url || 'unknown';
+            setError(
+              `Failed to connect to agent "${activeAgent.name}". ` +
+              `The agent may be offline or the URL may be incorrect. ` +
+              `Check URL: ${agentUrl}. ` +
+              `Backend error: ${errorMessage}`
+            );
+          } else if (err.code === 'ECONNREFUSED' || err.message?.includes('Network Error')) {
             setError(`Failed to connect to agent "${activeAgent.name}". Check URL: ${activeAgent.url || activeAgent.tunnelUrl}`);
+          } else {
+            setError(`Error connecting to agent "${activeAgent.name}": ${errorMessage}`);
           }
         }
 
@@ -78,10 +96,73 @@ export default function Dashboard() {
     <div>
       <h1>Dashboard</h1>
       {error && (
-        <ErrorDisplay 
-          message={error} 
-          description={activeAgent ? `Make sure agent "${activeAgent.name}" is running and accessible at ${activeAgent.url}` : 'Please add and select an agent in the page header'}
-        />
+        <Card style={{ marginBottom: 24, borderColor: '#ff4d4f' }}>
+          <ErrorDisplay 
+            message={error} 
+            description={activeAgent ? `Make sure agent "${activeAgent.name}" is running and accessible at ${activeAgent.tunnelUrl || activeAgent.url || 'unknown URL'}` : 'Please add and select an agent in the page header'}
+          />
+          {activeAgent && (
+            <Space style={{ marginTop: 16 }}>
+              <Button 
+                icon={<ReloadOutlined />} 
+                onClick={async () => {
+                  setRetrying(true);
+                  setError(null);
+                  try {
+                    // Оновимо список агентів з бекенду (це також оновить tunnelUrl)
+                    await refreshAgents();
+                    // Спробуємо оновити URL агента напряму з агента (якщо є базовий URL)
+                    if (activeAgent.agentId) {
+                      await refreshAgentTunnelUrl(activeAgent.id);
+                    }
+                    // Повторимо запит
+                    const token = tokenStorage.get();
+                    if (token) {
+                      const client = createBackendClient(token);
+                      const healthData = await client.getHealth(activeAgent.id);
+                      setHealth(healthData);
+                      setError(null);
+                    }
+                  } catch (err: any) {
+                    console.error('Retry error:', err);
+                    setError(`Still unable to connect: ${err.response?.data?.message || err.message}`);
+                  } finally {
+                    setRetrying(false);
+                  }
+                }}
+                loading={retrying}
+              >
+                Retry & Update URL
+              </Button>
+              <Button 
+                onClick={async () => {
+                  setRetrying(true);
+                  setError(null);
+                  try {
+                    // Оновимо список агентів з бекенду
+                    await refreshAgents();
+                    // Повторимо запит
+                    const token = tokenStorage.get();
+                    if (token) {
+                      const client = createBackendClient(token);
+                      const healthData = await client.getHealth(activeAgent.id);
+                      setHealth(healthData);
+                      setError(null);
+                    }
+                  } catch (err: any) {
+                    console.error('Retry error:', err);
+                    setError(`Still unable to connect: ${err.response?.data?.message || err.message}`);
+                  } finally {
+                    setRetrying(false);
+                  }
+                }}
+                loading={retrying}
+              >
+                Retry
+              </Button>
+            </Space>
+          )}
+        </Card>
       )}
       <Row gutter={16} style={{ marginTop: 24 }}>
         <Col span={6}>

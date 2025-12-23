@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Table, Tag, Radio } from 'antd';
+import { Table, Tag, Radio, Alert, Space } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { type Emulator } from '@/lib/api/agent';
 import { useBackendAgentApi } from '@/hooks/useBackendAgentApi';
@@ -14,11 +14,12 @@ type ViewMode = 'active' | 'all';
 
 export default function EmulatorsPage() {
   const { backendClient, activeAgent } = useBackendAgentApi();
-  const { agents } = useAgents();
+  const { agents, refreshAgents, refreshAgentTunnelUrl } = useAgents();
   const [emulators, setEmulators] = useState<Emulator[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('active');
+  const [agentErrors, setAgentErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const fetchEmulators = async () => {
@@ -56,6 +57,13 @@ export default function EmulatorsPage() {
           const emulatorPromises = agents.map(async (agent) => {
             try {
               const response = await backendClient.getEmulators(agent.id);
+              // Очищаємо помилку для цього агента, якщо запит успішний
+              setAgentErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[agent.id];
+                return newErrors;
+              });
+              
               // Додаємо назву агента до кожного емулятора
               return (response.emulators || []).map((emulator: any) => ({
                 ...emulator,
@@ -63,7 +71,45 @@ export default function EmulatorsPage() {
                 agentId: agent.id,
               }));
             } catch (err: any) {
-              console.error(`Error loading emulators from agent ${agent.name}:`, err.message);
+              const errorMessage = err.response?.data?.message || err.message || 'Unknown error';
+              const statusCode = err.response?.status;
+              const agentUrl = agent.tunnelUrl || agent.url || 'unknown';
+              
+              // Зберігаємо детальну інформацію про помилку для цього агента
+              let detailedError = `Помилка завантаження емуляторів з агента "${agent.name}"`;
+              
+              if (statusCode === 502) {
+                detailedError = `Не вдалося підключитися до агента "${agent.name}". ` +
+                  `Агент може бути офлайн або URL неправильний. ` +
+                  `Перевірте URL: ${agentUrl}. ` +
+                  `Помилка бекенду: ${errorMessage}`;
+              } else {
+                detailedError = `Помилка завантаження емуляторів з агента "${agent.name}": ${errorMessage}`;
+              }
+              
+              console.error(detailedError, err);
+              
+              // Зберігаємо помилку для відображення
+              setAgentErrors(prev => ({
+                ...prev,
+                [agent.id]: detailedError
+              }));
+              
+              // ВИДАЛЕНО: Автоматичне оновлення URL при помилці 502 викликало безкінечний цикл
+              // Користувач може оновити URL вручну через кнопку "Retry & Update URL"
+              // Якщо помилка 502, спробуємо оновити URL агента з KV
+              // if (statusCode === 502 && agent.agentId) {
+              //   try {
+              //     console.log(`Спробую оновити URL агента ${agent.name} з KV...`);
+              //     await refreshAgentTunnelUrl(agent.id);
+              //     // Оновимо список агентів з бекенду
+              //     await refreshAgents();
+              //     console.log(`URL агента ${agent.name} оновлено`);
+              //   } catch (updateError) {
+              //     console.warn(`Не вдалося оновити URL агента ${agent.name}:`, updateError);
+              //   }
+              // }
+              
               return []; // Повертаємо порожній масив при помилці
             }
           });
@@ -143,6 +189,33 @@ export default function EmulatorsPage() {
           <Radio.Button value="all">All Agents</Radio.Button>
         </Radio.Group>
       </div>
+      
+      {/* Показуємо помилки для конкретних агентів */}
+      {Object.keys(agentErrors).length > 0 && (
+        <Space direction="vertical" style={{ width: '100%', marginBottom: 16 }}>
+          {Object.entries(agentErrors).map(([agentId, errorMsg]) => {
+            const agent = agents.find(a => a.id === agentId);
+            return (
+              <Alert
+                key={agentId}
+                message={`Помилка агента: ${agent?.name || agentId}`}
+                description={errorMsg}
+                type="warning"
+                showIcon
+                closable
+                onClose={() => {
+                  setAgentErrors(prev => {
+                    const newErrors = { ...prev };
+                    delete newErrors[agentId];
+                    return newErrors;
+                  });
+                }}
+              />
+            );
+          })}
+        </Space>
+      )}
+      
       <Table
         columns={columns}
         dataSource={emulators}
