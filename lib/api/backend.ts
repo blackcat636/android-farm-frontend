@@ -1,6 +1,23 @@
 import axios, { AxiosInstance } from 'axios';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+/**
+ * Отримує URL бекенду з нормалізацією (прибирає зайвий слеш в кінці)
+ */
+function getBackendUrl(): string {
+  const url = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+  // Прибираємо зайвий слеш в кінці URL
+  const normalizedUrl = url.replace(/\/+$/, '');
+  
+  // Логування для дебагу (тільки в development)
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+    console.log('[Backend API] Backend URL:', normalizedUrl);
+    console.log('[Backend API] NEXT_PUBLIC_BACKEND_URL from env:', process.env.NEXT_PUBLIC_BACKEND_URL);
+  }
+  
+  return normalizedUrl;
+}
+
+const BACKEND_URL = getBackendUrl();
 
 export interface SignInRequest {
   email: string;
@@ -96,12 +113,18 @@ export interface PostLike {
 }
 
 // Глобальний instance axios з interceptor
+// baseURL буде оновлюватися динамічно через createBackendApi
 const globalAxiosInstance = axios.create({
   baseURL: BACKEND_URL,
   headers: {
     'Content-Type': 'application/json',
   },
 });
+
+// Логування початкового URL для дебагу
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  console.log('[Backend API] Initialized with baseURL:', BACKEND_URL);
+}
 
 // Стан для блокування паралельних refresh запитів
 let isRefreshing = false;
@@ -266,6 +289,15 @@ globalAxiosInstance.interceptors.response.use(
 );
 
 function createBackendApi(token?: string): AxiosInstance {
+  // Завжди оновлюємо baseURL з поточної змінної середовища
+  // Це важливо для Next.js, де змінні можуть змінюватися після збірки
+  const currentBackendUrl = getBackendUrl();
+  if (globalAxiosInstance.defaults.baseURL !== currentBackendUrl) {
+    globalAxiosInstance.defaults.baseURL = currentBackendUrl;
+    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+      console.log('[Backend API] Updated baseURL to:', currentBackendUrl);
+    }
+  }
   // Використовуємо глобальний instance (токен додається автоматично через request interceptor)
   // Якщо передано token явно - можемо перезаписати для конкретного запиту
   return globalAxiosInstance;
