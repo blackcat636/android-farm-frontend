@@ -27,6 +27,13 @@ export default function QueuePage() {
     pageSize: 20,
     total: 0,
   });
+  const [stats, setStats] = useState({
+    total: 0,
+    pending: 0,
+    processing: 0,
+    completed: 0,
+    failed: 0,
+  });
 
   const fetchTasks = async (page = 1) => {
     if (!user) {
@@ -56,6 +63,10 @@ export default function QueuePage() {
         pageSize: response.limit || pagination.pageSize,
         total: response.total || 0,
       });
+      // Оновлюємо статистику з відповіді сервера
+      if (response.stats) {
+        setStats(response.stats);
+      }
     } catch (err: any) {
       setError(err.message || 'Error loading queue');
       message.error(err.message || 'Error loading queue');
@@ -267,16 +278,7 @@ export default function QueuePage() {
     },
   ];
 
-  // Статистика по всіх задачах (не тільки поточній сторінці)
-  // Поки що показуємо статистику тільки по поточній сторінці
-  // Можна додати окремий запит для отримання статистики
-  const stats = {
-    total: pagination.total,
-    pending: tasks.filter((t) => t.status === 'pending').length,
-    processing: tasks.filter((t) => ['assigned', 'processing'].includes(t.status)).length,
-    completed: tasks.filter((t) => t.status === 'completed').length,
-    failed: tasks.filter((t) => t.status === 'failed').length,
-  };
+  // Статистика тепер приходить з сервера і зберігається в стані
 
   if (loading && !tasks.length) {
     return <Loading />;
@@ -302,7 +304,7 @@ export default function QueuePage() {
       <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col span={6}>
           <Card>
-            <Statistic title="Всього" value={pagination.total} />
+            <Statistic title="Всього" value={stats.total} />
           </Card>
         </Col>
         <Col span={6}>

@@ -467,6 +467,13 @@ export function createBackendClient(token: string) {
       total: number;
       page: number;
       limit: number;
+      stats?: {
+        total: number;
+        pending: number;
+        processing: number;
+        completed: number;
+        failed: number;
+      };
     }> {
       // Видаляємо undefined значення перед відправкою
       const cleanQuery: any = {};
