@@ -71,6 +71,13 @@ export default function PlatformsPage() {
           <Button
             size="large"
             icon={<LikeOutlined />}
+            onClick={() => router.push('/platforms/instagram/like')}
+          >
+            Add Like
+          </Button>
+          <Button
+            size="large"
+            icon={<LikeOutlined />}
             onClick={handleCheckPostsLikes}
             loading={loading}
           >
