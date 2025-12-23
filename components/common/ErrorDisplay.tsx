@@ -10,7 +10,7 @@ interface ErrorDisplayProps {
 export default function ErrorDisplay({ message, description }: ErrorDisplayProps) {
   return (
     <Alert
-      message={message}
+      title={message}
       description={description}
       type="error"
       showIcon

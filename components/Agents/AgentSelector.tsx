@@ -17,19 +17,19 @@ export default function AgentSelector() {
       const values = await form.validateFields();
       const { name, url, agentId } = values;
 
-      // Тестуємо підключення
+      // Test connection
       setTesting(true);
       try {
         const testApi = createAgentApi(url);
         await testApi.getHealth();
-        message.success('Підключення успішне!');
+        message.success('Connection successful!');
       } catch (error) {
-        message.warning('Не вдалося підключитися, але агент додано. Перевірте URL пізніше.');
+        message.warning('Failed to connect, but agent added. Check URL later.');
       } finally {
         setTesting(false);
       }
 
-      // Спробуємо отримати URL тунелю
+      // Try to get tunnel URL
       let tunnelUrl: string | undefined;
       try {
         const testApi = createAgentApi(url);
@@ -38,7 +38,7 @@ export default function AgentSelector() {
           tunnelUrl = tunnelResponse.url;
         }
       } catch (error) {
-        // Ігноруємо помилку, тунель може бути не налаштований
+        // Ignore error, tunnel may not be configured
       }
 
       addAgent({
@@ -51,10 +51,10 @@ export default function AgentSelector() {
 
       form.resetFields();
       setIsModalVisible(false);
-      message.success('Агента додано успішно!');
+      message.success('Agent added successfully!');
     } catch (error) {
       if (error !== 'validate') {
-        message.error('Помилка додавання агента');
+        message.error('Error adding agent');
       }
     }
   };
@@ -62,15 +62,15 @@ export default function AgentSelector() {
   const handleRefreshTunnel = async (agentId: string) => {
     try {
       await refreshAgentTunnelUrl(agentId);
-      message.success('URL тунелю оновлено');
+      message.success('Tunnel URL updated');
     } catch (error) {
-      message.error('Помилка оновлення URL тунелю');
+      message.error('Error updating tunnel URL');
     }
   };
 
   const handleDelete = (id: string) => {
     deleteAgent(id);
-    message.success('Агента видалено');
+    message.success('Agent deleted');
   };
 
   return (
@@ -79,7 +79,7 @@ export default function AgentSelector() {
         value={activeAgent?.id || undefined}
         onChange={(value) => setActiveAgent(value)}
         style={{ minWidth: 200 }}
-        placeholder="Виберіть агента"
+        placeholder="Select agent"
       >
         {agents.map((agent) => (
           <Select.Option key={agent.id} value={agent.id}>
@@ -92,7 +92,7 @@ export default function AgentSelector() {
         icon={<PlusOutlined />}
         onClick={() => setIsModalVisible(true)}
       >
-        Додати агента
+        Add Agent
       </Button>
 
       {activeAgent && (
@@ -101,14 +101,14 @@ export default function AgentSelector() {
             icon={<ReloadOutlined />}
             onClick={() => handleRefreshTunnel(activeAgent.id)}
             size="small"
-            title="Оновити URL тунелю"
+            title="Refresh tunnel URL"
           />
           {agents.length > 1 && (
             <Popconfirm
-              title="Видалити цього агента?"
+              title="Delete this agent?"
               onConfirm={() => handleDelete(activeAgent.id)}
-              okText="Так"
-              cancelText="Ні"
+              okText="Yes"
+              cancelText="No"
             >
               <Button
                 icon={<DeleteOutlined />}
@@ -121,7 +121,7 @@ export default function AgentSelector() {
       )}
 
       <Modal
-        title="Додати нового агента"
+        title="Add New Agent"
         open={isModalVisible}
         onOk={handleAddAgent}
         onCancel={() => {
@@ -129,33 +129,33 @@ export default function AgentSelector() {
           form.resetFields();
         }}
         confirmLoading={testing}
-        okText="Додати"
-        cancelText="Скасувати"
+        okText="Add"
+        cancelText="Cancel"
       >
         <Form form={form} layout="vertical">
           <Form.Item
             name="name"
-            label="Назва агента"
-            rules={[{ required: true, message: 'Введіть назву агента' }]}
+            label="Agent Name"
+            rules={[{ required: true, message: 'Enter agent name' }]}
           >
-            <Input placeholder="Наприклад: Server 1" />
+            <Input placeholder="For example: Server 1" />
           </Form.Item>
 
           <Form.Item
             name="url"
-            label="URL агента"
+            label="Agent URL"
             rules={[
-              { required: true, message: 'Введіть URL агента' },
-              { type: 'url', message: 'Введіть коректний URL' },
+              { required: true, message: 'Enter agent URL' },
+              { type: 'url', message: 'Enter valid URL' },
             ]}
           >
-            <Input placeholder="http://localhost:3000 або https://tunnel-url.trycloudflare.com" />
+            <Input placeholder="http://localhost:3000 or https://tunnel-url.trycloudflare.com" />
           </Form.Item>
 
           <Form.Item
             name="agentId"
-            label="Agent ID (опціонально)"
-            tooltip="ID агента для отримання URL з Cloudflare KV. Якщо не вказано, використовується hostname."
+            label="Agent ID (optional)"
+            tooltip="Agent ID for getting URL from Cloudflare KV. If not specified, hostname is used."
           >
             <Input placeholder="agent-hostname" />
           </Form.Item>

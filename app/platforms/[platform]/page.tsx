@@ -5,7 +5,7 @@ import { Card, Button, Space } from 'antd';
 import { useRouter, useParams } from 'next/navigation';
 import { PlayCircleOutlined, HistoryOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
-import { useActiveAgentApi } from '@/hooks/useActiveAgentApi';
+import { useBackendAgentApi } from '@/hooks/useBackendAgentApi';
 import Loading from '@/components/common/Loading';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 
@@ -13,7 +13,7 @@ export default function PlatformDetailPage() {
   const router = useRouter();
   const params = useParams();
   const platform = params?.platform as string;
-  const { agentApi, activeAgent } = useActiveAgentApi();
+  const { backendClient, activeAgent } = useBackendAgentApi();
   const [actions, setActions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +21,13 @@ export default function PlatformDetailPage() {
   useEffect(() => {
     if (!platform) return;
     if (!activeAgent) {
-      setError('Агент не вибрано. Будь ласка, додайте та виберіть агента.');
+      setError('Agent not selected. Please add and select an agent.');
+      setLoading(false);
+      return;
+    }
+
+    if (!backendClient) {
+      setError('Authorization required');
       setLoading(false);
       return;
     }
@@ -29,18 +35,18 @@ export default function PlatformDetailPage() {
     const fetchActions = async () => {
       try {
         setLoading(true);
-        const response = await agentApi.getPlatformActions(platform);
+        const response = await backendClient.getPlatformActions(activeAgent.id, platform);
         setActions(response.actions || []);
         setError(null);
       } catch (err: any) {
-        setError(err.message || 'Помилка завантаження дій платформи');
+        setError(err.message || 'Error loading platform actions');
       } finally {
         setLoading(false);
       }
     };
 
     fetchActions();
-  }, [platform, agentApi, activeAgent]);
+  }, [platform, backendClient, activeAgent]);
 
   if (loading) {
     return <Loading />;
@@ -54,9 +60,9 @@ export default function PlatformDetailPage() {
     <div>
       <h1>Platform: {platform}</h1>
       <Card style={{ marginTop: 24 }}>
-        <h2>Доступні дії</h2>
+        <h2>Available Actions</h2>
         {actions.length > 0 ? (
-          <Space direction="vertical" size="middle" style={{ width: '100%', marginTop: 16 }}>
+          <Space orientation="vertical" size="middle" style={{ width: '100%', marginTop: 16 }}>
             {actions.map((action) => (
               <Button
                 key={action}
@@ -66,22 +72,22 @@ export default function PlatformDetailPage() {
                 onClick={() => router.push(`/platforms/${platform}/${action}`)}
                 block
               >
-                Виконати {action}
+                Execute {action}
               </Button>
             ))}
             <Button
               icon={<HistoryOutlined />}
               onClick={() => {
-                // Заглушка для майбутньої історії
-                alert('Історія буде доступна пізніше');
+                // Placeholder for future history
+                alert('History will be available later');
               }}
               block
             >
-              Переглянути історію
+              View History
             </Button>
           </Space>
         ) : (
-          <p>Немає доступних дій для цієї платформи</p>
+          <p>No available actions for this platform</p>
         )}
       </Card>
     </div>

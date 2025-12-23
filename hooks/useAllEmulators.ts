@@ -2,14 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { type Emulator } from '@/lib/api/agent';
-import { createAgentApi } from '@/lib/api/agent';
 import { useAgents } from '@/contexts/AgentsContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { createBackendClient, tokenStorage } from '@/lib/api/backend';
 
 /**
- * Хук для отримання емуляторів з усіх агентів
+ * Хук для отримання емуляторів з усіх агентів через бекенд
  */
 export function useAllEmulators(onlyActive = true) {
   const { agents } = useAgents();
+  const { user } = useAuth();
   const [emulators, setEmulators] = useState<Emulator[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -21,32 +23,32 @@ export function useAllEmulators(onlyActive = true) {
         return;
       }
 
+      const token = tokenStorage.get();
+      if (!token) {
+        setError('Необхідна авторизація');
+        setLoading(false);
+        return;
+      }
+
+      const backendClient = createBackendClient(token);
+
       try {
         setLoading(true);
         setError(null);
 
-        const useTunnel = process.env.NEXT_PUBLIC_USE_TUNNEL === 'true';
         const allEmulators: Emulator[] = [];
 
-        // Збираємо емулятори з усіх агентів паралельно
+        // Збираємо емулятори з усіх агентів паралельно через бекенд
         const emulatorPromises = agents.map(async (agent) => {
           try {
-            // Визначаємо baseURL для агента
-            const baseURL = (useTunnel && agent.tunnelUrl)
-              ? agent.tunnelUrl
-              : agent.url || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-
-            const api = createAgentApi(baseURL);
-            const response = await api.getEmulators();
-
+            const response = await backendClient.getEmulators(agent.id);
             // Додаємо назву агента та agentId до кожного емулятора
-            return response.emulators
-              .filter((e) => !onlyActive || e.status === 'active')
-              .map(emulator => ({
+            return (response.emulators || [])
+              .filter((e: any) => !onlyActive || e.status === 'active')
+              .map((emulator: any) => ({
                 ...emulator,
                 agentName: agent.name,
                 agentId: agent.id,
-                agentBaseURL: baseURL, // Зберігаємо baseURL для виконання дій
               }));
           } catch (err: any) {
             console.error(`Помилка завантаження емуляторів з агента ${agent.name}:`, err.message);
@@ -66,7 +68,7 @@ export function useAllEmulators(onlyActive = true) {
     };
 
     fetchAllEmulators();
-  }, [agents, onlyActive]);
+  }, [agents, onlyActive, user]);
 
   return { emulators, loading, error };
 }

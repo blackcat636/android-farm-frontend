@@ -1,32 +1,20 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { type ExecuteActionRequest } from '@/lib/api/agent';
 import { createBackendClient, tokenStorage } from '@/lib/api/backend';
 import { message } from 'antd';
-import { useActiveAgentApi } from './useActiveAgentApi';
-import { useAuth } from '@/contexts/AuthContext';
 
-export function useAgentApi() {
-  const { agentApi: defaultAgentApi, activeAgent } = useActiveAgentApi();
-  const { user } = useAuth();
+export function useBackendApi() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const executeAction = useCallback(
     async (
+      agentId: string,
       platform: string,
       action: string,
-      data: ExecuteActionRequest,
-      agentId?: string // ID агента для виконання через бекенд
+      data: { emulatorId: string; params?: any },
     ) => {
-      if (!user) {
-        const errorMsg = 'Необхідна авторизація для виконання дій';
-        setError(errorMsg);
-        message.error(errorMsg);
-        throw new Error(errorMsg);
-      }
-
       setLoading(true);
       setError(null);
       
@@ -35,28 +23,19 @@ export function useAgentApi() {
         const errorMsg = 'Необхідна авторизація';
         setError(errorMsg);
         message.error(errorMsg);
-        setLoading(false);
         throw new Error(errorMsg);
       }
-      
-      // Показуємо повідомлення про початок виконання
+
       const loadingMessage = message.loading('Виконується дія... Це може зайняти деякий час.', 0);
       
       try {
-        // Використовуємо бекенд API з agentId
-        const targetAgentId = agentId || activeAgent?.id;
-        if (!targetAgentId) {
-          throw new Error('Агент не вибрано');
-        }
-
         const backendClient = createBackendClient(token);
-        const result = await backendClient.executeAction(targetAgentId, platform, action, data);
-        
-        loadingMessage(); // Закриваємо повідомлення про завантаження
+        const result = await backendClient.executeAction(agentId, platform, action, data);
+        loadingMessage();
         message.success('Дію виконано успішно!');
         return result;
       } catch (err: any) {
-        loadingMessage(); // Закриваємо повідомлення про завантаження
+        loadingMessage();
         
         let errorMessage = 'Помилка виконання дії';
         
@@ -80,7 +59,7 @@ export function useAgentApi() {
         setLoading(false);
       }
     },
-    [user, activeAgent]
+    [],
   );
 
   return {

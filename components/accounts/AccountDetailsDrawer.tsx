@@ -1,0 +1,427 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import {
+  Drawer,
+  Descriptions,
+  Tag,
+  Button,
+  Space,
+  Card,
+  Typography,
+  Divider,
+  message,
+  Modal,
+  Form,
+  Input,
+  InputNumber,
+  Select,
+  Popconfirm,
+} from 'antd';
+import {
+  createBackendClient,
+  tokenStorage,
+  type SocialAccount,
+  type AccountProxy,
+  type AccountEmulatorBinding,
+  type CreateProxyDto,
+} from '@/lib/api/backend';
+import { SafetyOutlined, LinkOutlined, PlusOutlined, EditOutlined, UnlockOutlined, DisconnectOutlined } from '@ant-design/icons';
+
+const { Option } = Select;
+const { Title, Text } = Typography;
+
+interface AccountDetailsDrawerProps {
+  visible: boolean;
+  account: SocialAccount;
+  onClose: () => void;
+  onRefresh: () => void;
+}
+
+export function AccountDetailsDrawer({
+  visible,
+  account,
+  onClose,
+  onRefresh,
+}: AccountDetailsDrawerProps) {
+  const [proxy, setProxy] = useState<AccountProxy | null>(null);
+  const [binding, setBinding] = useState<AccountEmulatorBinding | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [proxyModalVisible, setProxyModalVisible] = useState(false);
+  const [proxyForm] = Form.useForm();
+
+  useEffect(() => {
+    if (visible && account) {
+      loadDetails();
+    }
+  }, [visible, account]);
+
+  const loadDetails = async () => {
+    const token = tokenStorage.get();
+    if (!token) return;
+
+    try {
+      setLoading(true);
+      const backendClient = createBackendClient(token);
+
+      // Load proxy
+      const proxyData = await backendClient.getProxyForAccount(account.id);
+      setProxy(proxyData);
+
+      // Load binding
+      const bindingData = await backendClient.getBindingForAccount(account.id);
+      setBinding(bindingData);
+    } catch (err: any) {
+      console.error('Error loading details:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateProxy = async () => {
+    try {
+      const values = await proxyForm.validateFields();
+      const token = tokenStorage.get();
+      if (!token) {
+        throw new Error('Authorization required');
+      }
+
+      const backendClient = createBackendClient(token);
+      const proxyData: CreateProxyDto = {
+        account_id: account.id,
+        proxy_host: values.proxy_host,
+        proxy_port: values.proxy_port,
+        proxy_type: values.proxy_type || 'http',
+        proxy_username: values.proxy_username,
+        proxy_password: values.proxy_password,
+      };
+
+      await backendClient.createProxy(proxyData);
+      message.success('Proxy created successfully');
+      setProxyModalVisible(false);
+      proxyForm.resetFields();
+      loadDetails();
+      onRefresh();
+    } catch (err: any) {
+      message.error(err.message || 'Error creating proxy');
+    }
+  };
+
+  const handleUnblock = async () => {
+    try {
+      const token = tokenStorage.get();
+      if (!token) {
+        throw new Error('Authorization required');
+      }
+
+      const backendClient = createBackendClient(token);
+      await backendClient.unblockSocialAccount(account.id);
+      message.success('Account unblocked');
+      onRefresh();
+    } catch (err: any) {
+      message.error(err.message || 'Error unblocking account');
+    }
+  };
+
+  const handleUnbind = async () => {
+    try {
+      const token = tokenStorage.get();
+      if (!token) {
+        throw new Error('Authorization required');
+      }
+
+      if (!binding) {
+        throw new Error('Binding not found');
+      }
+
+      const backendClient = createBackendClient(token);
+      await backendClient.deleteBinding(binding.id);
+      message.success('Account successfully unbound from emulator');
+      setBinding(null);
+      loadDetails();
+      onRefresh();
+    } catch (err: any) {
+      message.error(err.message || 'Error unbinding account');
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
+      active: 'green',
+      banned: 'red',
+      restricted: 'orange',
+      suspended: 'volcano',
+      inactive: 'default',
+    };
+    return colors[status] || 'default';
+  };
+
+  return (
+    <>
+      <Drawer
+        title={`Account Details: ${account.username}`}
+        placement="right"
+        width={600}
+        onClose={onClose}
+        open={visible}
+        extra={
+          account.blocked_until && new Date(account.blocked_until) > new Date() ? (
+            <Popconfirm
+              title="Unblock account?"
+              description="Are you sure you want to unblock this account?"
+              onConfirm={handleUnblock}
+              okText="Yes"
+              cancelText="No"
+            >
+              <Button type="primary" icon={<UnlockOutlined />}>
+                Unblock
+              </Button>
+            </Popconfirm>
+          ) : null
+        }
+      >
+        <Descriptions title="Basic Information" bordered column={1} size="small">
+          <Descriptions.Item label="Platform">
+            <Tag color="blue" style={{ textTransform: 'capitalize' }}>
+              {account.platform}
+            </Tag>
+          </Descriptions.Item>
+          <Descriptions.Item label="Username">{account.username}</Descriptions.Item>
+          <Descriptions.Item label="Email">{account.email || '-'}</Descriptions.Item>
+          <Descriptions.Item label="Phone">{account.phone || '-'}</Descriptions.Item>
+          <Descriptions.Item label="Status">
+            <Space orientation="vertical" size="small">
+            <Tag color={getStatusColor(account.status)} style={{ textTransform: 'capitalize' }}>
+              {account.status}
+            </Tag>
+              {account.blocked_until && new Date(account.blocked_until) > new Date() && (
+                <Tag color="red">
+                  Blocked until {new Date(account.blocked_until).toLocaleString('en-US')}
+                </Tag>
+              )}
+            </Space>
+          </Descriptions.Item>
+          <Descriptions.Item label="Proxy Required">
+            <Tag color={account.requires_proxy ? 'orange' : 'default'}>
+              {account.requires_proxy ? (
+                <>
+                  <SafetyOutlined /> Yes
+                </>
+              ) : (
+                'No'
+              )}
+            </Tag>
+          </Descriptions.Item>
+          {account.proxy_required_reason && (
+            <Descriptions.Item label="Proxy Reason">
+              {account.proxy_required_reason}
+            </Descriptions.Item>
+          )}
+          {account.account_status_reason && (
+            <Descriptions.Item label="Status Reason">
+              {account.account_status_reason}
+            </Descriptions.Item>
+          )}
+          {account.blocked_until && (
+            <Descriptions.Item label="Blocking">
+              {new Date(account.blocked_until) > new Date() ? (
+                <Tag color="red">
+                  Blocked until {new Date(account.blocked_until).toLocaleString('en-US')}
+                </Tag>
+              ) : (
+                <Tag color="green">
+                  Unblocked ({new Date(account.blocked_until).toLocaleString('en-US')})
+                </Tag>
+              )}
+            </Descriptions.Item>
+          )}
+        </Descriptions>
+
+        <Divider />
+
+        <Title level={5}>Statistics</Title>
+        <Descriptions bordered column={2} size="small">
+          <Descriptions.Item label="Total Tasks">{account.total_tasks}</Descriptions.Item>
+          <Descriptions.Item label="Successful">
+            <Tag color="green">{account.successful_tasks}</Tag>
+          </Descriptions.Item>
+          <Descriptions.Item label="Failed">
+            <Tag color="red">{account.failed_tasks}</Tag>
+          </Descriptions.Item>
+          <Descriptions.Item label="Failed Logins">{account.failed_logins}</Descriptions.Item>
+          <Descriptions.Item label="Last Activity">
+            {account.last_activity
+              ? new Date(account.last_activity).toLocaleString('en-US')
+              : '-'}
+          </Descriptions.Item>
+          <Descriptions.Item label="Last Login">
+            {account.last_login_at
+              ? new Date(account.last_login_at).toLocaleString('en-US')
+              : '-'}
+          </Descriptions.Item>
+        </Descriptions>
+
+        <Divider />
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Title level={5}>Proxy</Title>
+          {!proxy && account.requires_proxy && (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => setProxyModalVisible(true)}
+              size="small"
+            >
+              Add Proxy
+            </Button>
+          )}
+        </div>
+
+        {proxy ? (
+          <Card size="small">
+            <Descriptions bordered column={1} size="small">
+              <Descriptions.Item label="Host">{proxy.proxy_host}</Descriptions.Item>
+              <Descriptions.Item label="Port">{proxy.proxy_port}</Descriptions.Item>
+              <Descriptions.Item label="Type">
+                <Tag>{proxy.proxy_type.toUpperCase()}</Tag>
+              </Descriptions.Item>
+              {proxy.proxy_username && (
+                <Descriptions.Item label="Username">{proxy.proxy_username}</Descriptions.Item>
+              )}
+              <Descriptions.Item label="Status">
+                <Tag color={proxy.status === 'active' ? 'green' : 'red'}>
+                  {proxy.status}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Requests">{proxy.total_requests}</Descriptions.Item>
+              <Descriptions.Item label="Failed">{proxy.failed_requests}</Descriptions.Item>
+              <Descriptions.Item label="Consecutive Failures">
+                <Tag color={proxy.consecutive_failures > 5 ? 'red' : 'default'}>
+                  {proxy.consecutive_failures}
+                </Tag>
+              </Descriptions.Item>
+              {proxy.last_check && (
+                <Descriptions.Item label="Last Check">
+                  {new Date(proxy.last_check).toLocaleString('en-US')}
+                </Descriptions.Item>
+              )}
+            </Descriptions>
+          </Card>
+        ) : account.requires_proxy ? (
+          <Text type="warning">Proxy not configured (required for account)</Text>
+        ) : (
+          <Text type="secondary">Proxy not required for this account</Text>
+        )}
+
+        <Divider />
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Title level={5}>
+            <LinkOutlined /> Emulator Binding
+          </Title>
+          {binding && (
+            <Popconfirm
+              title="Unbind account from emulator?"
+              description="Are you sure you want to unbind this account from emulator? This action is irreversible."
+              onConfirm={handleUnbind}
+              okText="Yes"
+              cancelText="No"
+            >
+              <Button danger icon={<DisconnectOutlined />} size="small">
+                Unbind
+              </Button>
+            </Popconfirm>
+          )}
+        </div>
+
+        {binding ? (
+          <Card size="small">
+            <Descriptions bordered column={1} size="small">
+              <Descriptions.Item label="Emulator ID">{binding.emulator_id}</Descriptions.Item>
+              <Descriptions.Item label="Binding Type">
+                <Tag>{binding.binding_type}</Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Status">
+                <Tag color={binding.status === 'active' ? 'green' : 'default'}>
+                  {binding.status}
+                </Tag>
+              </Descriptions.Item>
+              {binding.session_data && (
+                <Descriptions.Item label="Session">
+                  <Tag color="green">Saved</Tag>
+                </Descriptions.Item>
+              )}
+              {binding.session_expires_at && (
+                <Descriptions.Item label="Session Expires">
+                  {new Date(binding.session_expires_at).toLocaleString('en-US')}
+                </Descriptions.Item>
+              )}
+              {binding.last_used_at && (
+                <Descriptions.Item label="Last Used">
+                  {new Date(binding.last_used_at).toLocaleString('en-US')}
+                </Descriptions.Item>
+              )}
+              {binding.notes && (
+                <Descriptions.Item label="Notes">{binding.notes}</Descriptions.Item>
+              )}
+            </Descriptions>
+          </Card>
+        ) : (
+          <Text type="secondary">Account not bound to emulator</Text>
+        )}
+      </Drawer>
+
+      <Modal
+        title="Add Proxy"
+        open={proxyModalVisible}
+        onCancel={() => {
+          setProxyModalVisible(false);
+          proxyForm.resetFields();
+        }}
+        onOk={handleCreateProxy}
+        width={500}
+      >
+        <Form form={proxyForm} layout="vertical">
+          <Form.Item
+            name="proxy_host"
+            label="Host"
+            rules={[{ required: true, message: 'Enter proxy host' }]}
+          >
+            <Input placeholder="proxy.example.com" />
+          </Form.Item>
+
+          <Form.Item
+            name="proxy_port"
+            label="Port"
+            rules={[{ required: true, message: 'Enter proxy port' }]}
+          >
+            <InputNumber min={1} max={65535} style={{ width: '100%' }} placeholder="8080" />
+          </Form.Item>
+
+          <Form.Item
+            name="proxy_type"
+            label="Proxy Type"
+            initialValue="http"
+            rules={[{ required: true }]}
+          >
+            <Select>
+              <Option value="http">HTTP</Option>
+              <Option value="https">HTTPS</Option>
+              <Option value="socks4">SOCKS4</Option>
+              <Option value="socks5">SOCKS5</Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item name="proxy_username" label="Username (optional)">
+            <Input placeholder="username" />
+          </Form.Item>
+
+          <Form.Item name="proxy_password" label="Password (optional)">
+            <Input.Password placeholder="password" />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </>
+  );
+}
+

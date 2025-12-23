@@ -3,14 +3,13 @@
 import { useEffect, useState } from 'react';
 import { Card, Row, Col, Statistic, Tag } from 'antd';
 import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
-import { useActiveAgentApi } from '@/hooks/useActiveAgentApi';
+import { useBackendAgentApi } from '@/hooks/useBackendAgentApi';
 import { useAllEmulators } from '@/hooks/useAllEmulators';
-import { type PlatformsResponse } from '@/lib/api/agent';
 import Loading from '@/components/common/Loading';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 
 export default function Dashboard() {
-  const { agentApi, activeAgent } = useActiveAgentApi();
+  const { backendClient, activeAgent } = useBackendAgentApi();
   const { emulators, loading: loadingEmulators } = useAllEmulators(false);
   const [health, setHealth] = useState<any>(null);
   const [platforms, setPlatforms] = useState<string[]>([]);
@@ -19,7 +18,13 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!activeAgent) {
-      setError('Агент не вибрано. Будь ласка, додайте та виберіть агента.');
+      setError('Agent not selected. Please add and select an agent.');
+      setLoading(false);
+      return;
+    }
+
+    if (!backendClient) {
+        setError('Authorization required');
       setLoading(false);
       return;
     }
@@ -31,35 +36,35 @@ export default function Dashboard() {
         
         // Отримуємо дані з детальною обробкою помилок
         let healthData = null;
-        let platformsData: PlatformsResponse = { ok: false, platforms: [] };
+        let platformsData: any = { ok: false, platforms: [] };
 
         try {
-          healthData = await agentApi.getHealth();
+          healthData = await backendClient.getHealth(activeAgent.id);
         } catch (err: any) {
-          console.error('Помилка healthcheck:', err);
+          console.error('Healthcheck error:', err);
           if (err.code === 'ECONNREFUSED' || err.message?.includes('Network Error')) {
-            setError(`Не вдалося підключитися до агента "${activeAgent.name}". Перевірте URL: ${activeAgent.url}`);
+            setError(`Failed to connect to agent "${activeAgent.name}". Check URL: ${activeAgent.url || activeAgent.tunnelUrl}`);
           }
         }
 
         try {
-          platformsData = await agentApi.getPlatforms();
+          platformsData = await backendClient.getPlatforms(activeAgent.id);
         } catch (err: any) {
-          console.error('Помилка завантаження платформ:', err);
+          console.error('Error loading platforms:', err);
         }
 
         setHealth(healthData);
         setPlatforms(platformsData.platforms || []);
       } catch (err: any) {
-        console.error('Загальна помилка:', err);
-        setError(err.message || 'Помилка завантаження даних');
+        console.error('General error:', err);
+        setError(err.message || 'Error loading data');
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [agentApi, activeAgent]);
+  }, [backendClient, activeAgent]);
 
   const loadingState = loading || loadingEmulators;
 
@@ -75,39 +80,39 @@ export default function Dashboard() {
       {error && (
         <ErrorDisplay 
           message={error} 
-          description={activeAgent ? `Перевірте, що агент "${activeAgent.name}" запущений і доступний на ${activeAgent.url}` : 'Будь ласка, додайте та виберіть агента в заголовку сторінки'}
+          description={activeAgent ? `Make sure agent "${activeAgent.name}" is running and accessible at ${activeAgent.url}` : 'Please add and select an agent in the page header'}
         />
       )}
       <Row gutter={16} style={{ marginTop: 24 }}>
         <Col span={6}>
           <Card>
             <Statistic
-              title="Статус агента"
-              value={health ? 'Активний' : 'Недоступний'}
+              title="Agent Status"
+              value={health ? 'Active' : 'Unavailable'}
               prefix={health ? <CheckCircleOutlined style={{ color: '#52c41a' }} /> : <CloseCircleOutlined style={{ color: '#ff4d4f' }} />}
             />
           </Card>
         </Col>
         <Col span={6}>
           <Card>
-            <Statistic title="Платформи" value={platforms.length} />
+            <Statistic title="Platforms" value={platforms.length} />
           </Card>
         </Col>
         <Col span={6}>
           <Card>
-            <Statistic title="Всього емуляторів" value={emulators.length} />
+            <Statistic title="Total Emulators" value={emulators.length} />
           </Card>
         </Col>
         <Col span={6}>
           <Card>
-            <Statistic title="Активних емуляторів" value={activeEmulators} />
+            <Statistic title="Active Emulators" value={activeEmulators} />
           </Card>
         </Col>
       </Row>
 
       <Row gutter={16} style={{ marginTop: 24 }}>
         <Col span={12}>
-          <Card title="Платформи" style={{ marginTop: 16 }}>
+          <Card title="Platforms" style={{ marginTop: 16 }}>
             {platforms.length > 0 ? (
               <div>
                 {platforms.map((platform) => (
@@ -117,12 +122,12 @@ export default function Dashboard() {
                 ))}
               </div>
             ) : (
-              <p>Немає доступних платформ</p>
+              <p>No available platforms</p>
             )}
           </Card>
         </Col>
         <Col span={12}>
-          <Card title="Емулятори" style={{ marginTop: 16 }}>
+          <Card title="Emulators" style={{ marginTop: 16 }}>
             {emulators.length > 0 ? (
               <div>
                 {emulators.map((emulator) => (
@@ -145,7 +150,7 @@ export default function Dashboard() {
                 ))}
               </div>
             ) : (
-              <p>Немає доступних емуляторів</p>
+              <p>No available emulators</p>
             )}
           </Card>
         </Col>

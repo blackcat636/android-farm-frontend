@@ -3,16 +3,17 @@
 import { useEffect, useState } from 'react';
 import { Table, Tag, Radio } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { type Emulator, createAgentApi } from '@/lib/api/agent';
-import { useActiveAgentApi } from '@/hooks/useActiveAgentApi';
+import { type Emulator } from '@/lib/api/agent';
+import { useBackendAgentApi } from '@/hooks/useBackendAgentApi';
 import { useAgents } from '@/contexts/AgentsContext';
+import { createBackendClient, tokenStorage } from '@/lib/api/backend';
 import Loading from '@/components/common/Loading';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 
 type ViewMode = 'active' | 'all';
 
 export default function EmulatorsPage() {
-  const { agentApi, activeAgent } = useActiveAgentApi();
+  const { backendClient, activeAgent } = useBackendAgentApi();
   const { agents } = useAgents();
   const [emulators, setEmulators] = useState<Emulator[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,45 +26,44 @@ export default function EmulatorsPage() {
         setLoading(true);
         setError(null);
 
+        if (!backendClient) {
+          setError('Authorization required');
+          setLoading(false);
+          return;
+        }
+
         if (viewMode === 'active') {
           // Режим "Активний агент"
           if (!activeAgent) {
-            setError('Агент не вибрано. Будь ласка, додайте та виберіть агента.');
+            setError('Agent not selected. Please add and select an agent.');
             setLoading(false);
             return;
           }
 
-          const response = await agentApi.getEmulators();
-          setEmulators(response.emulators);
+          const response = await backendClient.getEmulators(activeAgent.id);
+          setEmulators(response.emulators || []);
         } else {
           // Режим "Всі агенти"
           if (agents.length === 0) {
-            setError('Агенти не знайдені. Будь ласка, додайте хоча б одного агента.');
+            setError('Agents not found. Please add at least one agent.');
             setLoading(false);
             return;
           }
 
-          const useTunnel = process.env.NEXT_PUBLIC_USE_TUNNEL === 'true';
           const allEmulators: Emulator[] = [];
 
-          // Збираємо емулятори з усіх агентів паралельно
+          // Збираємо емулятори з усіх агентів паралельно через бекенд
           const emulatorPromises = agents.map(async (agent) => {
             try {
-              // Визначаємо baseURL для агента
-              const baseURL = (useTunnel && agent.tunnelUrl)
-                ? agent.tunnelUrl
-                : agent.url || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-
-              const api = createAgentApi(baseURL);
-              const response = await api.getEmulators();
-
+              const response = await backendClient.getEmulators(agent.id);
               // Додаємо назву агента до кожного емулятора
-              return response.emulators.map(emulator => ({
+              return (response.emulators || []).map((emulator: any) => ({
                 ...emulator,
                 agentName: agent.name,
+                agentId: agent.id,
               }));
             } catch (err: any) {
-              console.error(`Помилка завантаження емуляторів з агента ${agent.name}:`, err.message);
+              console.error(`Error loading emulators from agent ${agent.name}:`, err.message);
               return []; // Повертаємо порожній масив при помилці
             }
           });
@@ -74,14 +74,14 @@ export default function EmulatorsPage() {
           setEmulators(allEmulators);
         }
       } catch (err: any) {
-        setError(err.message || 'Помилка завантаження емуляторів');
+        setError(err.message || 'Error loading emulators');
       } finally {
         setLoading(false);
       }
     };
 
     fetchEmulators();
-  }, [viewMode, activeAgent, agentApi, agents]);
+  }, [viewMode, activeAgent, backendClient, agents]);
 
   const columns: ColumnsType<Emulator> = [
     {
@@ -90,12 +90,12 @@ export default function EmulatorsPage() {
       key: 'id',
     },
     {
-      title: 'Назва',
+      title: 'Name',
       dataIndex: 'name',
       key: 'name',
     },
     {
-      title: 'Агент',
+      title: 'Agent',
       key: 'agent',
       render: (_: any, record: Emulator) => record.agentName || activeAgent?.name || 'Unknown',
     },
@@ -113,7 +113,7 @@ export default function EmulatorsPage() {
       key: 'deviceName',
     },
     {
-      title: 'Статус',
+      title: 'Status',
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => (
@@ -139,8 +139,8 @@ export default function EmulatorsPage() {
           onChange={(e) => setViewMode(e.target.value)}
           size="large"
         >
-          <Radio.Button value="active">Активний агент</Radio.Button>
-          <Radio.Button value="all">Всі агенти</Radio.Button>
+          <Radio.Button value="active">Active Agent</Radio.Button>
+          <Radio.Button value="all">All Agents</Radio.Button>
         </Radio.Group>
       </div>
       <Table

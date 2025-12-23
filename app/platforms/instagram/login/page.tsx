@@ -1,168 +1,71 @@
 'use client';
 export const runtime = 'edge';
 
-
-import { useState } from 'react';
-import { Form, Input, Select, Button, Card, Alert, Space, Result } from 'antd';
-import { ArrowLeftOutlined, LoginOutlined } from '@ant-design/icons';
-import { useRouter } from 'next/navigation';
-import { type Emulator } from '@/lib/api/agent';
-import { useAgentApi } from '@/hooks/useAgentApi';
-import { useAllEmulators } from '@/hooks/useAllEmulators';
-import Loading from '@/components/common/Loading';
+import { Input, Form } from 'antd';
+import { LoginOutlined } from '@ant-design/icons';
+import { createBackendClient, tokenStorage } from '@/lib/api/backend';
+import { ActionFormWrapper } from '@/components/platforms/ActionFormWrapper';
 
 export default function InstagramLoginPage() {
-  const router = useRouter();
-  const [form] = Form.useForm();
-  const { emulators, loading: loadingEmulators } = useAllEmulators(true);
-  const [selectedEmulator, setSelectedEmulator] = useState<Emulator | null>(null);
-  const [result, setResult] = useState<any>(null);
-  const { executeAction, loading, error } = useAgentApi();
-
-  const handleSubmit = async (values: any) => {
-    try {
-      setResult(null);
-      
-      // Знаходимо обраний емулятор для отримання agentBaseURL
-      const emulator = emulators.find((e) => e.id === values.emulatorId);
-      setSelectedEmulator(emulator || null);
-      
-      const response = await executeAction(
-        'instagram',
-        'login',
-        {
-          emulatorId: values.emulatorId,
-          params: {
-            username: values.username,
-            password: values.password,
-          },
-        },
-        emulator?.agentBaseURL
-      );
-      setResult(response);
-    } catch (err) {
-      // Помилка вже оброблена в useAgentApi
-    }
-  };
-
-  if (loadingEmulators) {
-    return <Loading />;
-  }
-
   return (
-    <div>
-      <Space style={{ marginBottom: 24 }}>
-        <Button icon={<ArrowLeftOutlined />} onClick={() => router.back()}>
-          Назад
-        </Button>
-        <h1 style={{ margin: 0 }}>Instagram Login</h1>
-      </Space>
+    <ActionFormWrapper
+      platform="instagram"
+      action="login"
+      title="Instagram Login"
+      description="Enter login and password to authenticate in Instagram. After successful authentication, you will be able to perform other actions without re-authentication. You can select an Instagram account or a specific emulator. If an account without binding is selected, the system will offer to create a binding to an emulator."
+      platformDisplayName="Instagram"
+      submitButtonText="Authenticate"
+      submitButtonIcon={<LoginOutlined />}
+      onSubmit={async ({ formValues, accountId, emulatorId, agentId }) => {
+        const token = tokenStorage.get();
+        if (!token) {
+          throw new Error('Authorization required');
+        }
 
-      <Card>
-        <Alert
-          message="Авторизація"
-          description="Введіть логін та пароль для авторизації в Instagram. Після успішної авторизації ви зможете виконувати інші дії без повторної авторизації."
-          type="info"
-          showIcon
-          style={{ marginBottom: 24 }}
-        />
+        const backendClient = createBackendClient(token);
 
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSubmit}
-        >
-          <Form.Item
-            name="emulatorId"
-            label="Емулятор"
-            rules={[{ required: true, message: 'Оберіть емулятор' }]}
-          >
-            <Select 
-              placeholder="Оберіть емулятор" 
-              disabled={loading}
-              onChange={(value) => {
-                const emulator = emulators.find((e) => e.id === value);
-                setSelectedEmulator(emulator || null);
-              }}
-            >
-              {emulators.map((emulator) => (
-                <Select.Option key={`${emulator.agentId}-${emulator.id}`} value={emulator.id}>
-                  {emulator.name} {emulator.agentName && `(${emulator.agentName})`}
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
+        const params: any = {
+          username: formValues.username,
+          password: formValues.password,
+        };
 
+        const task = await backendClient.addTask({
+          platform: 'instagram',
+          action: 'login',
+          params,
+          account_id: accountId,
+          emulator_id: emulatorId,
+          agent_id: agentId,
+          requireSession: formValues.requireSession || false,
+        });
+
+        return {
+          task_id: task.id,
+          status: task.status,
+          platform: 'instagram',
+          action: 'login',
+        };
+      }}
+    >
+      {({ form, loading }) => (
+        <>
           <Form.Item
             name="username"
-            label="Логін (username)"
-            rules={[{ required: true, message: 'Введіть логін' }]}
+            label="Login (username)"
+            rules={[{ required: true, message: 'Enter login' }]}
           >
             <Input placeholder="your_username" disabled={loading} />
           </Form.Item>
 
           <Form.Item
             name="password"
-            label="Пароль"
-            rules={[{ required: true, message: 'Введіть пароль' }]}
+            label="Password"
+            rules={[{ required: true, message: 'Enter password' }]}
           >
             <Input.Password placeholder="your_password" disabled={loading} />
           </Form.Item>
-
-          <Form.Item>
-            <Button
-              type="primary"
-              htmlType="submit"
-              icon={<LoginOutlined />}
-              loading={loading}
-              size="large"
-              block
-            >
-              Авторизуватися
-            </Button>
-          </Form.Item>
-        </Form>
-
-        {error && (
-          <Alert
-            message="Помилка"
-            description={error}
-            type="error"
-            showIcon
-            style={{ marginTop: 16 }}
-          />
-        )}
-
-        {result && (
-          <Result
-            status="success"
-            title="Авторизація успішна!"
-            subTitle={
-              <div>
-                <p>
-                  <strong>Платформа:</strong> {result.platform}
-                </p>
-                <p>
-                  <strong>Дія:</strong> {result.action}
-                </p>
-                <p>
-                  <strong>Емулятор:</strong> {selectedEmulator?.name || result.emulatorId}
-                  {selectedEmulator?.agentName && ` (Агент: ${selectedEmulator.agentName})`}
-                </p>
-                {result.result && (
-                  <div style={{ marginTop: 16 }}>
-                    <strong>Результат:</strong>
-                    <pre style={{ background: '#f5f5f5', padding: 12, borderRadius: 4, marginTop: 8 }}>
-                      {JSON.stringify(result.result, null, 2)}
-                    </pre>
-                  </div>
-                )}
-              </div>
-            }
-          />
-        )}
-      </Card>
-    </div>
+        </>
+      )}
+    </ActionFormWrapper>
   );
 }
-

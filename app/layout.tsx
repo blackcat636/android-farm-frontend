@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ConfigProvider } from "antd";
 import AppLayout from "@/components/Layout/AppLayout";
 import { AgentsProvider } from "@/contexts/AgentsContext";
+import { AuthProvider } from "@/contexts/AuthContext";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,9 +19,11 @@ export default function RootLayout({
     <html lang="uk">
       <body>
         <ConfigProvider>
-          <AgentsProvider>
-            <AppLayout>{children}</AppLayout>
-          </AgentsProvider>
+          <AuthProvider>
+            <AgentsProvider>
+              <AppLayout>{children}</AppLayout>
+            </AgentsProvider>
+          </AuthProvider>
         </ConfigProvider>
       </body>
     </html>

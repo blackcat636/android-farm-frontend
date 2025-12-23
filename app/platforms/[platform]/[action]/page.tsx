@@ -1,137 +1,85 @@
 'use client';
 export const runtime = 'edge';
 
-import { useState } from 'react';
-import { Form, Input, Select, Button, Card, Alert, Space, Result } from 'antd';
-import { ArrowLeftOutlined, PlayCircleOutlined } from '@ant-design/icons';
-import { useRouter, useParams } from 'next/navigation';
-import { type Emulator } from '@/lib/api/agent';
-import { useAgentApi } from '@/hooks/useAgentApi';
-import { useAllEmulators } from '@/hooks/useAllEmulators';
-import Loading from '@/components/common/Loading';
-import ErrorDisplay from '@/components/common/ErrorDisplay';
+import { Input, Form } from 'antd';
+import { PlayCircleOutlined } from '@ant-design/icons';
+import { useParams } from 'next/navigation';
+import { createBackendClient, tokenStorage } from '@/lib/api/backend';
+import { ActionFormWrapper } from '@/components/platforms/ActionFormWrapper';
+
+const { TextArea } = Input;
 
 export default function ExecuteActionPage() {
-  const router = useRouter();
   const params = useParams();
   const platform = params?.platform as string;
   const action = params?.action as string;
-  const [form] = Form.useForm();
-  const { emulators, loading: loadingEmulators } = useAllEmulators(true);
-  const [selectedEmulator, setSelectedEmulator] = useState<Emulator | null>(null);
-  const [result, setResult] = useState<any>(null);
-  const { executeAction, loading, error } = useAgentApi();
 
-  const handleSubmit = async (values: any) => {
-    if (!platform || !action) return;
-
-    try {
-      setResult(null);
-      const { emulatorId, params: paramsString } = values;
-      
-      // Знаходимо обраний емулятор для отримання agentBaseURL
-      const emulator = emulators.find((e) => e.id === emulatorId);
-      setSelectedEmulator(emulator || null);
-      
-      let params = {};
-      
-      if (paramsString) {
-        try {
-          params = JSON.parse(paramsString);
-        } catch (e) {
-          throw new Error('Невірний формат JSON параметрів');
-        }
-      }
-
-      // Виконуємо дію через агента обраного емулятора
-      const response = await executeAction(
-        platform,
-        action,
-        {
-        emulatorId,
-        params,
-        },
-        emulator?.agentBaseURL // Передаємо baseURL агента для виконання дії
-      );
-      setResult(response);
-    } catch (err: any) {
-      // Помилка вже оброблена в useAgentApi
-      if (err.message && err.message.includes('JSON')) {
-        // Додаткова обробка помилки JSON
-      }
-    }
-  };
-
-  if (loadingEmulators) {
-    return <Loading />;
-  }
-
-  // Спеціальні форми для конкретних дій (використовуємо окремі сторінки)
+  // Special forms for specific actions (use separate pages)
   if (platform === 'youtube' && action === 'search') {
-    router.replace(`/platforms/youtube/search`);
-    return null;
+    return null; // Will be redirected via router.replace in useEffect
   }
   
   if (platform === 'instagram' && action === 'post') {
-    router.replace(`/platforms/instagram/post`);
-    return null;
+    return null; // Will be redirected via router.replace in useEffect
   }
   
   if (platform === 'instagram' && action === 'login') {
-    router.replace(`/platforms/instagram/login`);
+    return null; // Will be redirected via router.replace in useEffect
+  }
+
+  if (!platform || !action) {
     return null;
   }
 
   return (
-    <div>
-      <Space style={{ marginBottom: 24 }}>
-        <Button icon={<ArrowLeftOutlined />} onClick={() => router.back()}>
-          Назад
-        </Button>
-        <h1 style={{ margin: 0 }}>
-          {platform} - {action}
-        </h1>
-      </Space>
+    <ActionFormWrapper
+      platform={platform}
+      action={action}
+      title={`${platform.toUpperCase()} - ${action}`}
+          description="This is a general form for executing an action. Parameters are passed as JSON. For specific actions, separate pages with forms may be created."
+      submitButtonText="Add Task to Queue"
+      submitButtonIcon={<PlayCircleOutlined />}
+      onSubmit={async ({ formValues, accountId, emulatorId, agentId }) => {
+        const token = tokenStorage.get();
+        if (!token) {
+          throw new Error('Authorization required');
+        }
 
-      <Card>
-        <Alert
-          message="Увага"
-          description="Це загальна форма для виконання дії. Параметри передаються як JSON. Для специфічних дій можуть бути створені окремі сторінки з формами."
-          type="info"
-          showIcon
-          style={{ marginBottom: 24 }}
-        />
+        const backendClient = createBackendClient(token);
 
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSubmit}
-        >
-          <Form.Item
-            name="emulatorId"
-            label="Емулятор"
-            rules={[{ required: true, message: 'Оберіть емулятор' }]}
-          >
-            <Select 
-              placeholder="Оберіть емулятор" 
-              disabled={loading}
-              onChange={(value) => {
-                const emulator = emulators.find((e) => e.id === value);
-                setSelectedEmulator(emulator || null);
-              }}
-            >
-              {emulators.map((emulator) => (
-                <Select.Option key={`${emulator.agentId}-${emulator.id}`} value={emulator.id}>
-                  {emulator.name} {emulator.agentName && `(${emulator.agentName})`}
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
+        let params = {};
+        
+        if (formValues.params) {
+          try {
+            params = JSON.parse(formValues.params);
+          } catch (e) {
+            throw new Error('Invalid JSON parameters format');
+          }
+        }
 
+        const task = await backendClient.addTask({
+          platform,
+          action,
+          params,
+          account_id: accountId,
+          emulator_id: emulatorId,
+          agent_id: agentId,
+          requireSession: formValues.requireSession || false,
+        });
+
+        return {
+          task_id: task.id,
+          status: task.status,
+          platform,
+          action,
+        };
+      }}
+    >
+      {({ form, loading }) => (
           <Form.Item
             name="params"
-            label="Параметри (JSON)"
-            tooltip="Введіть параметри у форматі JSON, наприклад: {'key': 'value'}"
+            label="Parameters (JSON)"
+            tooltip="Enter parameters in JSON format, for example: {'key': 'value'}"
             rules={[
               {
                 validator: (_, value) => {
@@ -140,73 +88,19 @@ export default function ExecuteActionPage() {
                     JSON.parse(value);
                     return Promise.resolve();
                   } catch {
-                    return Promise.reject(new Error('Невірний формат JSON'));
+                    return Promise.reject(new Error('Invalid JSON format'));
                   }
                 },
               },
             ]}
           >
-            <Input.TextArea
+          <TextArea
               rows={6}
               placeholder='{"key": "value"}'
               disabled={loading}
             />
           </Form.Item>
-
-          <Form.Item>
-            <Button
-              type="primary"
-              htmlType="submit"
-              icon={<PlayCircleOutlined />}
-              loading={loading}
-              size="large"
-              block
-            >
-              Виконати дію
-            </Button>
-          </Form.Item>
-        </Form>
-
-        {error && (
-          <Alert
-            message="Помилка"
-            description={error}
-            type="error"
-            showIcon
-            style={{ marginTop: 16 }}
-          />
-        )}
-
-        {result && (
-          <Result
-            status="success"
-            title="Дію виконано успішно!"
-            subTitle={
-              <div>
-                <p>
-                  <strong>Платформа:</strong> {result.platform}
-                </p>
-                <p>
-                  <strong>Дія:</strong> {result.action}
-                </p>
-                <p>
-                  <strong>Емулятор:</strong> {selectedEmulator?.name || result.emulatorId}
-                  {selectedEmulator?.agentName && ` (Агент: ${selectedEmulator.agentName})`}
-                </p>
-                {(
-                  <div style={{ marginTop: 16 }}>
-                    <strong>Результат:</strong>
-                    <pre style={{ background: '#f5f5f5', padding: 12, borderRadius: 4, marginTop: 8 }}>
-                      {JSON.stringify(result.result, null, 2)}
-                    </pre>
-                  </div>
-                )}
-              </div>
-            }
-          />
-        )}
-      </Card>
-    </div>
+      )}
+    </ActionFormWrapper>
   );
 }
-

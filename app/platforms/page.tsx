@@ -1,127 +1,109 @@
 'use client';
-export const runtime = 'edge';
 
-import { useEffect, useState } from 'react';
-import { Card, List, Button, Tag, Space } from 'antd';
-import { PlayCircleOutlined } from '@ant-design/icons';
+import { Card, Button, Space, message } from 'antd';
 import { useRouter } from 'next/navigation';
-import { useActiveAgentApi } from '@/hooks/useActiveAgentApi';
-import Loading from '@/components/common/Loading';
-import ErrorDisplay from '@/components/common/ErrorDisplay';
-
-interface PlatformWithActions {
-  name: string;
-  actions: string[];
-}
+import { FileTextOutlined, LoginOutlined, HistoryOutlined, LikeOutlined, PlayCircleOutlined } from '@ant-design/icons';
+import { createBackendClient, tokenStorage } from '@/lib/api/backend';
+import { useState } from 'react';
 
 export default function PlatformsPage() {
   const router = useRouter();
-  const { agentApi, activeAgent } = useActiveAgentApi();
-  const [platforms, setPlatforms] = useState<PlatformWithActions[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (!activeAgent) {
-      setError('Агент не вибрано. Будь ласка, додайте та виберіть агента.');
-      setLoading(false);
-      return;
-    }
-
-    const fetchPlatforms = async () => {
-      try {
-        setLoading(true);
-        const platformsResponse = await agentApi.getPlatforms();
-        const platformsList: PlatformWithActions[] = [];
-
-        for (const platform of platformsResponse.platforms) {
-          try {
-            const actionsResponse = await agentApi.getPlatformActions(platform);
-            platformsList.push({
-              name: platform,
-              actions: actionsResponse.actions || [],
-            });
-          } catch (err) {
-            platformsList.push({
-              name: platform,
-              actions: [],
-            });
-          }
-        }
-
-        setPlatforms(platformsList);
-        setError(null);
-      } catch (err: any) {
-        setError(err.message || 'Помилка завантаження платформ');
-      } finally {
-        setLoading(false);
+  const handleCheckPostsLikes = async () => {
+    try {
+      setLoading(true);
+      const loadingMsg = message.loading({ content: 'Starting posts without likes check...', key: 'check-likes', duration: 0 });
+      
+      const token = tokenStorage.get();
+      if (!token) {
+        message.error({ content: 'Authorization required', key: 'check-likes' });
+        return;
       }
-    };
 
-    fetchPlatforms();
-  }, [agentApi, activeAgent]);
-
-  const handleExecuteAction = (platform: string, action: string) => {
-    router.push(`/platforms/${platform}/${action}`);
+      const backendClient = createBackendClient(token);
+      const result = await backendClient.triggerJobWebhook('check-posts-likes');
+      
+      loadingMsg();
+      message.success({
+        content: `Task started successfully! Found ${result.result?.data?.totalPostsWithoutLikes || 0} posts without likes, created ${result.result?.data?.totalLikeTasksCreated || 0} tasks.`,
+        key: 'check-likes',
+        duration: 5,
+      });
+    } catch (error: any) {
+      message.error({
+        content: `Error: ${error.response?.data?.message || error.message || 'Unknown error'}`,
+        key: 'check-likes',
+        duration: 5,
+      });
+    } finally {
+      setLoading(false);
+    }
   };
-
-  if (loading) {
-    return <Loading />;
-  }
-
-  if (error) {
-    return <ErrorDisplay message={error} />;
-  }
 
   return (
     <div>
       <h1>Platforms</h1>
-      {platforms.length === 0 ? (
-        <Card>
-          <p>Немає доступних платформ</p>
-        </Card>
-      ) : (
-        <List
-          grid={{ gutter: 16, column: 1 }}
-          dataSource={platforms}
-          renderItem={(platform) => (
-            <List.Item>
-              <Card
-                title={platform.name}
-                style={{ width: '100%' }}
-                extra={
-                  <Button
-                    type="link"
-                    onClick={() => router.push(`/platforms/${platform.name}`)}
-                  >
-                    Деталі
-                  </Button>
-                }
-              >
-                <div>
-                  <strong>Доступні дії:</strong>
-                  <Space wrap style={{ marginTop: 12 }}>
-                    {platform.actions.length > 0 ? (
-                      platform.actions.map((action) => (
-                        <Button
-                          key={action}
-                          type="primary"
-                          icon={<PlayCircleOutlined />}
-                          onClick={() => handleExecuteAction(platform.name, action)}
-                        >
-                          {action}
-                        </Button>
-                      ))
-                    ) : (
-                      <Tag>Немає доступних дій</Tag>
-                    )}
-                  </Space>
-                </div>
-              </Card>
-            </List.Item>
-          )}
-        />
-      )}
+      
+      {/* Instagram */}
+      <Card 
+        title="Instagram" 
+        style={{ marginTop: 24 }}
+        extra={
+          <Button
+            type="link"
+            onClick={() => router.push('/platforms/instagram')}
+          >
+            Details
+          </Button>
+        }
+      >
+        <h2>Main Actions</h2>
+        <Space size="middle" wrap style={{ marginTop: 16 }}>
+          <Button
+            type="primary"
+            size="large"
+            icon={<FileTextOutlined />}
+            onClick={() => router.push('/platforms/instagram/post')}
+          >
+            Publish Post (post)
+          </Button>
+          <Button
+            size="large"
+            icon={<LikeOutlined />}
+            onClick={handleCheckPostsLikes}
+            loading={loading}
+          >
+            Check Posts Without Likes
+          </Button>
+        </Space>
+      </Card>
+
+      {/* YouTube */}
+      <Card 
+        title="YouTube" 
+        style={{ marginTop: 24 }}
+        extra={
+          <Button
+            type="link"
+            onClick={() => router.push('/platforms/youtube')}
+          >
+            Details
+          </Button>
+        }
+      >
+        <h2>Main Actions</h2>
+        <Space size="middle" wrap style={{ marginTop: 16 }}>
+          <Button
+            type="primary"
+            size="large"
+            icon={<PlayCircleOutlined />}
+            onClick={() => router.push('/platforms/youtube/search')}
+          >
+            Perform Search (search)
+          </Button>
+        </Space>
+      </Card>
     </div>
   );
 }

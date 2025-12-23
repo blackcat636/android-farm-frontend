@@ -2,35 +2,42 @@
 
 import { Card, Button, Space } from 'antd';
 import { useRouter } from 'next/navigation';
-import { PlayCircleOutlined, HistoryOutlined } from '@ant-design/icons';
+import { PlayCircleOutlined, HistoryOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 
 export default function YouTubePlatformPage() {
   const router = useRouter();
 
   return (
     <div>
+      <div style={{ marginBottom: 16 }}>
+        <Button
+          icon={<ArrowLeftOutlined />}
+          onClick={() => router.push('/platforms')}
+        >
+          Back to Platforms
+        </Button>
+      </div>
       <h1>YouTube Platform</h1>
       <Card style={{ marginTop: 24 }}>
-        <h2>Доступні дії</h2>
-        <Space direction="vertical" size="middle" style={{ width: '100%', marginTop: 16 }}>
+        <h2>Available Actions</h2>
+        <Space size="middle" wrap style={{ marginTop: 16 }}>
           <Button
             type="primary"
             size="large"
             icon={<PlayCircleOutlined />}
             onClick={() => router.push('/platforms/youtube/search')}
-            block
           >
-            Виконати пошук (search)
+            Perform Search (search)
           </Button>
           <Button
+            size="large"
             icon={<HistoryOutlined />}
             onClick={() => {
-              // Заглушка для майбутньої історії
-              alert('Історія буде доступна пізніше');
+              // Placeholder for future history
+              alert('History will be available later');
             }}
-            block
           >
-            Переглянути історію
+            View History
           </Button>
         </Space>
       </Card>
