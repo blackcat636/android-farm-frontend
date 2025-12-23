@@ -388,8 +388,6 @@ export default function QueuePage() {
           showTotal: (total) => `Total ${total} tasks`,
         }}
         onChange={handleTableChange}
-        defaultSortOrder="descend"
-        sortDirections={['descend', 'ascend']}
         expandable={{
           expandedRowRender: (record) => (
             <div style={{ margin: 0 }}>
