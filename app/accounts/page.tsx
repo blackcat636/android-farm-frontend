@@ -47,6 +47,7 @@ import {
 import { CreateAccountModal } from '@/components/accounts/CreateAccountModal';
 import { EditAccountModal } from '@/components/accounts/EditAccountModal';
 import { AccountDetailsDrawer } from '@/components/accounts/AccountDetailsDrawer';
+import { maskEmail } from '@/utils/maskEmail';
 
 const { Option } = Select;
 const { Title } = Typography;
@@ -216,6 +217,7 @@ export default function AccountsPage() {
       title: 'Email',
       dataIndex: 'email',
       key: 'email',
+      render: (email: string) => maskEmail(email),
     },
     {
       title: 'Status',

@@ -8,6 +8,7 @@ import { createBackendClient, tokenStorage, type ExecutionHistory } from '@/lib/
 import { useAuth } from '@/contexts/AuthContext';
 import Loading from '@/components/common/Loading';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
+import { maskEmail } from '@/utils/maskEmail';
 
 const { RangePicker } = DatePicker;
 
@@ -93,7 +94,7 @@ export default function HistoryPage() {
               }}
               style={{ color: '#1890ff' }}
             >
-              {account.username} {account.email && `(${account.email})`}
+              {account.username} {account.email && `(${maskEmail(account.email)})`}
             </a>
           );
         }

@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import Loading from '@/components/common/Loading';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import { message } from 'antd';
+import { maskEmail } from '@/utils/maskEmail';
 
 export default function QueuePage() {
   const { user } = useAuth();
@@ -18,7 +19,7 @@ export default function QueuePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState({
-    status: undefined as string | undefined,
+    status: ['pending', 'processing'] as string[], // По замовчуванню показуємо pending і processing
     platform: undefined as string | undefined,
   });
   const [pagination, setPagination] = useState({
@@ -43,7 +44,7 @@ export default function QueuePage() {
 
       const backendClient = createBackendClient(token);
       const response = await backendClient.getQueue({
-        status: filters.status,
+        status: filters.status && filters.status.length > 0 ? filters.status.join(',') : undefined,
         platform: filters.platform,
         page,
         limit: pagination.pageSize,
@@ -67,7 +68,8 @@ export default function QueuePage() {
     if (user) {
       fetchTasks(pagination.current);
     }
-  }, [user, filters.status, filters.platform]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, JSON.stringify(filters.status), filters.platform]);
 
   const handleCancel = async (taskId: string) => {
     try {
@@ -157,7 +159,7 @@ export default function QueuePage() {
               style={{ color: '#1890ff' }}
             >
               <Tag color="purple">
-                {account.username} {account.email && `(${account.email})`}
+                {account.username} {account.email && `(${maskEmail(account.email)})`}
               </Tag>
             </a>
           );
@@ -212,6 +214,8 @@ export default function QueuePage() {
       title: 'Created',
       dataIndex: 'created_at',
       key: 'created_at',
+      sorter: (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+      defaultSortOrder: 'descend' as const,
       render: (text) => new Date(text).toLocaleString('en-US'),
     },
     {
@@ -333,14 +337,18 @@ export default function QueuePage() {
       <Card style={{ marginBottom: 16 }}>
         <Space>
           <Select
+            mode="multiple"
             placeholder="Filter by status"
-            style={{ width: 200 }}
+            style={{ width: 250 }}
             allowClear
             value={filters.status}
             onChange={(value) => {
-              setFilters({ ...filters, status: value });
+              // Якщо вибрано "all", показуємо всі (порожній масив)
+              const newStatus = value && value.length > 0 ? value : [];
+              setFilters({ ...filters, status: newStatus });
               setPagination({ ...pagination, current: 1 });
             }}
+            maxTagCount="responsive"
           >
             <Select.Option value="pending">Pending</Select.Option>
             <Select.Option value="assigned">Assigned</Select.Option>
@@ -380,6 +388,8 @@ export default function QueuePage() {
           showTotal: (total) => `Total ${total} tasks`,
         }}
         onChange={handleTableChange}
+        defaultSortOrder="descend"
+        sortDirections={['descend', 'ascend']}
         expandable={{
           expandedRowRender: (record) => (
             <div style={{ margin: 0 }}>

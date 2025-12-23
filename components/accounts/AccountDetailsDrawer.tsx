@@ -27,6 +27,7 @@ import {
   type CreateProxyDto,
 } from '@/lib/api/backend';
 import { SafetyOutlined, LinkOutlined, PlusOutlined, EditOutlined, UnlockOutlined, DisconnectOutlined } from '@ant-design/icons';
+import { maskEmail } from '@/utils/maskEmail';
 
 const { Option } = Select;
 const { Title, Text } = Typography;
@@ -187,7 +188,7 @@ export function AccountDetailsDrawer({
             </Tag>
           </Descriptions.Item>
           <Descriptions.Item label="Username">{account.username}</Descriptions.Item>
-          <Descriptions.Item label="Email">{account.email || '-'}</Descriptions.Item>
+          <Descriptions.Item label="Email">{maskEmail(account.email)}</Descriptions.Item>
           <Descriptions.Item label="Phone">{account.phone || '-'}</Descriptions.Item>
           <Descriptions.Item label="Status">
             <Space orientation="vertical" size="small">
