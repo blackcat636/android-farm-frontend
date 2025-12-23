@@ -125,6 +125,10 @@ export function useAccountEmulatorSelection({
       }
 
       accountId = values.accountId;
+      if (!accountId) {
+        throw new Error('Оберіть акаунт');
+      }
+      
       const account = accounts.find(a => a.id === accountId);
       if (!account) {
         throw new Error('Акаунт не знайдено');
@@ -136,8 +140,8 @@ export function useAccountEmulatorSelection({
           throw new Error('Для нового акаунта оберіть емулятор для прив\'язки');
         }
 
-        // Створюємо прив'язку
-        await createBinding(accountId, values.emulatorId);
+        // Створюємо прив'язку (accountId гарантовано string після перевірки вище)
+        await createBinding(accountId as string, values.emulatorId);
         emulatorId = values.emulatorId;
       } else {
         // Використовуємо емулятор з прив'язки
