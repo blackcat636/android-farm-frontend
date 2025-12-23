@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { Agent, AgentsContextType } from '@/types/agent';
 import { agentApi } from '@/lib/api/agent';
 import { getAgentsFromKV, getAgentInfoFromKV } from '@/lib/api/cloudflare-kv';
+import { createBackendClient, tokenStorage } from '@/lib/api/backend';
 
 const STORAGE_KEY = 'android-farm-agents';
 
@@ -13,7 +14,7 @@ export function AgentsProvider({ children }: { children: React.ReactNode }) {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [activeAgentId, setActiveAgentId] = useState<string | null>(null);
 
-  // Завантаження агентів з KV або localStorage
+  // Завантаження агентів з бекенду, KV або localStorage
   useEffect(() => {
     if (typeof window === 'undefined') {
       return;
@@ -21,6 +22,40 @@ export function AgentsProvider({ children }: { children: React.ReactNode }) {
 
     const loadAgents = async () => {
       try {
+        // Спочатку спробувати завантажити агентів з бекенду (якщо є токен)
+        const token = tokenStorage.get();
+        if (token) {
+          try {
+            const backendClient = createBackendClient(token);
+            const backendAgents = await backendClient.getAgents();
+            if (backendAgents && backendAgents.length > 0) {
+              // Конвертуємо агентів з бекенду у формат Agent
+              const convertedAgents: Agent[] = backendAgents.map((backendAgent: any, index: number) => ({
+                id: backendAgent.id,
+                name: backendAgent.name || `Agent ${backendAgent.id}`,
+                url: backendAgent.url || '',
+                tunnelUrl: backendAgent.tunnel_url || '',
+                agentId: backendAgent.id,
+                isActive: index === 0,
+                createdAt: backendAgent.created_at || new Date().toISOString(),
+                status: backendAgent.status || 'offline',
+                lastSeen: backendAgent.last_seen,
+              }));
+              
+              setAgents(convertedAgents);
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(convertedAgents));
+              if (convertedAgents.length > 0) {
+                setActiveAgentId(convertedAgents[0].id);
+                localStorage.setItem('android-farm-active-agent-id', convertedAgents[0].id);
+              }
+              return;
+            }
+          } catch (error) {
+            console.debug('Не вдалося завантажити агентів з бекенду:', error);
+            // Продовжуємо до fallback методів
+          }
+        }
+
         const useTunnel = process.env.NEXT_PUBLIC_USE_TUNNEL === 'true';
         let agentsFromKV: Agent[] = [];
         let shouldUseKV = false;
@@ -258,6 +293,39 @@ export function AgentsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [activeAgentId, agents]);
 
+  const refreshAgents = useCallback(async () => {
+    try {
+      const token = tokenStorage.get();
+      if (token) {
+        const backendClient = createBackendClient(token);
+        const backendAgents = await backendClient.getAgents();
+        if (backendAgents && backendAgents.length > 0) {
+          const convertedAgents: Agent[] = backendAgents.map((backendAgent: any, index: number) => ({
+            id: backendAgent.id,
+            name: backendAgent.name || `Agent ${backendAgent.id}`,
+            url: backendAgent.url || '',
+            tunnelUrl: backendAgent.tunnel_url || '',
+            agentId: backendAgent.id,
+            isActive: index === 0,
+            createdAt: backendAgent.created_at || new Date().toISOString(),
+            status: backendAgent.status || 'offline',
+            lastSeen: backendAgent.last_seen,
+          }));
+          
+          setAgents(convertedAgents);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(convertedAgents));
+          if (convertedAgents.length > 0 && !activeAgentId) {
+            setActiveAgentId(convertedAgents[0].id);
+            localStorage.setItem('android-farm-active-agent-id', convertedAgents[0].id);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Помилка оновлення агентів з бекенду:', error);
+      throw error;
+    }
+  }, [activeAgentId]);
+
   const activeAgent = activeAgentId ? agents.find(a => a.id === activeAgentId) || null : null;
 
   return (
@@ -270,6 +338,7 @@ export function AgentsProvider({ children }: { children: React.ReactNode }) {
         deleteAgent,
         setActiveAgent,
         refreshAgentTunnelUrl,
+        refreshAgents,
       }}
     >
       {children}

@@ -7,6 +7,8 @@ export interface Agent {
   isActive: boolean;
   createdAt: string;
   lastUsed?: string;
+  status?: string; // Статус агента (online/offline)
+  lastSeen?: string; // Останній раз коли агент був активний
 }
 
 export interface AgentsContextType {
@@ -17,5 +19,6 @@ export interface AgentsContextType {
   deleteAgent: (id: string) => void;
   setActiveAgent: (id: string | null) => void;
   refreshAgentTunnelUrl: (agentId: string) => Promise<void>;
+  refreshAgents: () => Promise<void>;
 }
 
