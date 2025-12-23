@@ -113,7 +113,7 @@ let failedQueue: Array<{
 // Callback для оповіщення про успішний refresh токену
 let onTokenRefreshed: ((token: string) => void) | null = null;
 
-export function setOnTokenRefreshed(callback: (token: string) => void) {
+export function setOnTokenRefreshed(callback: ((token: string) => void) | null) {
   onTokenRefreshed = callback;
 }
 
