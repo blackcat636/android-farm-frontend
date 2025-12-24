@@ -2,9 +2,9 @@
 
 import { Card, Button, Space, message } from 'antd';
 import { useRouter } from 'next/navigation';
-import { PlayCircleOutlined, HistoryOutlined, ArrowLeftOutlined, EyeOutlined, LikeOutlined, CommentOutlined, UserAddOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, EyeOutlined, UserAddOutlined, CommentOutlined, HistoryOutlined } from '@ant-design/icons';
 
-export default function YouTubePlatformPage() {
+export default function TikTokPlatformPage() {
   const router = useRouter();
 
   const handleInDevelopment = () => {
@@ -25,38 +25,16 @@ export default function YouTubePlatformPage() {
           Back to Platforms
         </Button>
       </div>
-      <h1>YouTube Platform</h1>
+      <h1>TikTok Platform</h1>
       <Card style={{ marginTop: 24 }}>
         <h2>Available Actions</h2>
         <Space size="middle" wrap style={{ marginTop: 16 }}>
-          <Button
-            type="primary"
-            size="large"
-            icon={<PlayCircleOutlined />}
-            onClick={() => router.push('/platforms/youtube/search')}
-          >
-            Perform Search (search)
-          </Button>
           <Button
             size="large"
             icon={<EyeOutlined />}
             onClick={handleInDevelopment}
           >
-            🚧 Watch Video
-          </Button>
-          <Button
-            size="large"
-            icon={<LikeOutlined />}
-            onClick={handleInDevelopment}
-          >
-            🚧 Like
-          </Button>
-          <Button
-            size="large"
-            icon={<CommentOutlined />}
-            onClick={handleInDevelopment}
-          >
-            🚧 Comment
+            🚧 View
           </Button>
           <Button
             size="large"
@@ -64,6 +42,13 @@ export default function YouTubePlatformPage() {
             onClick={handleInDevelopment}
           >
             🚧 Subscribe
+          </Button>
+          <Button
+            size="large"
+            icon={<CommentOutlined />}
+            onClick={handleInDevelopment}
+          >
+            🚧 Comments
           </Button>
           <Button
             size="large"

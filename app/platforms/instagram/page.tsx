@@ -2,7 +2,7 @@
 
 import { Card, Button, Space, message } from 'antd';
 import { useRouter } from 'next/navigation';
-import { FileTextOutlined, LoginOutlined, HistoryOutlined, LikeOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import { FileTextOutlined, LoginOutlined, HistoryOutlined, LikeOutlined, ArrowLeftOutlined, CommentOutlined, EyeOutlined, UserAddOutlined } from '@ant-design/icons';
 import { createBackendClient, tokenStorage } from '@/lib/api/backend';
 import { useState } from 'react';
 
@@ -39,6 +39,14 @@ export default function InstagramPlatformPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleInDevelopment = () => {
+    message.warning({
+      content: '🚧 Coming Soon - This feature is under development and will be available shortly',
+      duration: 5,
+      style: { marginTop: '20vh' },
+    });
   };
 
   return (
@@ -84,6 +92,27 @@ export default function InstagramPlatformPage() {
             loading={loading}
           >
             Check Posts Without Likes
+          </Button>
+          <Button
+            size="large"
+            icon={<CommentOutlined />}
+            onClick={handleInDevelopment}
+          >
+            🚧 Comment Post
+          </Button>
+          <Button
+            size="large"
+            icon={<EyeOutlined />}
+            onClick={handleInDevelopment}
+          >
+            🚧 View Post
+          </Button>
+          <Button
+            size="large"
+            icon={<UserAddOutlined />}
+            onClick={handleInDevelopment}
+          >
+            🚧 Subscribe
           </Button>
           <Button
             size="large"
