@@ -95,7 +95,6 @@ export default function RootLayout({
                 boxShadow: 'none',
                 paddingInline: 20,
                 paddingBlock: 8,
-                height: 40,
                 fontSize: 14,
                 controlHeight: 40,
                 controlHeightLG: 48,
