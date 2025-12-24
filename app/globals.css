@@ -402,3 +402,94 @@ h2 {
 .fade-in {
   animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* Мобільна адаптивність */
+@media (max-width: 768px) {
+  body {
+    font-size: 14px;
+  }
+
+  h1 {
+    font-size: 24px;
+    margin-bottom: 20px;
+  }
+
+  h2 {
+    font-size: 18px;
+    margin-bottom: 16px;
+  }
+
+  /* Адаптивні кнопки */
+  .ant-btn-lg {
+    height: 44px;
+    padding: 0 20px;
+    font-size: 14px;
+  }
+
+  /* Адаптивні картки */
+  .ant-card {
+    margin-top: 16px !important;
+  }
+
+  .ant-card .ant-card-head {
+    padding: 16px !important;
+  }
+
+  .ant-card .ant-card-body {
+    padding: 16px !important;
+  }
+
+  /* Виправлення для таблиць на мобільних - білий фон при горизонтальному скролі */
+  .fade-in {
+    position: relative;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    /* Забезпечуємо білий фон на всю ширину при скролі */
+    background: #ffffff;
+    /* Мінімальна ширина для покриття таблиці */
+    min-width: 100%;
+  }
+
+  /* Обгортка для таблиць з білим фоном при скролі */
+  .ant-table-wrapper {
+    position: relative;
+    background: #ffffff;
+    border-radius: 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    /* Розтягуємо білий фон на всю ширину таблиці */
+    min-width: 100%;
+  }
+
+  /* Додатковий білий фон для таблиць при горизонтальному скролі */
+  .ant-table-container {
+    background: #ffffff;
+  }
+
+  /* Забезпечуємо білий фон навіть за межами видимої області через псевдоелемент */
+  .fade-in {
+    background-image: 
+      linear-gradient(to right, #ffffff 0%, #ffffff 100%),
+      linear-gradient(to right, #ffffff 0%, #ffffff 100%);
+    background-size: 200vw 100%;
+    background-position: left center, right center;
+    background-repeat: no-repeat;
+  }
+}
+
+@media (max-width: 640px) {
+  h1 {
+    font-size: 20px;
+  }
+
+  .ant-btn {
+    font-size: 13px;
+    padding: 0 12px;
+    height: 36px;
+  }
+
+  .ant-btn-lg {
+    height: 40px;
+    padding: 0 16px;
+  }
+}
