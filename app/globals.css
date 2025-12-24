@@ -446,34 +446,38 @@ h2 {
     -webkit-overflow-scrolling: touch;
     /* Забезпечуємо білий фон на всю ширину при скролі */
     background: #ffffff;
-    /* Мінімальна ширина для покриття таблиці */
-    min-width: 100%;
+    /* Розтягуємо контейнер на всю ширину при скролі */
+    width: 100%;
+    max-width: 100vw;
   }
 
-  /* Обгортка для таблиць з білим фоном при скролі */
+  /* Обгортка для таблиць з негативними відступами для повного білого фону */
   .ant-table-wrapper {
     position: relative;
     background: #ffffff;
     border-radius: 8px;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    /* Розтягуємо білий фон на всю ширину таблиці */
-    min-width: 100%;
+    /* Негативні відступи для розтягування білого фону за межі padding */
+    margin-left: -20px;
+    margin-right: -20px;
+    padding-left: 20px;
+    padding-right: 20px;
+    /* Розтягуємо на всю ширину */
+    width: calc(100% + 40px);
+    min-width: calc(100% + 40px);
   }
 
-  /* Додатковий білий фон для таблиць при горизонтальному скролі */
-  .ant-table-container {
+  /* Додатковий білий фон для таблиць */
+  .ant-table-container,
+  .ant-table-content,
+  .ant-table-body {
     background: #ffffff;
   }
 
-  /* Забезпечуємо білий фон навіть за межами видимої області через псевдоелемент */
-  .fade-in {
-    background-image: 
-      linear-gradient(to right, #ffffff 0%, #ffffff 100%),
-      linear-gradient(to right, #ffffff 0%, #ffffff 100%);
-    background-size: 200vw 100%;
-    background-position: left center, right center;
-    background-repeat: no-repeat;
+  /* Забезпечуємо білий фон для всього контенту при скролі */
+  .ant-layout-content {
+    background: #ffffff;
   }
 }
 
