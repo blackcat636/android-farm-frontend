@@ -68,27 +68,59 @@ export default function AppHeader() {
   ];
 
   return (
-    <Header style={{ background: '#fff', padding: '0 24px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <div style={{ fontSize: '18px', fontWeight: 500 }}>Agent Control Panel</div>
-      <Space>
+    <Header style={{ 
+      background: '#ffffff', 
+      padding: '0 40px', 
+      borderBottom: '1px solid #e2e8f0', 
+      display: 'flex', 
+      justifyContent: 'space-between', 
+      alignItems: 'center',
+      height: 72,
+      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+      position: 'sticky',
+      top: 0,
+      zIndex: 100,
+    }}>
+      <div style={{ 
+        fontSize: '18px', 
+        fontWeight: 600,
+        background: 'linear-gradient(135deg, #0a0e27 0%, #1a1a1a 100%)',
+        WebkitBackgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+        backgroundClip: 'text',
+        letterSpacing: '-0.02em',
+      }}>
+        Agent Control Panel
+      </div>
+      <Space size="middle">
         <Button
           icon={<SyncOutlined />}
           onClick={handleSyncAgents}
           loading={syncing}
           title="Synchronize agents with Cloudflare KV"
+          style={{
+            fontWeight: 500,
+          }}
         >
           Sync Agents
         </Button>
         <AgentSelector />
         {user ? (
           <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-            <Button type="text" icon={<UserOutlined />}>
+            <Button 
+              type="text" 
+              icon={<UserOutlined />}
+              style={{
+                fontWeight: 500,
+                color: '#1a1a1a',
+              }}
+            >
               {user.email}
             </Button>
           </Dropdown>
         ) : (
           <Link href="/login">
-            <Button type="primary">Login</Button>
+            <Button type="primary" style={{ fontWeight: 500 }}>Login</Button>
           </Link>
         )}
       </Space>

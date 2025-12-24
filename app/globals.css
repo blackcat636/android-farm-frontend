@@ -1,4 +1,404 @@
+* {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
   padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+  color: #1a1a1a;
+}
+
+/* Покращена типографіка */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  margin: 0;
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: 32px;
+  font-weight: 700;
+  color: #0a0e27;
+  margin-bottom: 32px;
+  background: linear-gradient(135deg, #0a0e27 0%, #1a1a1a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+h2 {
+  font-size: 22px;
+  font-weight: 600;
+  color: #161b22;
+  margin-bottom: 20px;
+}
+
+/* Сучасні скроллбари */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f3f5;
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #c1c1c1 0%, #a8a8a8 100%);
+  border-radius: 5px;
+  border: 2px solid #f1f3f5;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #a8a8a8 0%, #8c8c8c 100%);
+}
+
+/* Плавні переходи з покращеннями */
+* {
+  transition: background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Hover ефекти для карток */
+.ant-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ant-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* Покращені кнопки */
+.ant-btn {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 500;
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px !important;
+  font-size: 14px;
+  height: 40px;
+  padding: 0 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.ant-btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.ant-btn:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+.ant-btn:hover {
+  transform: translateY(-2px);
+}
+
+.ant-btn:active {
+  transform: translateY(0);
+}
+
+/* Primary кнопки з градієнтом */
+.ant-btn-primary {
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+  border: none !important;
+  box-shadow: 0 4px 16px rgba(24, 144, 255, 0.35);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.ant-btn-primary:hover {
+  background: linear-gradient(135deg, #40a9ff 0%, #1890ff 100%);
+  box-shadow: 0 8px 24px rgba(24, 144, 255, 0.45);
+  transform: translateY(-3px);
+  color: #ffffff !important;
+}
+
+.ant-btn-primary:active {
+  background: linear-gradient(135deg, #096dd9 0%, #0050b3 100%);
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.3);
+}
+
+/* Default кнопки */
+.ant-btn-default {
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0 !important;
+  color: #0a0e27;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.ant-btn-default:hover {
+  background: #f8fafc;
+  border-color: #1890ff !important;
+  color: #1890ff;
+  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.ant-btn-default:active {
+  background: #f1f5f9;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* Link кнопки */
+.ant-btn-link {
+  color: #1890ff;
+  padding: 0 8px;
+  height: auto;
+}
+
+.ant-btn-link:hover {
+  color: #40a9ff !important;
+  background: rgba(24, 144, 255, 0.06);
+  transform: translateX(2px);
+}
+
+/* Спеціальні стилі для кнопок "Details" в заголовках карток */
+.ant-card .ant-card-head-title .ant-btn-link,
+.ant-card-head-title .ant-btn-link {
+  color: #6366f1;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 6px 16px;
+  height: 36px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(99, 102, 241, 0.04) 100%);
+  border: 1.5px solid rgba(99, 102, 241, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  overflow: hidden;
+  margin-left: auto;
+}
+
+.ant-card .ant-card-head-title .ant-btn-link::before,
+.ant-card-head-title .ant-btn-link::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.5s;
+}
+
+.ant-card .ant-card-head-title .ant-btn-link:hover,
+.ant-card-head-title .ant-btn-link:hover {
+  color: #4f46e5 !important;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(99, 102, 241, 0.08) 100%);
+  border-color: rgba(99, 102, 241, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+}
+
+.ant-card .ant-card-head-title .ant-btn-link:hover::before,
+.ant-card-head-title .ant-btn-link:hover::before {
+  left: 100%;
+}
+
+.ant-card .ant-card-head-title .ant-btn-link:active,
+.ant-card-head-title .ant-btn-link:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.15);
+}
+
+/* Анімація стрілки в кнопках Details */
+.ant-card .ant-card-head-title .ant-btn-link::after,
+.ant-card-head-title .ant-btn-link::after {
+  content: '→';
+  display: inline-block;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-left: 4px;
+}
+
+.ant-card .ant-card-head-title .ant-btn-link:hover::after,
+.ant-card-head-title .ant-btn-link:hover::after {
+  transform: translateX(4px);
+}
+
+/* Large кнопки */
+.ant-btn-lg {
+  height: 48px;
+  padding: 0 28px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 10px !important;
+}
+
+.ant-btn-lg.ant-btn-primary {
+  box-shadow: 0 6px 20px rgba(24, 144, 255, 0.4);
+}
+
+.ant-btn-lg.ant-btn-primary:hover {
+  box-shadow: 0 10px 28px rgba(24, 144, 255, 0.5);
+  transform: translateY(-4px);
+}
+
+.ant-btn-lg.ant-btn-default {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.ant-btn-lg.ant-btn-default:hover {
+  box-shadow: 0 6px 16px rgba(24, 144, 255, 0.2);
+  transform: translateY(-3px);
+}
+
+/* Кнопки з іконками */
+.ant-btn .anticon {
+  font-size: 16px;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ant-btn:hover .anticon {
+  transform: scale(1.1);
+}
+
+.ant-btn-primary:hover .anticon {
+  transform: scale(1.15) rotate(5deg);
+}
+
+/* Disabled кнопки */
+.ant-btn:disabled,
+.ant-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.ant-btn:disabled:hover,
+.ant-btn.disabled:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Loading кнопки */
+.ant-btn-loading {
+  pointer-events: none;
+}
+
+.ant-btn-loading .anticon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Спеціальні стилі для кнопок в розробці - застосовується через className */
+.ant-btn.in-development {
+  opacity: 0.85;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border: 1.5px solid #dee2e6 !important;
+  color: #6c757d;
+}
+
+.ant-btn.in-development:hover {
+  opacity: 1;
+  background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+  border-color: #adb5bd !important;
+  color: #495057;
+}
+
+/* Пульсація для важливих кнопок */
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 4px 16px rgba(24, 144, 255, 0.35);
+  }
+  50% {
+    box-shadow: 0 4px 16px rgba(24, 144, 255, 0.5);
+  }
+}
+
+.ant-btn-primary.ant-btn-lg {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.ant-btn-primary.ant-btn-lg:hover {
+  animation: none;
+}
+
+/* Ефект ripple при кліку */
+@keyframes ripple {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+.ant-btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.ant-btn:active::after {
+  animation: ripple 0.6s ease-out;
+  width: 100px;
+  height: 100px;
+}
+
+/* Покращені інпути */
+.ant-input:focus,
+.ant-input-focused {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1);
+}
+
+/* Анімації */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }

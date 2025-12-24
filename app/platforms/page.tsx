@@ -64,18 +64,35 @@ export default function PlatformsPage() {
       
       {/* Instagram */}
       <Card 
-        title="Instagram" 
-        style={{ marginTop: 24 }}
-        extra={
-          <Button
-            type="link"
-            onClick={() => router.push('/platforms/instagram')}
-          >
-            Details
-          </Button>
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontWeight: 600, fontSize: '20px', color: '#0a0e27', letterSpacing: '-0.01em' }}>Instagram</span>
+            <Button
+              type="link"
+              onClick={() => router.push('/platforms/instagram')}
+            >
+              Details
+            </Button>
+          </div>
         }
+        style={{ 
+          marginTop: 24,
+          border: '1px solid #e2e8f0',
+          borderRadius: 12,
+          overflow: 'hidden',
+        }}
+        styles={{
+          header: {
+            background: 'linear-gradient(135deg, #fafbfc 0%, #ffffff 100%)',
+            borderBottom: '1px solid #e2e8f0',
+            padding: '20px 24px',
+          },
+          body: {
+            padding: '24px',
+          },
+        }}
       >
-        <h2>Main Actions</h2>
+        <h2 style={{ fontWeight: 600, fontSize: '16px', color: '#161b22', marginBottom: 20, marginTop: 0 }}>Main Actions</h2>
         <Space size="middle" wrap style={{ marginTop: 16 }}>
           <Button
             type="primary"
@@ -126,18 +143,35 @@ export default function PlatformsPage() {
 
       {/* YouTube */}
       <Card 
-        title="YouTube" 
-        style={{ marginTop: 24 }}
-        extra={
-          <Button
-            type="link"
-            onClick={() => router.push('/platforms/youtube')}
-          >
-            Details
-          </Button>
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontWeight: 600, fontSize: '20px', color: '#0a0e27', letterSpacing: '-0.01em' }}>YouTube</span>
+            <Button
+              type="link"
+              onClick={() => router.push('/platforms/youtube')}
+            >
+              Details
+            </Button>
+          </div>
         }
+        style={{ 
+          marginTop: 24,
+          border: '1px solid #e2e8f0',
+          borderRadius: 12,
+          overflow: 'hidden',
+        }}
+        styles={{
+          header: {
+            background: 'linear-gradient(135deg, #fafbfc 0%, #ffffff 100%)',
+            borderBottom: '1px solid #e2e8f0',
+            padding: '20px 24px',
+          },
+          body: {
+            padding: '24px',
+          },
+        }}
       >
-        <h2>Main Actions</h2>
+        <h2 style={{ fontWeight: 600, fontSize: '16px', color: '#161b22', marginBottom: 20, marginTop: 0 }}>Main Actions</h2>
         <Space size="middle" wrap style={{ marginTop: 16 }}>
           <Button
             type="primary"
@@ -180,18 +214,35 @@ export default function PlatformsPage() {
 
       {/* Facebook */}
       <Card 
-        title="Facebook" 
-        style={{ marginTop: 24 }}
-        extra={
-          <Button
-            type="link"
-            onClick={() => router.push('/platforms/facebook')}
-          >
-            Details
-          </Button>
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontWeight: 600, fontSize: '20px', color: '#0a0e27', letterSpacing: '-0.01em' }}>Facebook</span>
+            <Button
+              type="link"
+              onClick={() => router.push('/platforms/facebook')}
+            >
+              Details
+            </Button>
+          </div>
         }
+        style={{ 
+          marginTop: 24,
+          border: '1px solid #e2e8f0',
+          borderRadius: 12,
+          overflow: 'hidden',
+        }}
+        styles={{
+          header: {
+            background: 'linear-gradient(135deg, #fafbfc 0%, #ffffff 100%)',
+            borderBottom: '1px solid #e2e8f0',
+            padding: '20px 24px',
+          },
+          body: {
+            padding: '24px',
+          },
+        }}
       >
-        <h2>Main Actions</h2>
+        <h2 style={{ fontWeight: 600, fontSize: '16px', color: '#161b22', marginBottom: 20, marginTop: 0 }}>Main Actions</h2>
         <Space size="middle" wrap style={{ marginTop: 16 }}>
           <Button
             size="large"
@@ -219,18 +270,35 @@ export default function PlatformsPage() {
 
       {/* Twitter/X */}
       <Card 
-        title="Twitter (X)" 
-        style={{ marginTop: 24 }}
-        extra={
-          <Button
-            type="link"
-            onClick={() => router.push('/platforms/twitter')}
-          >
-            Details
-          </Button>
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontWeight: 600, fontSize: '20px', color: '#0a0e27', letterSpacing: '-0.01em' }}>Twitter (X)</span>
+            <Button
+              type="link"
+              onClick={() => router.push('/platforms/twitter')}
+            >
+              Details
+            </Button>
+          </div>
         }
+        style={{ 
+          marginTop: 24,
+          border: '1px solid #e2e8f0',
+          borderRadius: 12,
+          overflow: 'hidden',
+        }}
+        styles={{
+          header: {
+            background: 'linear-gradient(135deg, #fafbfc 0%, #ffffff 100%)',
+            borderBottom: '1px solid #e2e8f0',
+            padding: '20px 24px',
+          },
+          body: {
+            padding: '24px',
+          },
+        }}
       >
-        <h2>Main Actions</h2>
+        <h2 style={{ fontWeight: 600, fontSize: '16px', color: '#161b22', marginBottom: 20, marginTop: 0 }}>Main Actions</h2>
         <Space size="middle" wrap style={{ marginTop: 16 }}>
           <Button
             size="large"
@@ -258,18 +326,35 @@ export default function PlatformsPage() {
 
       {/* TikTok */}
       <Card 
-        title="TikTok" 
-        style={{ marginTop: 24 }}
-        extra={
-          <Button
-            type="link"
-            onClick={() => router.push('/platforms/tiktok')}
-          >
-            Details
-          </Button>
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontWeight: 600, fontSize: '20px', color: '#0a0e27', letterSpacing: '-0.01em' }}>TikTok</span>
+            <Button
+              type="link"
+              onClick={() => router.push('/platforms/tiktok')}
+            >
+              Details
+            </Button>
+          </div>
         }
+        style={{ 
+          marginTop: 24,
+          border: '1px solid #e2e8f0',
+          borderRadius: 12,
+          overflow: 'hidden',
+        }}
+        styles={{
+          header: {
+            background: 'linear-gradient(135deg, #fafbfc 0%, #ffffff 100%)',
+            borderBottom: '1px solid #e2e8f0',
+            padding: '20px 24px',
+          },
+          body: {
+            padding: '24px',
+          },
+        }}
       >
-        <h2>Main Actions</h2>
+        <h2 style={{ fontWeight: 600, fontSize: '16px', color: '#161b22', marginBottom: 20, marginTop: 0 }}>Main Actions</h2>
         <Space size="middle" wrap style={{ marginTop: 16 }}>
           <Button
             size="large"
