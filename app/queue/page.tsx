@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Table, Tag, Select, Card, Statistic, Row, Col, Button, Popconfirm, Space } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useRouter } from 'next/navigation';
-import { DeleteOutlined, ReloadOutlined, RedoOutlined } from '@ant-design/icons';
+import { DeleteOutlined, ReloadOutlined, RedoOutlined, StopOutlined } from '@ant-design/icons';
 import { createBackendClient, tokenStorage, type Task } from '@/lib/api/backend';
 import { useAuth } from '@/contexts/AuthContext';
 import Loading from '@/components/common/Loading';
@@ -111,6 +111,22 @@ export default function QueuePage() {
       fetchTasks(pagination.current);
     } catch (err: any) {
       message.error(err.message || 'Error retrying task');
+    }
+  };
+
+  const handleAddToBlacklist = async (taskId: string) => {
+    try {
+      const token = tokenStorage.get();
+      if (!token) {
+        throw new Error('Authorization required');
+      }
+
+      const backendClient = createBackendClient(token);
+      await backendClient.addTaskToBlacklist(taskId, `Auto-blacklisted from failed task ${taskId}`);
+      message.success('Task added to blacklist');
+      fetchTasks(pagination.current);
+    } catch (err: any) {
+      message.error(err.message || 'Error adding task to blacklist');
     }
   };
 
@@ -273,6 +289,36 @@ export default function QueuePage() {
               </Button>
             </Popconfirm>
           )}
+          <Popconfirm
+            title="Add task to blacklist?"
+            description="This will prevent similar tasks from being created in the future."
+            onConfirm={() => handleAddToBlacklist(record.id)}
+            okText="Yes"
+            cancelText="No"
+          >
+            <Button
+              type="primary"
+              icon={<StopOutlined />}
+              size="small"
+              style={{
+                fontWeight: 'bold',
+                backgroundColor: '#000000',
+                borderColor: '#000000',
+                color: '#ffffff',
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.3)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#262626';
+                e.currentTarget.style.borderColor = '#262626';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#000000';
+                e.currentTarget.style.borderColor = '#000000';
+              }}
+            >
+              Blacklist
+            </Button>
+          </Popconfirm>
         </Space>
       ),
     },

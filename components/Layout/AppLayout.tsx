@@ -2,7 +2,7 @@
 
 import { Layout, Menu } from 'antd';
 import { usePathname, useRouter } from 'next/navigation';
-import { DashboardOutlined, AppstoreOutlined, MobileOutlined, HistoryOutlined, UnorderedListOutlined, UserOutlined, HeartOutlined, KeyOutlined, SafetyOutlined } from '@ant-design/icons';
+import { DashboardOutlined, AppstoreOutlined, MobileOutlined, HistoryOutlined, UnorderedListOutlined, UserOutlined, HeartOutlined, KeyOutlined, SafetyOutlined, StopOutlined } from '@ant-design/icons';
 import AppHeader from './AppHeader';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
@@ -74,6 +74,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
       key: '/api-keys',
       icon: <KeyOutlined />,
       label: 'API Keys',
+    },
+    {
+      key: '/blacklist',
+      icon: <StopOutlined />,
+      label: 'Blacklist',
     },
   ];
 

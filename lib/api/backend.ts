@@ -701,6 +701,37 @@ export function createBackendClient(token: string) {
         const response = await api.post('/api/posts/instagram/like', data);
         return response.data;
       },
+
+      // Чорний список задач
+      async getBlacklist(): Promise<BlacklistEntry[]> {
+        const response = await api.get<BlacklistEntry[]>('/api/queue/blacklist');
+        return response.data;
+      },
+
+      async getBlacklistEntry(id: string): Promise<BlacklistEntry> {
+        const response = await api.get<BlacklistEntry>(`/api/queue/blacklist/${id}`);
+        return response.data;
+      },
+
+      async createBlacklistEntry(data: CreateBlacklistEntryDto): Promise<BlacklistEntry> {
+        const response = await api.post<BlacklistEntry>('/api/queue/blacklist', data);
+        return response.data;
+      },
+
+      async updateBlacklistEntry(id: string, data: UpdateBlacklistEntryDto): Promise<BlacklistEntry> {
+        const response = await api.put<BlacklistEntry>(`/api/queue/blacklist/${id}`, data);
+        return response.data;
+      },
+
+      async deleteBlacklistEntry(id: string): Promise<{ message: string }> {
+        const response = await api.delete<{ message: string }>(`/api/queue/blacklist/${id}`);
+        return response.data;
+      },
+
+      async addTaskToBlacklist(taskId: string, reason?: string): Promise<BlacklistEntry> {
+        const response = await api.post<BlacklistEntry>(`/api/queue/blacklist/from-task/${taskId}`, { reason });
+        return response.data;
+      },
     };
   }
 
@@ -876,6 +907,41 @@ export interface CaptchaRequest {
     platform: string;
     status: string;
   } | null;
+}
+
+// Чорний список
+export interface BlacklistEntry {
+  id: string;
+  user_id?: string;
+  platform: string;
+  action: string;
+  params?: any;
+  account_id?: string;
+  emulator_id?: string;
+  agent_id?: string;
+  reason?: string;
+  created_at: string;
+  created_by?: string;
+  match_params_exactly: boolean;
+  is_active: boolean;
+}
+
+export interface CreateBlacklistEntryDto {
+  platform: string;
+  action: string;
+  params?: any;
+  account_id?: string;
+  emulator_id?: string;
+  agent_id?: string;
+  reason?: string;
+  match_params_exactly?: boolean;
+  user_id?: string;
+}
+
+export interface UpdateBlacklistEntryDto {
+  reason?: string;
+  is_active?: boolean;
+  match_params_exactly?: boolean;
 }
 
 // Зберігання токенів
