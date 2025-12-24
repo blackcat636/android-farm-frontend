@@ -413,6 +413,32 @@ export default function QueuePage() {
                 <div>
                   <p><strong>Result:</strong></p>
                   <pre>{JSON.stringify(record.result, null, 2)}</pre>
+                  {record.result.screenshot_url && (
+                    <div style={{ marginTop: 16 }}>
+                      <p><strong>Screenshot:</strong></p>
+                      <img
+                        src={record.result.screenshot_url}
+                        alt="Task screenshot"
+                        style={{
+                          maxWidth: '100%',
+                          maxHeight: '400px',
+                          border: '1px solid #d9d9d9',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                        }}
+                        onClick={() => window.open(record.result.screenshot_url, '_blank')}
+                        onError={(e) => {
+                          console.error('Failed to load screenshot:', record.result.screenshot_url);
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                      <p style={{ marginTop: 8, fontSize: '12px', color: '#666' }}>
+                        <a href={record.result.screenshot_url} target="_blank" rel="noopener noreferrer">
+                          Open in new tab
+                        </a>
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
               <p><strong>Created:</strong> {new Date(record.created_at).toLocaleString('en-US')}</p>
