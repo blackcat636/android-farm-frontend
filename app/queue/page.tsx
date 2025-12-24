@@ -264,10 +264,28 @@ export default function QueuePage() {
               cancelText="No"
             >
               <Button
-                type="text"
+                className="cancel-button"
+                type="primary"
                 danger
                 icon={<DeleteOutlined />}
                 size="small"
+                style={{
+                  fontWeight: 600,
+                  backgroundColor: '#ff4d4f',
+                  borderColor: '#ff4d4f',
+                  color: '#ffffff',
+                  boxShadow: '0 2px 8px rgba(255, 77, 79, 0.3)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#ff7875';
+                  e.currentTarget.style.borderColor = '#ff7875';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 77, 79, 0.4)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#ff4d4f';
+                  e.currentTarget.style.borderColor = '#ff4d4f';
+                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(255, 77, 79, 0.3)';
+                }}
               >
                 Cancel
               </Button>
@@ -297,23 +315,25 @@ export default function QueuePage() {
             cancelText="No"
           >
             <Button
-              type="primary"
+              className="blacklist-button"
               icon={<StopOutlined />}
               size="small"
               style={{
-                fontWeight: 'bold',
+                fontWeight: 600,
                 backgroundColor: '#000000',
                 borderColor: '#000000',
                 color: '#ffffff',
-                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.3)',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.backgroundColor = '#262626';
                 e.currentTarget.style.borderColor = '#262626';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.4)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.backgroundColor = '#000000';
                 e.currentTarget.style.borderColor = '#000000';
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.3)';
               }}
             >
               Blacklist

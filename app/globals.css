@@ -298,6 +298,42 @@ h2 {
   box-shadow: none !important;
 }
 
+/* Спеціальна кнопка Cancel - червона */
+.cancel-button {
+  background: #ff4d4f !important;
+  border-color: #ff4d4f !important;
+  color: #ffffff !important;
+}
+
+.cancel-button:hover {
+  background: #ff7875 !important;
+  border-color: #ff7875 !important;
+  color: #ffffff !important;
+}
+
+.cancel-button:active {
+  background: #ff4d4f !important;
+  border-color: #ff4d4f !important;
+}
+
+/* Спеціальна кнопка Blacklist - чорна */
+.blacklist-button {
+  background: #000000 !important;
+  border-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+.blacklist-button:hover {
+  background: #262626 !important;
+  border-color: #262626 !important;
+  color: #ffffff !important;
+}
+
+.blacklist-button:active {
+  background: #1a1a1a !important;
+  border-color: #1a1a1a !important;
+}
+
 /* Loading кнопки */
 .ant-btn-loading {
   pointer-events: none;
