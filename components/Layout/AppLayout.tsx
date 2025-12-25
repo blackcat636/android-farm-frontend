@@ -20,6 +20,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const { user } = useAuth();
   const [isMobile, setIsMobile] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   // Публічні роути, які не потребують авторизації
   const publicRoutes = ['/login', '/register'];
@@ -93,6 +94,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
   };
 
   useEffect(() => {
+    // Перевірка, чи код виконується на клієнті
+    if (typeof window === 'undefined') return;
+    
+    setMounted(true);
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
       if (window.innerWidth >= 768) {
@@ -140,7 +145,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     <ProtectedRoute>
       <Layout style={{ minHeight: '100vh', background: '#f5f7fa' }}>
         {/* Desktop Sider */}
-        {!isMobile && (
+        {mounted && !isMobile && (
           <Sider
             collapsible
             theme="light"
@@ -162,7 +167,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         )}
 
         {/* Mobile Drawer */}
-        {isMobile && (
+        {mounted && isMobile && (
           <Drawer
             title={
               <div style={{ 
@@ -193,7 +198,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         )}
 
         <Layout style={{ 
-          marginLeft: isMobile ? 0 : 260, 
+          marginLeft: mounted && !isMobile ? 260 : 0, 
           background: 'transparent',
           transition: 'margin-left 0.3s ease',
         }}>

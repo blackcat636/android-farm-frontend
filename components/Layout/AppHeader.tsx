@@ -21,8 +21,13 @@ export default function AppHeader({ onMenuClick }: AppHeaderProps) {
   const [syncing, setSyncing] = React.useState(false);
   const [isSmallScreen, setIsSmallScreen] = React.useState(false);
   const [isMobile, setIsMobile] = React.useState(false);
+  const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
+    // Перевірка, чи код виконується на клієнті
+    if (typeof window === 'undefined') return;
+    
+    setMounted(true);
     const checkScreen = () => {
       const width = window.innerWidth;
       setIsSmallScreen(width < 640);
@@ -145,7 +150,7 @@ export default function AppHeader({ onMenuClick }: AppHeaderProps) {
         flexShrink: 0,
         minWidth: 0,
       }}>
-        {!isMobile && (
+        {mounted && !isMobile && (
           <Button
             icon={<SyncOutlined />}
             onClick={handleSyncAgents}
@@ -159,7 +164,7 @@ export default function AppHeader({ onMenuClick }: AppHeaderProps) {
             {!isSmallScreen && 'Sync Agents'}
           </Button>
         )}
-        {!isMobile && (
+        {mounted && !isMobile && (
           <div style={{ flexShrink: 0 }}>
             <AgentSelector />
           </div>
