@@ -4,20 +4,33 @@ import { useEffect, useState } from 'react';
 import { Table, Tag, Alert, Space, Tabs, Switch, Tooltip, Select, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { type Emulator } from '@/lib/api/agent';
-import { useAgents } from '@/contexts/AgentsContext';
+import { useMemo } from 'react';
 import { useAllEmulators } from '@/hooks/useAllEmulators';
 import { createBackendClient, tokenStorage, type BackendEmulator } from '@/lib/api/backend';
 import Loading from '@/components/common/Loading';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 
 export default function EmulatorsPage() {
-  const { agents } = useAgents();
   const [includeHiddenLive, setIncludeHiddenLive] = useState(false);
   const [agentFilter, setAgentFilter] = useState<string>('');
   const { emulators, loading, error, agentErrors } = useAllEmulators(false, includeHiddenLive);
   const [backendEmulators, setBackendEmulators] = useState<BackendEmulator[]>([]);
   const [loadingBackend, setLoadingBackend] = useState(false);
   const [visibilityUpdating, setVisibilityUpdating] = useState<Record<string, boolean>>({});
+
+  const agentOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const list: { id: string; name: string }[] = [];
+    for (const e of emulators) {
+      const id = e.agentId ?? (e as any).agent_id;
+      const name = (e.agentName ?? (e as any).agent_name) || id;
+      if (id && !seen.has(id)) {
+        seen.add(id);
+        list.push({ id, name });
+      }
+    }
+    return list;
+  }, [emulators]);
 
   const filteredEmulators = agentFilter
     ? emulators.filter((e) => (e.agentId ?? (e as any).agent_id) === agentFilter)
@@ -112,10 +125,6 @@ export default function EmulatorsPage() {
       title: 'Агент',
       dataIndex: 'agent_id',
       key: 'agent_id',
-      render: (agentId: string) => {
-        const agent = agents.find((a) => a.id === agentId);
-        return agent?.name || agentId;
-      },
     },
     {
       title: 'ID емулятора',
@@ -182,7 +191,7 @@ export default function EmulatorsPage() {
                     onChange={(v) => setAgentFilter(v ?? '')}
                     options={[
                       { value: '', label: 'Усі агенти' },
-                      ...agents.map((a) => ({ value: a.id, label: a.name })),
+                      ...agentOptions.map((a) => ({ value: a.id, label: a.name })),
                     ]}
                   />
                   <Tooltip title="Показати емулятори з прихованою видимістю (з БД)">
@@ -198,19 +207,16 @@ export default function EmulatorsPage() {
                 </div>
                 {Object.keys(agentErrors).length > 0 && (
                   <Space direction="vertical" style={{ width: '100%', marginBottom: 16 }}>
-                    {Object.entries(agentErrors).map(([agentId, errorMsg]) => {
-                      const agent = agents.find((a) => a.id === agentId);
-                      return (
-                        <Alert
-                          key={agentId}
-                          message={`Помилка агента: ${agent?.name || agentId}`}
-                          description={errorMsg}
-                          type="warning"
-                          showIcon
-                          closable
-                        />
-                      );
-                    })}
+                    {Object.entries(agentErrors).map(([agentId, errorMsg]) => (
+                      <Alert
+                        key={agentId}
+                        message={`Помилка агента: ${agentId}`}
+                        description={errorMsg}
+                        type="warning"
+                        showIcon
+                        closable
+                      />
+                    ))}
                   </Space>
                 )}
                 <Table

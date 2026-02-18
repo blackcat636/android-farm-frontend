@@ -1,12 +1,12 @@
 'use client';
 
 import React from 'react';
-import { Layout, Space, Button, Dropdown, MenuProps, message } from 'antd';
-import { UserOutlined, LogoutOutlined, HistoryOutlined, SyncOutlined, KeyOutlined, MenuOutlined } from '@ant-design/icons';
+import { Layout, Button, Dropdown, MenuProps, message, Modal, Form, Input } from 'antd';
+import { UserOutlined, LogoutOutlined, HistoryOutlined, PlusOutlined, SyncOutlined, KeyOutlined, MenuOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import AgentSelector from '@/components/Agents/AgentSelector';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAgents } from '@/contexts/AgentsContext';
 import { createBackendClient, tokenStorage } from '@/lib/api/backend';
 
 const { Header } = Layout;
@@ -17,8 +17,11 @@ interface AppHeaderProps {
 
 export default function AppHeader({ onMenuClick }: AppHeaderProps) {
   const { user, signOut } = useAuth();
+  const { addAgent } = useAgents();
   const router = useRouter();
   const [syncing, setSyncing] = React.useState(false);
+  const [addModalOpen, setAddModalOpen] = React.useState(false);
+  const [form] = Form.useForm();
   const [isSmallScreen, setIsSmallScreen] = React.useState(false);
   const [isMobile, setIsMobile] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
@@ -51,20 +54,30 @@ export default function AppHeader({ onMenuClick }: AppHeaderProps) {
         message.error('Authorization required');
         return;
       }
-      
       const backendClient = createBackendClient(token);
       await backendClient.syncAgents();
       message.success('Agents successfully synchronized with Cloudflare KV');
-      // Reload page to show new agents
-      setTimeout(() => {
-        window.location.reload();
-      }, 500);
+      setTimeout(() => window.location.reload(), 500);
     } catch (error: any) {
       console.error('Error synchronizing agents:', error);
       message.error(error.response?.data?.message || 'Error synchronizing agents');
     } finally {
       setSyncing(false);
     }
+  };
+
+  const handleAddAgent = () => {
+    form.validateFields().then((values) => {
+      addAgent({
+        name: values.name,
+        url: values.url,
+        agentId: values.agentId || undefined,
+        isActive: false,
+      });
+      form.resetFields();
+      setAddModalOpen(false);
+      message.success('Agent added');
+    }).catch(() => {});
   };
 
   const userMenuItems: MenuProps['items'] = [
@@ -151,23 +164,24 @@ export default function AppHeader({ onMenuClick }: AppHeaderProps) {
         minWidth: 0,
       }}>
         {mounted && !isMobile && (
-          <Button
-            icon={<SyncOutlined />}
-            onClick={handleSyncAgents}
-            loading={syncing}
-            title="Synchronize agents with Cloudflare KV"
-            style={{
-              fontWeight: 500,
-              padding: onMenuClick ? '4px 8px' : undefined,
-            }}
-          >
-            {!isSmallScreen && 'Sync Agents'}
-          </Button>
-        )}
-        {mounted && !isMobile && (
-          <div style={{ flexShrink: 0 }}>
-            <AgentSelector />
-          </div>
+          <>
+            <Button
+              icon={<SyncOutlined />}
+              onClick={handleSyncAgents}
+              loading={syncing}
+              title="Synchronize agents with Cloudflare KV"
+              style={{ fontWeight: 500, padding: onMenuClick ? '4px 8px' : undefined }}
+            >
+              {!isSmallScreen && 'Sync Agents'}
+            </Button>
+            <Button
+              icon={<PlusOutlined />}
+              onClick={() => setAddModalOpen(true)}
+              style={{ fontWeight: 500, padding: onMenuClick ? '4px 8px' : undefined }}
+            >
+              {!isSmallScreen && 'Add Agent'}
+            </Button>
+          </>
         )}
         {user ? (
           <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
@@ -189,6 +203,33 @@ export default function AppHeader({ onMenuClick }: AppHeaderProps) {
           </Link>
         )}
       </div>
+      <Modal
+        title="Add Agent"
+        open={addModalOpen}
+        onOk={handleAddAgent}
+        onCancel={() => { setAddModalOpen(false); form.resetFields(); }}
+        okText="Add"
+        cancelText="Cancel"
+      >
+        <Form form={form} layout="vertical">
+          <Form.Item name="name" label="Agent Name" rules={[{ required: true, message: 'Enter agent name' }]}>
+            <Input placeholder="e.g. Server 1" />
+          </Form.Item>
+          <Form.Item
+            name="url"
+            label="Agent URL"
+            rules={[
+              { required: true, message: 'Enter agent URL' },
+              { type: 'url', message: 'Enter valid URL' },
+            ]}
+          >
+            <Input placeholder="https://agent.example.com or https://xxx.trycloudflare.com" />
+          </Form.Item>
+          <Form.Item name="agentId" label="Agent ID (optional)" tooltip="For Cloudflare KV tunnel URL lookup">
+            <Input placeholder="agent-hostname" />
+          </Form.Item>
+        </Form>
+      </Modal>
     </Header>
   );
 }
