@@ -6,8 +6,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { createBackendClient, tokenStorage } from '@/lib/api/backend';
 
 /**
- * Хук для отримання емуляторів з усіх агентів одним запитом (GET /api/proxy/emulators).
+ * Хук для отримання емуляторів з БД (GET /api/emulators, тільки з активних агентів).
  */
+const DEFAULT_ACTIVE_WITHIN_MINUTES = 15;
+
 export function useAllEmulators(onlyActive = true, includeHidden = false) {
   const { user } = useAuth();
   const [emulators, setEmulators] = useState<Emulator[]>([]);
@@ -30,16 +32,19 @@ export function useAllEmulators(onlyActive = true, includeHidden = false) {
         setLoading(true);
         setError(null);
 
-        const { emulators: list, errors: errs } = await backendClient.getAllEmulators({
+        const { emulators: list } = await backendClient.getAllEmulators({
           include_hidden: includeHidden,
+          active_within_minutes: DEFAULT_ACTIVE_WITHIN_MINUTES,
         });
-
-        setAgentErrors(errs || {});
 
         const normalized = (list || [])
           .filter((e: any) => !onlyActive || e.status === 'active')
           .map((e: any) => ({
-            ...e,
+            id: e.id,
+            name: e.emulator_name ?? e.emulator_id ?? e.id,
+            udid: e.udid ?? '',
+            deviceName: e.device_name ?? '',
+            status: (e.status === 'active' ? 'active' : 'inactive') as 'active' | 'inactive',
             agentId: e.agent_id ?? e.agentId,
             agentName: e.agent_name ?? e.agentName,
           }));
@@ -47,7 +52,6 @@ export function useAllEmulators(onlyActive = true, includeHidden = false) {
         setEmulators(normalized);
       } catch (err: any) {
         setError(err?.response?.data?.message || err?.message || 'Помилка завантаження емуляторів');
-        setAgentErrors({});
       } finally {
         setLoading(false);
       }

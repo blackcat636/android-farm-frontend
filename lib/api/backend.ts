@@ -432,17 +432,23 @@ export function createBackendClient(token: string) {
       return response.data;
     },
 
-    /** Емулятори з усіх агентів одним запитом. */
-    async getAllEmulators(params?: { include_hidden?: boolean }): Promise<{
+    /** Емулятори з БД (тільки з активних агентів за last_seen). */
+    async getAllEmulators(params?: {
+      include_hidden?: boolean;
+      active_within_minutes?: number;
+    }): Promise<{
       emulators: Array<Record<string, any> & { agent_id: string; agent_name?: string }>;
-      errors?: Record<string, string>;
     }> {
-      const query = params?.include_hidden ? { include_hidden: 'true' } : undefined;
-      const response = await api.get<{ emulators: any[]; errors?: Record<string, string> }>(
-        '/api/proxy/emulators',
-        { params: query },
-      );
-      return response.data;
+      const query: Record<string, string> = {};
+      if (params?.include_hidden) query.include_hidden = 'true';
+      if (params?.active_within_minutes != null && params.active_within_minutes > 0) {
+        query.active_within_minutes = String(params.active_within_minutes);
+      }
+      const response = await api.get<any[]>('/api/emulators', {
+        params: Object.keys(query).length ? query : undefined,
+      });
+      const list = Array.isArray(response.data) ? response.data : [];
+      return { emulators: list };
     },
 
     // Виконання дій
