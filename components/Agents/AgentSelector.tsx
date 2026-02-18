@@ -98,6 +98,11 @@ export default function AgentSelector() {
 
   const isAgentVisible = activeAgent?.visibility == null || activeAgent?.visibility !== 0;
 
+  // У списку: тільки видимі агенти + поточний обраний (щоб можна було перемкнутися)
+  const selectableAgents = agents.filter(
+    (a) => a.visibility == null || a.visibility !== 0 || a.id === activeAgent?.id,
+  );
+
   return (
     <Space wrap>
       <Select
@@ -106,9 +111,11 @@ export default function AgentSelector() {
         style={{ minWidth: 200 }}
         placeholder="Select agent"
       >
-        {agents.map((agent) => (
+        {selectableAgents.map((agent) => (
           <Select.Option key={agent.id} value={agent.id}>
-            {agent.name} {agent.tunnelUrl && '🌐'}
+            {agent.name}
+            {(agent.visibility == null || agent.visibility !== 0) && agent.tunnelUrl && ' 🌐'}
+            {(agent.visibility === 0) && ' (hidden)'}
           </Select.Option>
         ))}
       </Select>

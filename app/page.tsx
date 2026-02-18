@@ -6,11 +6,13 @@ import { CheckCircleOutlined, CloseCircleOutlined, ReloadOutlined } from '@ant-d
 import { useBackendAgentApi } from '@/hooks/useBackendAgentApi';
 import { useAllEmulators } from '@/hooks/useAllEmulators';
 import { useAgents } from '@/contexts/AgentsContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { createBackendClient, tokenStorage } from '@/lib/api/backend';
 import Loading from '@/components/common/Loading';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const { backendClient, activeAgent } = useBackendAgentApi();
   const { emulators, loading: loadingEmulators } = useAllEmulators(false);
   const { refreshAgents, refreshAgentTunnelUrl } = useAgents();
@@ -21,14 +23,16 @@ export default function Dashboard() {
   const [retrying, setRetrying] = useState(false);
 
   useEffect(() => {
-    if (!activeAgent) {
-      setError('Agent not selected. Please add and select an agent.');
+    if (!backendClient) {
+      setError(user ? null : 'Authorization required');
       setLoading(false);
       return;
     }
 
-    if (!backendClient) {
-        setError('Authorization required');
+    if (!activeAgent) {
+      setHealth(null);
+      setPlatforms([]);
+      setError(null);
       setLoading(false);
       return;
     }
@@ -37,8 +41,7 @@ export default function Dashboard() {
       try {
         setLoading(true);
         setError(null);
-        
-        // Отримуємо дані з детальною обробкою помилок
+
         let healthData = null;
         let platformsData: any = { ok: false, platforms: [] };
 
@@ -48,18 +51,13 @@ export default function Dashboard() {
           console.error('Healthcheck error:', err);
           const errorMessage = err.response?.data?.message || err.message || 'Unknown error';
           const statusCode = err.response?.status;
-          
+          const agentUrl = activeAgent.tunnelUrl || activeAgent.url || 'unknown';
           if (statusCode === 502) {
-            // Bad Gateway - агент недоступний
-            const agentUrl = activeAgent.tunnelUrl || activeAgent.url || 'unknown';
             setError(
-              `Failed to connect to agent "${activeAgent.name}". ` +
-              `The agent may be offline or the URL may be incorrect. ` +
-              `Check URL: ${agentUrl}. ` +
-              `Backend error: ${errorMessage}`
+              `Failed to connect to agent "${activeAgent.name}". Check URL: \`${agentUrl}\``
             );
           } else if (err.code === 'ECONNREFUSED' || err.message?.includes('Network Error')) {
-            setError(`Failed to connect to agent "${activeAgent.name}". Check URL: ${activeAgent.url || activeAgent.tunnelUrl}`);
+            setError(`Failed to connect to agent "${activeAgent.name}". Check URL: ${agentUrl}`);
           } else {
             setError(`Error connecting to agent "${activeAgent.name}": ${errorMessage}`);
           }
@@ -82,9 +80,9 @@ export default function Dashboard() {
     };
 
     fetchData();
-  }, [backendClient, activeAgent]);
+  }, [backendClient, activeAgent, user]);
 
-  const loadingState = loading || loadingEmulators;
+  const loadingState = loadingEmulators || (activeAgent && backendClient && loading);
 
   if (loadingState) {
     return <Loading />;
@@ -92,14 +90,20 @@ export default function Dashboard() {
 
   const activeEmulators = emulators.filter((e) => e.status === 'active').length;
 
+  const agentStatusLabel = !activeAgent
+    ? 'No agent selected'
+    : health
+      ? 'Active'
+      : 'Unavailable';
+
   return (
     <div>
       <h1>Dashboard</h1>
-      {error && (
+      {error && activeAgent && (
         <Card style={{ marginBottom: 24, borderColor: '#ff4d4f' }}>
-          <ErrorDisplay 
-            message={error} 
-            description={activeAgent ? `Make sure agent "${activeAgent.name}" is running and accessible at ${activeAgent.tunnelUrl || activeAgent.url || 'unknown URL'}` : 'Please add and select an agent in the page header'}
+          <ErrorDisplay
+            message={error}
+            description={`Make sure agent "${activeAgent.name}" is running and accessible at ${activeAgent.tunnelUrl || activeAgent.url || 'unknown URL'}. You can select another agent in the header.`}
           />
           {activeAgent && (
             <Space style={{ marginTop: 16 }}>
@@ -169,8 +173,14 @@ export default function Dashboard() {
           <Card>
             <Statistic
               title="Agent Status"
-              value={health ? 'Active' : 'Unavailable'}
-              prefix={health ? <CheckCircleOutlined style={{ color: '#52c41a' }} /> : <CloseCircleOutlined style={{ color: '#ff4d4f' }} />}
+              value={agentStatusLabel}
+              prefix={
+                health ? (
+                  <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                ) : (
+                  <CloseCircleOutlined style={{ color: activeAgent ? '#ff4d4f' : '#faad14' }} />
+                )
+              }
             />
           </Card>
         </Col>
