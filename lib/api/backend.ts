@@ -42,6 +42,25 @@ export interface Agent {
   tunnel_url?: string;
   status: string;
   last_seen?: string;
+  /** 0 = прихований, 1 або null = видимий */
+  visibility?: number | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** Емулятор з бекенду (БД) для управління видимістю */
+export interface BackendEmulator {
+  id: string;
+  agent_id: string;
+  emulator_id: string;
+  emulator_name?: string;
+  device_name?: string;
+  udid?: string;
+  memu_name?: string;
+  status: string;
+  /** 0 або null = прихований, 1 = видимий */
+  visibility?: number | null;
+  last_seen?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -373,6 +392,25 @@ export function createBackendClient(token: string) {
       return response.data;
     },
 
+    async updateAgent(id: string, data: Partial<Pick<Agent, 'name' | 'url' | 'tunnel_url' | 'status' | 'visibility'>>): Promise<Agent> {
+      const response = await api.put<Agent>(`/api/agents/${id}`, data);
+      return response.data;
+    },
+
+    /** Список емуляторів з БД бекенду (для управління видимістю). */
+    async getBackendEmulators(params?: { agent_id?: string; include_hidden?: boolean }): Promise<BackendEmulator[]> {
+      const query: Record<string, string> = {};
+      if (params?.agent_id) query.agent_id = params.agent_id;
+      if (params?.include_hidden) query.include_hidden = 'true';
+      const response = await api.get<BackendEmulator[]>('/api/emulators', { params: query });
+      return response.data;
+    },
+
+    async updateEmulator(id: string, data: Partial<Pick<BackendEmulator, 'emulator_name' | 'device_name' | 'status' | 'visibility'>>): Promise<BackendEmulator> {
+      const response = await api.put<BackendEmulator>(`/api/emulators/${id}`, data);
+      return response.data;
+    },
+
     // Проксування метаданих (через бекенд)
     async getHealth(agentId: string): Promise<any> {
       const response = await api.get(`/api/proxy/${agentId}/health`);
@@ -391,6 +429,19 @@ export function createBackendClient(token: string) {
 
     async getEmulators(agentId: string): Promise<any> {
       const response = await api.get(`/api/proxy/${agentId}/emulators`);
+      return response.data;
+    },
+
+    /** Емулятори з усіх агентів одним запитом. */
+    async getAllEmulators(params?: { include_hidden?: boolean }): Promise<{
+      emulators: Array<Record<string, any> & { agent_id: string; agent_name?: string }>;
+      errors?: Record<string, string>;
+    }> {
+      const query = params?.include_hidden ? { include_hidden: 'true' } : undefined;
+      const response = await api.get<{ emulators: any[]; errors?: Record<string, string> }>(
+        '/api/proxy/emulators',
+        { params: query },
+      );
       return response.data;
     },
 

@@ -26,12 +26,19 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const publicRoutes = ['/login', '/register'];
   const isPublicRoute = publicRoutes.includes(pathname);
 
-  // Якщо це публічний роут, показуємо без layout
-  if (isPublicRoute) {
-    return <>{children}</>;
-  }
-
-  // Для захищених роутів показуємо layout з перевіркою авторизації
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setMounted(true);
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+      if (window.innerWidth >= 768) {
+        setMobileMenuOpen(false);
+      }
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const menuItems = [
     {
@@ -93,23 +100,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
     }
   };
 
-  useEffect(() => {
-    // Перевірка, чи код виконується на клієнті
-    if (typeof window === 'undefined') return;
-    
-    setMounted(true);
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-      if (window.innerWidth >= 768) {
-        setMobileMenuOpen(false);
-      }
-    };
-
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
   const menuContent = (
     <>
       <div style={{ 
@@ -140,6 +130,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
       />
     </>
   );
+
+  // Після всіх хуків: якщо публічний роут — без layout
+  if (isPublicRoute) {
+    return <>{children}</>;
+  }
 
   return (
     <ProtectedRoute>

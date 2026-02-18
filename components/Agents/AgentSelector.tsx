@@ -1,13 +1,14 @@
 'use client';
 
-import { Select, Button, Modal, Form, Input, message, Space, Popconfirm } from 'antd';
-import { PlusOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Select, Button, Modal, Form, Input, message, Space, Popconfirm, Switch, Tooltip } from 'antd';
+import { PlusOutlined, DeleteOutlined, ReloadOutlined, EyeOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { useAgents } from '@/contexts/AgentsContext';
 import { createAgentApi } from '@/lib/api/agent';
 
 export default function AgentSelector() {
-  const { agents, activeAgent, setActiveAgent, addAgent, updateAgent, deleteAgent, refreshAgentTunnelUrl } = useAgents();
+  const { agents, activeAgent, setActiveAgent, addAgent, updateAgent, deleteAgent, refreshAgentTunnelUrl, updateAgentOnBackend } = useAgents();
+  const [visibilityLoading, setVisibilityLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [form] = Form.useForm();
   const [testing, setTesting] = useState(false);
@@ -73,8 +74,32 @@ export default function AgentSelector() {
     message.success('Agent deleted');
   };
 
+  const handleVisibilityChange = async (checked: boolean) => {
+    if (!activeAgent) return;
+    const value = checked ? 1 : 0;
+    setVisibilityLoading(true);
+    try {
+      await updateAgentOnBackend(activeAgent.id, { visibility: value });
+      if (value === 0) {
+        message.info('Агент приховано: не показується в API та не отримує задачі');
+        if (agents.length > 1) {
+          const next = agents.find((a) => a.id !== activeAgent.id);
+          if (next) setActiveAgent(next.id);
+        }
+      } else {
+        message.success('Видимість увімкнено');
+      }
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || 'Не вдалося оновити видимість');
+    } finally {
+      setVisibilityLoading(false);
+    }
+  };
+
+  const isAgentVisible = activeAgent?.visibility == null || activeAgent?.visibility !== 0;
+
   return (
-    <Space>
+    <Space wrap>
       <Select
         value={activeAgent?.id || undefined}
         onChange={(value) => setActiveAgent(value)}
@@ -97,6 +122,17 @@ export default function AgentSelector() {
 
       {activeAgent && (
         <>
+          <Tooltip title="Видимість: показувати в API та давати задачі. Вимкнено = прихований.">
+            <Space size={4}>
+              <EyeOutlined style={{ color: '#888', fontSize: 12 }} />
+              <Switch
+                size="small"
+                checked={isAgentVisible}
+                loading={visibilityLoading}
+                onChange={handleVisibilityChange}
+              />
+            </Space>
+          </Tooltip>
           <Button
             icon={<ReloadOutlined />}
             onClick={() => handleRefreshTunnel(activeAgent.id)}

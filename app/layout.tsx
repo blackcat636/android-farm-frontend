@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ConfigProvider, theme } from "antd";
+import { App as AntdApp, ConfigProvider, theme } from "antd";
 import AppLayout from "@/components/Layout/AppLayout";
 import { AgentsProvider } from "@/contexts/AgentsContext";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -116,11 +116,13 @@ export default function RootLayout({
             },
           }}
         >
-          <AuthProvider>
-            <AgentsProvider>
-              <AppLayout>{children}</AppLayout>
-            </AgentsProvider>
-          </AuthProvider>
+          <AntdApp>
+            <AuthProvider>
+              <AgentsProvider>
+                <AppLayout>{children}</AppLayout>
+              </AgentsProvider>
+            </AuthProvider>
+          </AntdApp>
         </ConfigProvider>
       </body>
     </html>

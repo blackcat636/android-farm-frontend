@@ -1,133 +1,64 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Table, Tag, Radio, Alert, Space } from 'antd';
+import { Table, Tag, Radio, Alert, Space, Tabs, Switch, Tooltip, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { type Emulator } from '@/lib/api/agent';
-import { useBackendAgentApi } from '@/hooks/useBackendAgentApi';
 import { useAgents } from '@/contexts/AgentsContext';
-import { createBackendClient, tokenStorage } from '@/lib/api/backend';
+import { useAllEmulators } from '@/hooks/useAllEmulators';
+import { createBackendClient, tokenStorage, type BackendEmulator } from '@/lib/api/backend';
 import Loading from '@/components/common/Loading';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 
-type ViewMode = 'active' | 'all';
-
 export default function EmulatorsPage() {
-  const { backendClient, activeAgent } = useBackendAgentApi();
-  const { agents, refreshAgents, refreshAgentTunnelUrl } = useAgents();
-  const [emulators, setEmulators] = useState<Emulator[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('active');
-  const [agentErrors, setAgentErrors] = useState<Record<string, string>>({});
+  const { agents } = useAgents();
+  const [includeHiddenLive, setIncludeHiddenLive] = useState(false);
+  const [agentFilter, setAgentFilter] = useState<string>('');
+  const { emulators, loading, error, agentErrors } = useAllEmulators(false, includeHiddenLive);
+  const [backendEmulators, setBackendEmulators] = useState<BackendEmulator[]>([]);
+  const [loadingBackend, setLoadingBackend] = useState(false);
+  const [visibilityUpdating, setVisibilityUpdating] = useState<Record<string, boolean>>({});
+
+  const filteredEmulators = agentFilter
+    ? emulators.filter((e) => (e.agentId ?? (e as any).agent_id) === agentFilter)
+    : emulators;
+
+  // Список емуляторів з бекенду (БД) для управління видимістю
+  const fetchBackendEmulators = async () => {
+    const token = tokenStorage.get();
+    if (!token) return;
+    setLoadingBackend(true);
+    try {
+      const client = createBackendClient(token);
+      const list = await client.getBackendEmulators({ include_hidden: true });
+      setBackendEmulators(list);
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || 'Не вдалося завантажити список емуляторів');
+    } finally {
+      setLoadingBackend(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchEmulators = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+    const token = tokenStorage.get();
+    if (token) fetchBackendEmulators();
+  }, []);
 
-        if (!backendClient) {
-          setError('Authorization required');
-          setLoading(false);
-          return;
-        }
-
-        if (viewMode === 'active') {
-          // Режим "Активний агент"
-          if (!activeAgent) {
-            setError('Agent not selected. Please add and select an agent.');
-            setLoading(false);
-            return;
-          }
-
-          const response = await backendClient.getEmulators(activeAgent.id);
-          setEmulators(response.emulators || []);
-        } else {
-          // Режим "Всі агенти"
-          if (agents.length === 0) {
-            setError('Agents not found. Please add at least one agent.');
-            setLoading(false);
-            return;
-          }
-
-          const allEmulators: Emulator[] = [];
-
-          // Збираємо емулятори з усіх агентів паралельно через бекенд
-          const emulatorPromises = agents.map(async (agent) => {
-            try {
-              const response = await backendClient.getEmulators(agent.id);
-              // Очищаємо помилку для цього агента, якщо запит успішний
-              setAgentErrors(prev => {
-                const newErrors = { ...prev };
-                delete newErrors[agent.id];
-                return newErrors;
-              });
-              
-              // Додаємо назву агента до кожного емулятора
-              return (response.emulators || []).map((emulator: any) => ({
-                ...emulator,
-                agentName: agent.name,
-                agentId: agent.id,
-              }));
-            } catch (err: any) {
-              const errorMessage = err.response?.data?.message || err.message || 'Unknown error';
-              const statusCode = err.response?.status;
-              const agentUrl = agent.tunnelUrl || agent.url || 'unknown';
-              
-              // Зберігаємо детальну інформацію про помилку для цього агента
-              let detailedError = `Помилка завантаження емуляторів з агента "${agent.name}"`;
-              
-              if (statusCode === 502) {
-                detailedError = `Не вдалося підключитися до агента "${agent.name}". ` +
-                  `Агент може бути офлайн або URL неправильний. ` +
-                  `Перевірте URL: ${agentUrl}. ` +
-                  `Помилка бекенду: ${errorMessage}`;
-              } else {
-                detailedError = `Помилка завантаження емуляторів з агента "${agent.name}": ${errorMessage}`;
-              }
-              
-              console.error(detailedError, err);
-              
-              // Зберігаємо помилку для відображення
-              setAgentErrors(prev => ({
-                ...prev,
-                [agent.id]: detailedError
-              }));
-              
-              // ВИДАЛЕНО: Автоматичне оновлення URL при помилці 502 викликало безкінечний цикл
-              // Користувач може оновити URL вручну через кнопку "Retry & Update URL"
-              // Якщо помилка 502, спробуємо оновити URL агента з KV
-              // if (statusCode === 502 && agent.agentId) {
-              //   try {
-              //     console.log(`Спробую оновити URL агента ${agent.name} з KV...`);
-              //     await refreshAgentTunnelUrl(agent.id);
-              //     // Оновимо список агентів з бекенду
-              //     await refreshAgents();
-              //     console.log(`URL агента ${agent.name} оновлено`);
-              //   } catch (updateError) {
-              //     console.warn(`Не вдалося оновити URL агента ${agent.name}:`, updateError);
-              //   }
-              // }
-              
-              return []; // Повертаємо порожній масив при помилці
-            }
-          });
-
-          const results = await Promise.all(emulatorPromises);
-          // Об'єднуємо всі емулятори в один масив
-          allEmulators.push(...results.flat());
-          setEmulators(allEmulators);
-        }
-      } catch (err: any) {
-        setError(err.message || 'Error loading emulators');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchEmulators();
-  }, [viewMode, activeAgent, backendClient, agents]);
+  const handleEmulatorVisibilityChange = async (id: string, checked: boolean) => {
+    const token = tokenStorage.get();
+    if (!token) return;
+    setVisibilityUpdating((prev) => ({ ...prev, [id]: true }));
+    try {
+      const client = createBackendClient(token);
+      await client.updateEmulator(id, { visibility: checked ? 1 : 0 });
+      message.success(checked ? 'Видимість увімкнено' : 'Емулятор приховано');
+      await fetchBackendEmulators();
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || 'Не вдалося оновити');
+    } finally {
+      setVisibilityUpdating((prev) => ({ ...prev, [id]: false }));
+    }
+  };
 
   const columns: ColumnsType<Emulator> = [
     {
@@ -143,7 +74,7 @@ export default function EmulatorsPage() {
     {
       title: 'Agent',
       key: 'agent',
-      render: (_: any, record: Emulator) => record.agentName || activeAgent?.name || 'Unknown',
+      render: (_: any, record: Emulator) => record.agentName ?? (record as any).agent_name ?? 'Unknown',
     },
     {
       title: 'UDID',
@@ -176,52 +107,142 @@ export default function EmulatorsPage() {
     return <ErrorDisplay message={error} />;
   }
 
+  const backendColumns: ColumnsType<BackendEmulator> = [
+    {
+      title: 'Агент',
+      dataIndex: 'agent_id',
+      key: 'agent_id',
+      render: (agentId: string) => {
+        const agent = agents.find((a) => a.id === agentId);
+        return agent?.name || agentId;
+      },
+    },
+    {
+      title: 'ID емулятора',
+      dataIndex: 'emulator_id',
+      key: 'emulator_id',
+    },
+    {
+      title: 'Назва',
+      dataIndex: 'emulator_name',
+      key: 'emulator_name',
+    },
+    {
+      title: 'Пристрій',
+      dataIndex: 'device_name',
+      key: 'device_name',
+    },
+    {
+      title: 'Статус',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status: string) => (
+        <Tag color={status === 'active' ? 'green' : 'default'}>{status}</Tag>
+      ),
+    },
+    {
+      title: 'Видимість',
+      key: 'visibility',
+      render: (_: unknown, record: BackendEmulator) => {
+        const visible = record.visibility === 1;
+        return (
+          <Tooltip title={visible ? 'Видимий: показується в API та отримує задачі' : 'Прихований: не показується та не отримує задачі'}>
+            <Switch
+              size="small"
+              checked={visible}
+              loading={visibilityUpdating[record.id]}
+              onChange={(checked) => handleEmulatorVisibilityChange(record.id, checked)}
+            />
+          </Tooltip>
+        );
+      },
+    },
+  ];
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <h1 style={{ margin: 0 }}>Emulators</h1>
-        <Radio.Group
-          value={viewMode}
-          onChange={(e) => setViewMode(e.target.value)}
-          size="large"
-        >
-          <Radio.Button value="active">Active Agent</Radio.Button>
-          <Radio.Button value="all">All Agents</Radio.Button>
-        </Radio.Group>
       </div>
-      
-      {/* Показуємо помилки для конкретних агентів */}
-      {Object.keys(agentErrors).length > 0 && (
-        <Space direction="vertical" style={{ width: '100%', marginBottom: 16 }}>
-          {Object.entries(agentErrors).map(([agentId, errorMsg]) => {
-            const agent = agents.find(a => a.id === agentId);
-            return (
-              <Alert
-                key={agentId}
-                message={`Помилка агента: ${agent?.name || agentId}`}
-                description={errorMsg}
-                type="warning"
-                showIcon
-                closable
-                onClose={() => {
-                  setAgentErrors(prev => {
-                    const newErrors = { ...prev };
-                    delete newErrors[agentId];
-                    return newErrors;
-                  });
-                }}
-              />
-            );
-          })}
-        </Space>
-      )}
-      
-      <Table
-        columns={columns}
-        dataSource={emulators}
-        rowKey={(record) => `${record.agentName || 'unknown'}-${record.id}`}
-        pagination={false}
-        style={{ marginTop: 24 }}
+
+      <Tabs
+        defaultActiveKey="live"
+        items={[
+          {
+            key: 'live',
+            label: 'Live (з агентів)',
+            children: (
+              <>
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
+                  <Select
+                    placeholder="Усі агенти"
+                    allowClear
+                    style={{ minWidth: 200 }}
+                    value={agentFilter || undefined}
+                    onChange={(v) => setAgentFilter(v ?? '')}
+                    options={[
+                      { value: '', label: 'Усі агенти' },
+                      ...agents.map((a) => ({ value: a.id, label: a.name })),
+                    ]}
+                  />
+                  <Tooltip title="Показати емулятори з прихованою видимістю (з БД)">
+                    <Space>
+                      <span>Приховані</span>
+                      <Switch
+                        size="small"
+                        checked={includeHiddenLive}
+                        onChange={setIncludeHiddenLive}
+                      />
+                    </Space>
+                  </Tooltip>
+                </div>
+                {Object.keys(agentErrors).length > 0 && (
+                  <Space direction="vertical" style={{ width: '100%', marginBottom: 16 }}>
+                    {Object.entries(agentErrors).map(([agentId, errorMsg]) => {
+                      const agent = agents.find((a) => a.id === agentId);
+                      return (
+                        <Alert
+                          key={agentId}
+                          message={`Помилка агента: ${agent?.name || agentId}`}
+                          description={errorMsg}
+                          type="warning"
+                          showIcon
+                          closable
+                        />
+                      );
+                    })}
+                  </Space>
+                )}
+                <Table
+                  columns={columns}
+                  dataSource={filteredEmulators}
+                  rowKey={(record) => `${record.agentId ?? (record as any).agent_id}-${record.id}`}
+                  pagination={false}
+                  style={{ marginTop: 24 }}
+                />
+              </>
+            ),
+          },
+          {
+            key: 'visibility',
+            label: 'Управління видимістю',
+            children: (
+              <>
+                <p style={{ color: '#666', marginBottom: 16 }}>
+                  Видимі емулятори показуються в API та отримують задачі з черги. Приховані — ні. Новий емулятор після sync за замовчуванням прихований; увімкніть видимість, щоб він зʼявився в списках та отримував задачі.
+                </p>
+                <Table
+                  columns={backendColumns}
+                  dataSource={backendEmulators}
+                  rowKey="id"
+                  loading={loadingBackend}
+                  pagination={{ pageSize: 20 }}
+                  style={{ marginTop: 24 }}
+                />
+              </>
+            ),
+          },
+        ]}
       />
     </div>
   );

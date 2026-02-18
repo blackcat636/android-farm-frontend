@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { authApi, tokenStorage, setOnTokenRefreshed } from '@/lib/api/backend';
-import { message } from 'antd';
+import { App } from 'antd';
 
 interface User {
   id: string;
@@ -21,6 +21,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const { message } = App.useApp();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -117,7 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       message.error(errorMessage);
       throw error;
     }
-  }, []);
+  }, [message]);
 
   const signUp = useCallback(async (email: string, password: string) => {
     try {
@@ -128,7 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       message.error(errorMessage);
       throw error;
     }
-  }, []);
+  }, [message]);
 
   const signOut = useCallback(async () => {
     try {
@@ -143,7 +144,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       message.success('Вихід виконано');
     }
-  }, []);
+  }, [message]);
 
   return (
     <AuthContext.Provider

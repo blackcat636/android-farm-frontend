@@ -41,6 +41,7 @@ export function AgentsProvider({ children }: { children: React.ReactNode }) {
                 createdAt: backendAgent.created_at || new Date().toISOString(),
                 status: backendAgent.status || 'offline',
                 lastSeen: backendAgent.last_seen,
+                visibility: backendAgent.visibility,
               }));
               
               setAgents(convertedAgents);
@@ -313,8 +314,9 @@ export function AgentsProvider({ children }: { children: React.ReactNode }) {
             createdAt: backendAgent.created_at || new Date().toISOString(),
             status: backendAgent.status || 'offline',
             lastSeen: backendAgent.last_seen,
+            visibility: backendAgent.visibility,
           }));
-          
+
           setAgents(convertedAgents);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(convertedAgents));
           if (convertedAgents.length > 0 && !activeAgentId) {
@@ -329,6 +331,14 @@ export function AgentsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [activeAgentId]);
 
+  const updateAgentOnBackend = useCallback(async (id: string, updates: { visibility?: number }) => {
+    const token = tokenStorage.get();
+    if (!token) throw new Error('Authorization required');
+    const backendClient = createBackendClient(token);
+    await backendClient.updateAgent(id, updates);
+    await refreshAgents();
+  }, [refreshAgents]);
+
   const activeAgent = activeAgentId ? agents.find(a => a.id === activeAgentId) || null : null;
 
   return (
@@ -342,6 +352,7 @@ export function AgentsProvider({ children }: { children: React.ReactNode }) {
         setActiveAgent,
         refreshAgentTunnelUrl,
         refreshAgents,
+        updateAgentOnBackend,
       }}
     >
       {children}
