@@ -641,8 +641,12 @@ export function createBackendClient(token: string) {
       },
 
       // Прив'язки аккаунтів до емуляторів
-      async createBinding(data: CreateBindingDto): Promise<AccountEmulatorBinding> {
-        const response = await api.post<AccountEmulatorBinding>('/api/account-bindings', data);
+      async createBinding(
+        data: CreateBindingDto,
+      ): Promise<AccountEmulatorBinding | { taskId: string; status: string; message: string }> {
+        const response = await api.post<
+          AccountEmulatorBinding | { taskId: string; status: string; message: string }
+        >('/api/account-bindings', data);
         return response.data;
       },
 
@@ -919,6 +923,7 @@ export interface CreateBindingDto {
   emulator_id: string;
   binding_type?: string;
   notes?: string;
+  verifyLogin?: boolean;
 }
 
 // API ключі

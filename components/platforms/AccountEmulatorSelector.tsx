@@ -35,6 +35,7 @@ export function AccountEmulatorSelector({
     binding,
     selectedEmulator,
     setSelectedEmulator,
+    bindingVerificationInProgress,
   } = selection;
 
   const displayName = platformDisplayName || platform.toUpperCase();
@@ -116,16 +117,26 @@ export function AccountEmulatorSelector({
 
           {selectedAccount && (
             <>
-              <Alert
-                title={
-                  binding
-                    ? `Binding to emulator: ${binding.emulator_id}`
-                    : "Binding not found"
-                }
-                type={binding ? 'success' : 'warning'}
-                showIcon
-                style={{ marginBottom: 16 }}
-              />
+              {bindingVerificationInProgress && (
+                <Alert
+                  title="Verifying login on emulator…"
+                  type="info"
+                  showIcon
+                  style={{ marginBottom: 16 }}
+                />
+              )}
+              {!bindingVerificationInProgress && (
+                <Alert
+                  title={
+                    binding
+                      ? `Binding to emulator: ${binding.emulator_id}`
+                      : "Binding not found"
+                  }
+                  type={binding ? 'success' : 'warning'}
+                  showIcon
+                  style={{ marginBottom: 16 }}
+                />
+              )}
               <Form.Item
                 name="requireSession"
                 label="Require Session"

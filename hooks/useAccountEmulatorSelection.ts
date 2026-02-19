@@ -28,6 +28,9 @@ export interface UseAccountEmulatorSelectionReturn {
   loadBinding: (accountId: string) => Promise<void>;
   createBinding: (accountId: string, emulatorId: string) => Promise<AccountEmulatorBinding>;
   resolveAccountAndEmulator: (values: any) => Promise<{ accountId?: string; emulatorId?: string }>;
+
+  // Стан верифікації (полінг)
+  bindingVerificationInProgress: boolean;
 }
 
 export function useAccountEmulatorSelection({
@@ -41,6 +44,7 @@ export function useAccountEmulatorSelection({
   const [selectedAccount, setSelectedAccount] = useState<SocialAccount | null>(null);
   const [binding, setBinding] = useState<AccountEmulatorBinding | null>(null);
   const [selectedEmulator, setSelectedEmulator] = useState<Emulator | null>(null);
+  const [bindingVerificationInProgress, setBindingVerificationInProgress] = useState(false);
 
   // Завантаження акаунтів
   useEffect(() => {
@@ -94,23 +98,58 @@ export function useAccountEmulatorSelection({
     }
   };
 
-  const createBinding = async (accountId: string, emulatorId: string) => {
-    try {
-      const token = tokenStorage.get();
-      if (!token) throw new Error('Необхідна авторизація');
+  const POLL_INTERVAL_MS = 3000;
+  const POLL_TIMEOUT_MS = 5 * 60 * 1000; // 5 min
 
-      const backendClient = createBackendClient(token);
-      const newBinding = await backendClient.createBinding({
-        account_id: accountId,
-        emulator_id: emulatorId,
-        binding_type: 'permanent',
-      });
-      setBinding(newBinding);
+  const createBinding = async (accountId: string, emulatorId: string) => {
+    const token = tokenStorage.get();
+    if (!token) throw new Error('Необхідна авторизація');
+
+    const backendClient = createBackendClient(token);
+    const response = await backendClient.createBinding({
+      account_id: accountId,
+      emulator_id: emulatorId,
+      binding_type: 'permanent',
+      verifyLogin: true,
+    });
+
+    // Пряме створення (verifyLogin: false)
+    if (!('taskId' in response)) {
+      setBinding(response);
       message.success('Прив\'язку створено успішно!');
-      return newBinding;
+      return response;
+    }
+
+    // Асинхронна верифікація — полінг
+    setBindingVerificationInProgress(true);
+    try {
+      const startTime = Date.now();
+      for (;;) {
+        const task = await backendClient.getTask(response.taskId);
+
+        if (task.status === 'completed') {
+          await loadBinding(accountId);
+          const newBinding = await backendClient.getBindingForAccount(accountId);
+          if (!newBinding) throw new Error('Binding not found after verification');
+          message.success('Прив\'язку створено успішно!');
+          return newBinding;
+        }
+
+        if (task.status === 'failed') {
+          throw new Error(task.error_message || 'Login verification failed');
+        }
+
+        if (Date.now() - startTime > POLL_TIMEOUT_MS) {
+          throw new Error('Verification timeout (5 min)');
+        }
+
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+      }
     } catch (err: any) {
       console.error('Помилка створення прив\'язки:', err);
       throw err;
+    } finally {
+      setBindingVerificationInProgress(false);
     }
   };
 
@@ -172,5 +211,6 @@ export function useAccountEmulatorSelection({
     loadBinding,
     createBinding,
     resolveAccountAndEmulator,
+    bindingVerificationInProgress,
   };
 }
