@@ -17,6 +17,8 @@ import {
   InputNumber,
   Select,
   Popconfirm,
+  Switch,
+  Alert,
 } from 'antd';
 import {
   createBackendClient,
@@ -28,6 +30,7 @@ import {
 } from '@/lib/api/backend';
 import { SafetyOutlined, LinkOutlined, PlusOutlined, EditOutlined, UnlockOutlined, DisconnectOutlined } from '@ant-design/icons';
 import { maskEmail } from '@/utils/maskEmail';
+import { useAllEmulators } from '@/hooks/useAllEmulators';
 
 const { Option } = Select;
 const { Title, Text } = Typography;
@@ -49,7 +52,11 @@ export function AccountDetailsDrawer({
   const [binding, setBinding] = useState<AccountEmulatorBinding | null>(null);
   const [loading, setLoading] = useState(false);
   const [proxyModalVisible, setProxyModalVisible] = useState(false);
+  const [bindModalVisible, setBindModalVisible] = useState(false);
+  const [bindingVerificationInProgress, setBindingVerificationInProgress] = useState(false);
   const [proxyForm] = Form.useForm();
+  const [bindForm] = Form.useForm();
+  const { emulators, loading: loadingEmulators } = useAllEmulators(false);
 
   useEffect(() => {
     if (visible && account) {
@@ -143,6 +150,69 @@ export function AccountDetailsDrawer({
       onRefresh();
     } catch (err: any) {
       message.error(err.message || 'Error unbinding account');
+    }
+  };
+
+  const POLL_INTERVAL_MS = 3000;
+  const POLL_TIMEOUT_MS = 5 * 60 * 1000; // 5 min
+
+  const handleBind = async () => {
+    try {
+      const values = await bindForm.validateFields();
+      const token = tokenStorage.get();
+      if (!token) throw new Error('Authorization required');
+
+      const backendClient = createBackendClient(token);
+      const verifyLogin = values.verifyLogin !== false;
+
+      const response = await backendClient.createBinding({
+        account_id: account.id,
+        emulator_id: values.emulatorId,
+        binding_type: 'permanent',
+        verifyLogin,
+      });
+
+      // Direct creation (verifyLogin: false)
+      if (!('taskId' in response)) {
+        message.success('Account bound to emulator successfully');
+        setBindModalVisible(false);
+        bindForm.resetFields();
+        loadDetails();
+        onRefresh();
+        return;
+      }
+
+      // Async verification — poll
+      setBindingVerificationInProgress(true);
+      try {
+        const startTime = Date.now();
+        for (;;) {
+          const task = await backendClient.getTask(response.taskId);
+
+          if (task.status === 'completed') {
+            message.success('Account bound to emulator successfully');
+            setBindModalVisible(false);
+            bindForm.resetFields();
+            loadDetails();
+            onRefresh();
+            return;
+          }
+
+          if (task.status === 'failed') {
+            throw new Error(task.error_message || 'Login verification failed');
+          }
+
+          if (Date.now() - startTime > POLL_TIMEOUT_MS) {
+            throw new Error('Verification timeout (5 min)');
+          }
+
+          await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+        }
+      } finally {
+        setBindingVerificationInProgress(false);
+      }
+    } catch (err: any) {
+      message.error(err.message || 'Error binding account to emulator');
     }
   };
 
@@ -320,6 +390,17 @@ export function AccountDetailsDrawer({
           <Title level={5}>
             <LinkOutlined /> Emulator Binding
           </Title>
+          {!binding && (
+            <Button
+              type="primary"
+              icon={<LinkOutlined />}
+              size="small"
+              onClick={() => setBindModalVisible(true)}
+              loading={loadingEmulators}
+            >
+              Bind to emulator
+            </Button>
+          )}
           {binding && (
             <Popconfirm
               title="Unbind account from emulator?"
@@ -420,6 +501,73 @@ export function AccountDetailsDrawer({
           <Form.Item name="proxy_password" label="Password (optional)">
             <Input.Password placeholder="password" />
           </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="Bind account to emulator"
+        open={bindModalVisible}
+        onCancel={() => {
+          if (!bindingVerificationInProgress) {
+            setBindModalVisible(false);
+            bindForm.resetFields();
+          }
+        }}
+        onOk={handleBind}
+        okText="Bind"
+        confirmLoading={bindingVerificationInProgress}
+        closable={!bindingVerificationInProgress}
+        maskClosable={!bindingVerificationInProgress}
+        width={500}
+      >
+        <Form form={bindForm} layout="vertical" initialValues={{ verifyLogin: true }}>
+          <Form.Item
+            name="emulatorId"
+            label="Emulator"
+            rules={[{ required: true, message: 'Select emulator' }]}
+          >
+            <Select
+              placeholder="Select emulator"
+              loading={loadingEmulators}
+              showSearch
+              optionFilterProp="children"
+            >
+              {emulators.map((emulator) => (
+                <Option key={`${emulator.agentId}-${emulator.id}`} value={emulator.id}>
+                  <span>
+                    {emulator.name}
+                    {emulator.agentName && ` (${emulator.agentName})`}
+                    {emulator.status !== 'active' && (
+                      <Tag color="orange" style={{ marginLeft: 8 }}>
+                        Disabled
+                      </Tag>
+                    )}
+                  </span>
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            name="verifyLogin"
+            label="Verify login on emulator"
+            valuePropName="checked"
+            help="If enabled, the system will run login on the emulator before creating the binding. Disable only if you have already logged in this account manually on the device."
+          >
+            <Switch
+              checkedChildren="Verify login"
+              unCheckedChildren="Skip (already on device)"
+            />
+          </Form.Item>
+
+          {bindingVerificationInProgress && (
+            <Alert
+              message="Verifying login on emulator…"
+              type="info"
+              showIcon
+              style={{ marginTop: 16 }}
+            />
+          )}
         </Form>
       </Modal>
     </>
