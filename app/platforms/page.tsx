@@ -245,6 +245,14 @@ export default function PlatformsPage() {
         <h2 style={{ fontWeight: 600, fontSize: '16px', color: '#161b22', marginBottom: 20, marginTop: 0 }}>Main Actions</h2>
         <Space size="middle" wrap style={{ marginTop: 16 }}>
           <Button
+            type="primary"
+            size="large"
+            icon={<PlayCircleOutlined />}
+            onClick={() => router.push('/platforms/tiktok/watch')}
+          >
+            Watch (watch)
+          </Button>
+          <Button
             size="large"
             icon={<EyeOutlined />}
             onClick={handleInDevelopment}

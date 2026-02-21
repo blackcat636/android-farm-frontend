@@ -367,6 +367,7 @@ export default function BlacklistPage() {
             <Select placeholder="Select platform">
               <Select.Option value="instagram">Instagram</Select.Option>
               <Select.Option value="youtube">YouTube</Select.Option>
+              <Select.Option value="tiktok">TikTok</Select.Option>
             </Select>
           </Form.Item>
 

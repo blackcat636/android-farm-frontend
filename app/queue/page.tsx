@@ -439,6 +439,7 @@ export default function QueuePage() {
             {/* Опції можна заповнити динамічно, отримуючи список платформ */}
             <Select.Option value="youtube">YouTube</Select.Option>
             <Select.Option value="instagram">Instagram</Select.Option>
+            <Select.Option value="tiktok">TikTok</Select.Option>
           </Select>
         </Space>
       </Card>
