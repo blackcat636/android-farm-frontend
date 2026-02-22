@@ -18,7 +18,6 @@ import {
   Select,
   Popconfirm,
   Switch,
-  Alert,
 } from 'antd';
 import {
   createBackendClient,
@@ -31,6 +30,7 @@ import {
 import { SafetyOutlined, LinkOutlined, PlusOutlined, EditOutlined, UnlockOutlined, DisconnectOutlined } from '@ant-design/icons';
 import { maskEmail } from '@/utils/maskEmail';
 import { useAllEmulators } from '@/hooks/useAllEmulators';
+import Link from 'next/link';
 
 const { Option } = Select;
 const { Title, Text } = Typography;
@@ -153,11 +153,9 @@ export function AccountDetailsDrawer({
     }
   };
 
-  const POLL_INTERVAL_MS = 3000;
-  const POLL_TIMEOUT_MS = 5 * 60 * 1000; // 5 min
-
   const handleBind = async () => {
     try {
+      setBindingVerificationInProgress(true);
       const values = await bindForm.validateFields();
       const token = tokenStorage.get();
       if (!token) throw new Error('Authorization required');
@@ -182,37 +180,21 @@ export function AccountDetailsDrawer({
         return;
       }
 
-      // Async verification — poll
-      setBindingVerificationInProgress(true);
-      try {
-        const startTime = Date.now();
-        for (;;) {
-          const task = await backendClient.getTask(response.taskId);
-
-          if (task.status === 'completed') {
-            message.success('Account bound to emulator successfully');
-            setBindModalVisible(false);
-            bindForm.resetFields();
-            loadDetails();
-            onRefresh();
-            return;
-          }
-
-          if (task.status === 'failed') {
-            throw new Error(task.error_message || 'Login verification failed');
-          }
-
-          if (Date.now() - startTime > POLL_TIMEOUT_MS) {
-            throw new Error('Verification timeout (5 min)');
-          }
-
-          await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-        }
-      } finally {
-        setBindingVerificationInProgress(false);
-      }
+      message.success({
+        content: (
+          <span>
+            Binding verification task created.{' '}
+            <Link href="/queue">Go to Queue</Link>
+          </span>
+        ),
+        duration: 6,
+      });
+      setBindModalVisible(false);
+      bindForm.resetFields();
     } catch (err: any) {
       message.error(err.message || 'Error binding account to emulator');
+    } finally {
+      setBindingVerificationInProgress(false);
     }
   };
 
@@ -560,14 +542,6 @@ export function AccountDetailsDrawer({
             />
           </Form.Item>
 
-          {bindingVerificationInProgress && (
-            <Alert
-              message="Verifying login on emulator…"
-              type="info"
-              showIcon
-              style={{ marginTop: 16 }}
-            />
-          )}
         </Form>
       </Modal>
     </>
