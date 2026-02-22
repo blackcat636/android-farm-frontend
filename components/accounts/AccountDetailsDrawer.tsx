@@ -54,6 +54,8 @@ export function AccountDetailsDrawer({
   const [proxyModalVisible, setProxyModalVisible] = useState(false);
   const [bindModalVisible, setBindModalVisible] = useState(false);
   const [bindingVerificationInProgress, setBindingVerificationInProgress] = useState(false);
+  const [occupiedEmulatorIds, setOccupiedEmulatorIds] = useState<string[]>([]);
+  const [loadingOccupiedEmulators, setLoadingOccupiedEmulators] = useState(false);
   const [proxyForm] = Form.useForm();
   const [bindForm] = Form.useForm();
   const { emulators, loading: loadingEmulators } = useAllEmulators(false);
@@ -63,6 +65,29 @@ export function AccountDetailsDrawer({
       loadDetails();
     }
   }, [visible, account]);
+
+  useEffect(() => {
+    if (!bindModalVisible) return;
+
+    const token = tokenStorage.get();
+    if (!token) return;
+
+    const backendClient = createBackendClient(token);
+    setLoadingOccupiedEmulators(true);
+
+    backendClient
+      .getOccupiedEmulatorsByPlatform(account.platform)
+      .then((result) => {
+        setOccupiedEmulatorIds(result.emulator_ids || []);
+      })
+      .catch((err: any) => {
+        console.error('Error loading occupied emulators:', err);
+        setOccupiedEmulatorIds([]);
+      })
+      .finally(() => {
+        setLoadingOccupiedEmulators(false);
+      });
+  }, [bindModalVisible, account.platform]);
 
   const loadDetails = async () => {
     const token = tokenStorage.get();
@@ -507,21 +532,31 @@ export function AccountDetailsDrawer({
             name="emulatorId"
             label="Emulator"
             rules={[{ required: true, message: 'Select emulator' }]}
+            help={`Emulators already bound to another ${account.platform} account are disabled.`}
           >
             <Select
               placeholder="Select emulator"
-              loading={loadingEmulators}
+              loading={loadingEmulators || loadingOccupiedEmulators}
               showSearch
               optionFilterProp="children"
             >
               {emulators.map((emulator) => (
-                <Option key={`${emulator.agentId}-${emulator.id}`} value={emulator.id}>
+                <Option
+                  key={`${emulator.agentId}-${emulator.id}`}
+                  value={emulator.id}
+                  disabled={occupiedEmulatorIds.includes(emulator.id)}
+                >
                   <span>
                     {emulator.name}
                     {emulator.agentName && ` (${emulator.agentName})`}
                     {emulator.status !== 'active' && (
                       <Tag color="orange" style={{ marginLeft: 8 }}>
                         Disabled
+                      </Tag>
+                    )}
+                    {occupiedEmulatorIds.includes(emulator.id) && (
+                      <Tag color="red" style={{ marginLeft: 8 }}>
+                        In use by {account.platform}
                       </Tag>
                     )}
                   </span>

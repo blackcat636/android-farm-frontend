@@ -660,6 +660,13 @@ export function createBackendClient(token: string) {
         return response.data;
       },
 
+      async getOccupiedEmulatorsByPlatform(platform: string): Promise<OccupiedEmulatorsResponse> {
+        const response = await api.get<OccupiedEmulatorsResponse>('/api/account-bindings/occupied', {
+          params: { platform },
+        });
+        return response.data;
+      },
+
       async updateBinding(id: string, data: Partial<AccountEmulatorBinding>): Promise<AccountEmulatorBinding> {
         const response = await api.put<AccountEmulatorBinding>(`/api/account-bindings/${id}`, data);
         return response.data;
@@ -924,6 +931,10 @@ export interface CreateBindingDto {
   binding_type?: string;
   notes?: string;
   verifyLogin?: boolean;
+}
+
+export interface OccupiedEmulatorsResponse {
+  emulator_ids: string[];
 }
 
 // API ключі

@@ -287,7 +287,7 @@ frontend/
 - **Queue** - getQueue, getTask, addTask, cancelTask
 - **Social Accounts** - createSocialAccount, getSocialAccounts, getSocialAccount, updateSocialAccount, deleteSocialAccount
 - **Account Proxies** - createProxy, getProxyForAccount, updateProxy, checkProxyHealth
-- **Account Bindings** - createBinding, getBindingForAccount, getBindingsForEmulator, updateBinding
+- **Account Bindings** - createBinding, getBindingForAccount, getBindingsForEmulator, getOccupiedEmulatorsByPlatform, updateBinding
 - **Sync** - syncAgents
 
 **Файли:**
