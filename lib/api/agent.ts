@@ -19,6 +19,8 @@ export interface PlatformActionsResponse {
 
 export interface Emulator {
   id: string;
+  /** ID емулятора з конфігурації (напр. "0", "1"). Для відображення в UI. */
+  emulatorId?: string;
   name: string;
   udid: string;
   deviceName: string;

@@ -177,11 +177,11 @@ export default function EmulatorsPage() {
   const columns: ColumnsType<Emulator> = [
     {
       title: 'ID',
-      dataIndex: 'id',
       key: 'id',
+      render: (_: unknown, record: Emulator) => record.emulatorId ?? record.id,
     },
     {
-      title: 'Name',
+      title: 'Назва',
       dataIndex: 'name',
       key: 'name',
     },
@@ -228,14 +228,14 @@ export default function EmulatorsPage() {
       key: 'agent_id',
     },
     {
-      title: 'ID емулятора',
+      title: 'ID',
       dataIndex: 'emulator_id',
       key: 'emulator_id',
     },
     {
       title: 'Назва',
-      dataIndex: 'emulator_name',
       key: 'emulator_name',
+      render: (_: unknown, record: BackendEmulator) => record.emulator_name ?? record.emulator_id ?? record.id,
     },
     {
       title: 'Пристрій',

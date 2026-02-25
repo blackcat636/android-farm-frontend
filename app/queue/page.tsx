@@ -18,9 +18,12 @@ export default function QueuePage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState({
-    status: ['pending', 'processing'] as string[], // По замовчуванню показуємо pending і processing
-    platform: undefined as string | undefined,
+  const [filters, setFilters] = useState<{
+    status: string[];
+    platform: string | undefined;
+  }>({
+    status: [],
+    platform: undefined,
   });
   const [pagination, setPagination] = useState({
     current: 1,
@@ -35,11 +38,20 @@ export default function QueuePage() {
     failed: 0,
   });
 
-  const fetchTasks = async (page = 1) => {
+  const fetchTasks = async (
+    page = 1,
+    overrides?: { status?: string[]; platform?: string; limit?: number },
+  ) => {
     if (!user) {
       setLoading(false);
       return;
     }
+
+    const effFilters = overrides
+      ? { status: overrides.status ?? filters.status, platform: overrides.platform ?? filters.platform }
+      : filters;
+    const effStatus = effFilters.status?.length ? effFilters.status.join(',') : undefined;
+    const effLimit = overrides?.limit ?? pagination.pageSize;
 
     try {
       setLoading(true);
@@ -51,10 +63,10 @@ export default function QueuePage() {
 
       const backendClient = createBackendClient(token);
       const response = await backendClient.getQueue({
-        status: filters.status && filters.status.length > 0 ? filters.status.join(',') : undefined,
-        platform: filters.platform,
+        status: effStatus,
+        platform: effFilters.platform,
         page,
-        limit: pagination.pageSize,
+        limit: effLimit,
       });
 
       setTasks(response.data || []);
@@ -247,8 +259,6 @@ export default function QueuePage() {
       title: 'Created',
       dataIndex: 'created_at',
       key: 'created_at',
-      sorter: (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-      defaultSortOrder: 'descend' as const,
       render: (text) => new Date(text).toLocaleString('en-US'),
     },
     {
@@ -410,6 +420,17 @@ export default function QueuePage() {
 
       <Card style={{ marginBottom: 16 }}>
         <Space>
+          <Button
+            type={filters.status.length === 2 && filters.status.includes('pending') && filters.status.includes('processing') ? 'primary' : 'default'}
+            onClick={() => {
+              const newFilters = { ...filters, status: ['pending', 'processing'] };
+              setFilters(newFilters);
+              setPagination((p) => ({ ...p, current: 1, pageSize: 20 }));
+              fetchTasks(1, { status: ['pending', 'processing'], limit: 20 });
+            }}
+          >
+            Актуальні
+          </Button>
           <Select
             mode="multiple"
             placeholder="Filter by status"

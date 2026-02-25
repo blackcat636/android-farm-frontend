@@ -45,6 +45,7 @@ export function useAllEmulators(onlyActive = true, includeHidden = false, forTas
           .filter((e: any) => !onlyActive || e.status === 'active')
           .map((e: any) => ({
             id: e.id,
+            emulatorId: e.emulator_id ?? e.id,
             name: e.emulator_name ?? e.emulator_id ?? e.id,
             udid: e.udid ?? '',
             deviceName: e.device_name ?? '',

@@ -1,13 +1,13 @@
 # Android Farm Frontend
 
-Frontend панель керування для Android Farm Agent.
+Панель керування для Android Farm: агенти, емулятори, черга завдань, соціальні аккаунти, історія.
 
 ## Технології
 
-- **Next.js 14** з App Router
+- **Next.js** з App Router
 - **TypeScript**
-- **Ant Design 5** - UI бібліотека
-- **Axios** - HTTP клієнт
+- **Ant Design** — UI
+- **Axios** — HTTP клієнт до backend
 
 ## Встановлення
 
@@ -17,107 +17,34 @@ npm install
 
 ## Налаштування
 
-Створіть файл `.env.local` в корені проекту:
+Створіть `.env.local`:
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:3000
+NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
 ```
-
-За замовчуванням використовується `http://localhost:3000` (порт агента).
 
 ## Запуск
 
-### Розробка
-
 ```bash
-npm run dev
-```
-
-Відкрийте [http://localhost:3001](http://localhost:3001) в браузері.
-
-### Продакшн
-
-```bash
+npm run dev     # http://localhost:3001
 npm run build
 npm start
 ```
 
-## Структура проекту
+## Структура
 
-```
-frontend/
-├── app/                    # Next.js App Router сторінки
-│   ├── page.tsx           # Dashboard
-│   ├── platforms/         # Сторінки платформ
-│   │   ├── page.tsx       # Список платформ
-│   │   ├── youtube/       # YouTube платформа
-│   │   │   ├── page.tsx
-│   │   │   └── search/    # Сторінка для youtube/search
-│   │   └── [platform]/    # Динамічні сторінки для інших платформ
-│   └── emulators/         # Список емуляторів
-├── components/            # React компоненти
-│   ├── Layout/           # Layout компоненти
-│   └── common/           # Загальні компоненти
-├── lib/                  # Бібліотеки
-│   └── api/              # API клієнт
-├── hooks/                # React hooks
-└── utils/                # Утиліти
-```
+- `app/` — сторінки (platforms, emulators, accounts, queue, history, posts, captcha, blacklist, api-keys)
+- `components/` — UI компоненти
+- `contexts/` — AuthContext, AgentsContext
+- `hooks/` — useBackendAgentApi, useAllEmulators, useAgentApi, useAccountEmulatorSelection
+- `lib/api/backend.ts` — API клієнт до backend
 
-## Додавання нових платформ та дій
+## Доступ до даних
 
-### Додавання нової платформи
+**Усі дані доступні тільки залогіненому користувачу.** Агенти, емулятори, черга — все з backend `NEXT_PUBLIC_BACKEND_URL`.
 
-1. Додайте платформу на бекенді в `agent/platforms/`
-2. Фронтенд автоматично підхопить її через API
+## Документація
 
-### Додавання сторінки для дії
-
-Для кожної дії створюється окрема сторінка:
-
-1. Створіть файл `app/platforms/[platform]/[action]/page.tsx` для динамічної форми
-2. Або створіть конкретну сторінку, наприклад `app/platforms/youtube/search/page.tsx` для спеціальної форми
-
-Приклад створення сторінки для нової дії:
-
-```typescript
-// app/platforms/myplatform/myaction/page.tsx
-'use client';
-
-import { Form, Input, Select, Button } from 'antd';
-import { useAgentApi } from '@/hooks/useAgentApi';
-
-export default function MyActionPage() {
-  const { executeAction, loading } = useAgentApi();
-  
-  const handleSubmit = async (values: any) => {
-    await executeAction('myplatform', 'myaction', {
-      emulatorId: values.emulatorId,
-      params: {
-        // ваші параметри
-      },
-    });
-  };
-
-  return (
-    <Form onFinish={handleSubmit}>
-      {/* Ваша форма */}
-    </Form>
-  );
-}
-```
-
-## API інтеграція
-
-Всі API виклики виконуються через `lib/api/agent.ts`. Використовуйте `useAgentApi` hook для виконання дій:
-
-```typescript
-import { useAgentApi } from '@/hooks/useAgentApi';
-
-const { executeAction, loading, error } = useAgentApi();
-
-await executeAction('youtube', 'search', {
-  emulatorId: 'emulator-1',
-  params: { query: 'test', watchSeconds: 15 },
-});
-```
+- `PROJECT_ANALYSIS.md` — повний аналіз, контракт з backend, структура
+- `AGENTS.md` — архітектура всього проєкту
+- Backend: `backend/PROJECT_ANALYSIS.md`

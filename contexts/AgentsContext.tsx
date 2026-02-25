@@ -2,31 +2,78 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { Agent, AgentsContextType } from '@/types/agent';
-import { createBackendClient, tokenStorage } from '@/lib/api/backend';
+import { createBackendClient, tokenStorage, type Agent as BackendAgent } from '@/lib/api/backend';
+import { useAuth } from './AuthContext';
 
 const STORAGE_KEY = 'android-farm-agents';
+
+function mapBackendAgentToFrontend(b: BackendAgent): Agent {
+  return {
+    id: b.id,
+    name: b.name || b.id,
+    url: b.url || b.tunnel_url || '',
+    tunnelUrl: b.tunnel_url,
+    agentId: b.id,
+    isActive: b.status === 'online',
+    createdAt: b.created_at || new Date().toISOString(),
+    lastUsed: b.last_seen,
+    status: b.status,
+    lastSeen: b.last_seen,
+    visibility: b.visibility,
+  };
+}
 
 const AgentsContext = createContext<AgentsContextType | undefined>(undefined);
 
 export function AgentsProvider({ children }: { children: React.ReactNode }) {
+  const { user, loading: authLoading } = useAuth();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [activeAgentId, setActiveAgentId] = useState<string | null>(null);
   const loadingTunnelUrlRef = useRef<Set<string>>(new Set());
   const attemptedAgentsRef = useRef<Set<string>>(new Set());
 
-  // Завантаження агентів тільки з localStorage (без запиту GET /api/agents)
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
+  const loadAgentsFromBackend = useCallback(async () => {
+    const token = tokenStorage.get();
+    if (!token) return;
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsedAgents = JSON.parse(stored) as Agent[];
-        setAgents(parsedAgents);
+      const backendClient = createBackendClient(token);
+      const backendAgents = await backendClient.getAgents(false);
+      const mapped = backendAgents.map(mapBackendAgentToFrontend);
+      setAgents(mapped);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped));
+      }
+      if (mapped.length > 0) {
+        setActiveAgentId((prev) => {
+          const valid = prev && mapped.some((a) => a.id === prev);
+          if (valid) return prev;
+          const savedId = typeof window !== 'undefined' ? localStorage.getItem('android-farm-active-agent-id') : null;
+          const firstId = savedId && mapped.some((a) => a.id === savedId) ? savedId : mapped[0].id;
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('android-farm-active-agent-id', firstId);
+          }
+          return firstId;
+        });
       }
     } catch (error) {
-      console.error('Помилка читання агентів з localStorage:', error);
+      console.error('Помилка завантаження агентів з бекенду:', error);
     }
   }, []);
+
+  // Завантаження агентів тільки з бекенду (тільки видимі) для залогіненого користувача
+  useEffect(() => {
+    if (typeof window === 'undefined' || authLoading) return;
+    const token = tokenStorage.get();
+    if (token && user) {
+      loadAgentsFromBackend();
+    } else {
+      setAgents([]);
+      setActiveAgentId(null);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('android-farm-active-agent-id');
+      }
+    }
+  }, [authLoading, user?.id, loadAgentsFromBackend]);
 
   // Збереження агентів в localStorage
   const saveAgents = useCallback((newAgents: Agent[]) => {
@@ -207,23 +254,19 @@ export function AgentsProvider({ children }: { children: React.ReactNode }) {
   // }, [activeAgentId]); // Залежність тільки від activeAgentId - викликається тільки при зміні активного агента
 
   const refreshAgents = useCallback(async () => {
-    const token = tokenStorage.get();
-    if (!token) return;
-    try {
-      const backendClient = createBackendClient(token);
-      await backendClient.syncAgents();
-    } catch (error) {
-      console.error('Помилка синхронізації агентів:', error);
-      throw error;
-    }
-  }, []);
+    await loadAgentsFromBackend();
+  }, [loadAgentsFromBackend]);
 
-  const updateAgentOnBackend = useCallback(async (id: string, updates: { visibility?: number }) => {
-    const token = tokenStorage.get();
-    if (!token) throw new Error('Authorization required');
-    const backendClient = createBackendClient(token);
-    await backendClient.updateAgent(id, updates);
-  }, []);
+  const updateAgentOnBackend = useCallback(
+    async (id: string, updates: { visibility?: number }) => {
+      const token = tokenStorage.get();
+      if (!token) throw new Error('Authorization required');
+      const backendClient = createBackendClient(token);
+      await backendClient.updateAgent(id, updates);
+      await loadAgentsFromBackend();
+    },
+    [loadAgentsFromBackend],
+  );
 
   const activeAgent = activeAgentId ? agents.find(a => a.id === activeAgentId) || null : null;
 

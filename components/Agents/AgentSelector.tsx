@@ -98,7 +98,6 @@ export default function AgentSelector() {
 
   const isAgentVisible = activeAgent?.visibility == null || activeAgent?.visibility !== 0;
 
-  // У списку: тільки видимі агенти + поточний обраний (щоб можна було перемкнутися)
   const selectableAgents = agents.filter(
     (a) => a.visibility == null || a.visibility !== 0 || a.id === activeAgent?.id,
   );

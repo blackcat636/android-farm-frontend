@@ -385,9 +385,10 @@ export function createBackendClient(token: string) {
   const api = createBackendApi(token);
 
   return {
-    // Агенти
-    async getAgents(): Promise<Agent[]> {
-      const response = await api.get<Agent[]>('/api/agents');
+    // Агенти (тільки видимі, якщо includeHidden не вказано)
+    async getAgents(includeHidden = false): Promise<Agent[]> {
+      const params = includeHidden ? { include_hidden: 'true' } : undefined;
+      const response = await api.get<Agent[]>('/api/agents', { params });
       return response.data;
     },
 
