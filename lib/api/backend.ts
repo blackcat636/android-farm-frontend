@@ -788,6 +788,7 @@ export function createBackendClient(token: string) {
       // Додати Instagram пост для лайку
       async likeInstagramPost(data: {
         postUrl: string;
+        country_code?: string | null;
       }): Promise<{
         ok: boolean;
         message: string;

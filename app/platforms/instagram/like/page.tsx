@@ -13,6 +13,7 @@ import {
 import { ArrowLeftOutlined, LikeOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import { createBackendClient, tokenStorage } from '@/lib/api/backend';
+import { CountrySelect } from '@/components/common/CountrySelect';
 
 const { Title, Text } = Typography;
 
@@ -21,7 +22,7 @@ export default function InstagramLikePage() {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (values: { postUrl: string }) => {
+  const handleSubmit = async (values: { postUrl: string; country_code?: string }) => {
     try {
       setLoading(true);
       const token = tokenStorage.get();
@@ -33,6 +34,7 @@ export default function InstagramLikePage() {
       const backendClient = createBackendClient(token);
       const result = await backendClient.likeInstagramPost({
         postUrl: values.postUrl,
+        country_code: values.country_code || null,
       });
 
       message.success('Post added successfully!');
@@ -68,6 +70,14 @@ export default function InstagramLikePage() {
           onFinish={handleSubmit}
           autoComplete="off"
         >
+          <Form.Item
+            name="country_code"
+            label="Country (optional)"
+            tooltip="Only accounts from this country will receive like tasks"
+          >
+            <CountrySelect placeholder="Any country" />
+          </Form.Item>
+
           <Form.Item
             name="postUrl"
             label="Instagram Post URL"
