@@ -65,6 +65,7 @@ export default function ExecuteActionPage() {
           emulator_id: emulatorId,
           agent_id: agentId,
           requireSession: formValues.requireSession || false,
+          country_code: formValues.country_code || null,
         });
 
         return {

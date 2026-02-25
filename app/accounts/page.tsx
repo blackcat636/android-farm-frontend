@@ -220,6 +220,12 @@ export default function AccountsPage() {
       render: (email: string) => maskEmail(email),
     },
     {
+      title: 'Country',
+      dataIndex: ['country_name', 'country_code'],
+      key: 'country',
+      render: (_: unknown, record: SocialAccount) => record.country_name || record.country_code || '-',
+    },
+    {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',

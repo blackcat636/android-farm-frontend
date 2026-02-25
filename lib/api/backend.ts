@@ -60,6 +60,10 @@ export interface BackendEmulator {
   status: string;
   /** 0 або null = прихований, 1 = видимий */
   visibility?: number | null;
+  /** Шаблон для клонування */
+  is_template?: boolean;
+  /** new, ready, in_use */
+  readiness_status?: string;
   last_seen?: string;
   created_at?: string;
   updated_at?: string;
@@ -406,8 +410,20 @@ export function createBackendClient(token: string) {
       return response.data;
     },
 
-    async updateEmulator(id: string, data: Partial<Pick<BackendEmulator, 'emulator_name' | 'device_name' | 'status' | 'visibility'>>): Promise<BackendEmulator> {
+    async updateEmulator(id: string, data: Partial<Pick<BackendEmulator, 'emulator_name' | 'device_name' | 'status' | 'visibility' | 'is_template' | 'readiness_status'>>): Promise<BackendEmulator> {
       const response = await api.put<BackendEmulator>(`/api/emulators/${id}`, data);
+      return response.data;
+    },
+
+    async deleteEmulator(id: string): Promise<void> {
+      await api.delete(`/api/emulators/${id}`);
+    },
+
+    async cloneEmulators(templateEmulatorId: string, count: number = 1): Promise<{ ok: boolean; count: number }> {
+      const response = await api.post<{ ok: boolean; count: number }>('/api/emulators/clone', {
+        template_emulator_id: templateEmulatorId,
+        count,
+      });
       return response.data;
     },
 
@@ -436,6 +452,8 @@ export function createBackendClient(token: string) {
     async getAllEmulators(params?: {
       include_hidden?: boolean;
       active_within_minutes?: number;
+      exclude_templates?: boolean;
+      readiness_status?: string;
     }): Promise<{
       emulators: Array<Record<string, any> & { agent_id: string; agent_name?: string }>;
     }> {
@@ -444,6 +462,8 @@ export function createBackendClient(token: string) {
       if (params?.active_within_minutes != null && params.active_within_minutes > 0) {
         query.active_within_minutes = String(params.active_within_minutes);
       }
+      if (params?.exclude_templates) query.exclude_templates = 'true';
+      if (params?.readiness_status) query.readiness_status = params.readiness_status;
       const response = await api.get<any[]>('/api/emulators', {
         params: Object.keys(query).length ? query : undefined,
       });
@@ -559,6 +579,7 @@ export function createBackendClient(token: string) {
       agent_id?: string;
       priority?: number;
       requireSession?: boolean;
+      country_code?: string | null;
     }): Promise<Task> {
       const response = await api.post<Task>('/api/queue/add', data);
       return response.data;
@@ -571,6 +592,12 @@ export function createBackendClient(token: string) {
 
       async retryTask(id: string): Promise<{ message: string; task: Task }> {
         const response = await api.post<{ message: string; task: Task }>(`/api/queue/${id}/retry`);
+        return response.data;
+      },
+
+      // Довідник країн
+      async getCountries(): Promise<{ code: string; name: string }[]> {
+        const response = await api.get<{ code: string; name: string }[]>('/api/countries');
         return response.data;
       },
 
@@ -833,6 +860,8 @@ export interface Task {
   result?: any;
   error_message?: string;
   duration_ms?: number;
+  country_code?: string | null;
+  country_name?: string | null;
 }
 
 export interface SocialAccount {
@@ -854,6 +883,8 @@ export interface SocialAccount {
   failed_logins: number;
   last_ban_date?: string;
   blocked_until?: string; // Timestamp until which account is temporarily blocked
+  country_code?: string | null;
+  country_name?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -867,6 +898,7 @@ export interface CreateSocialAccountDto {
   two_factor_secret?: string;
   requires_proxy?: boolean;
   proxy_required_reason?: string;
+  country_code?: string | null;
 }
 
 export interface UpdateSocialAccountDto {
@@ -880,6 +912,7 @@ export interface UpdateSocialAccountDto {
   proxy_required_reason?: string;
   status?: string;
   account_status_reason?: string;
+  country_code?: string | null;
 }
 
 export interface AccountProxy {

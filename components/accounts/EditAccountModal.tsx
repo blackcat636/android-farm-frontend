@@ -8,6 +8,7 @@ import {
   type SocialAccount,
   type UpdateSocialAccountDto,
 } from '@/lib/api/backend';
+import { CountrySelect } from '@/components/common/CountrySelect';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -36,6 +37,7 @@ export function EditAccountModal({
         email: account.email,
         phone: account.phone,
         two_factor_secret: '',
+        country_code: account.country_code || undefined,
         requires_proxy: account.requires_proxy,
         proxy_required_reason: account.proxy_required_reason,
         status: account.status,
@@ -60,6 +62,7 @@ export function EditAccountModal({
         email: values.email,
         phone: values.phone,
         two_factor_secret: values.two_factor_secret || undefined,
+        country_code: values.country_code || null,
         requires_proxy: values.requires_proxy,
         proxy_required_reason: values.proxy_required_reason,
         status: values.status,
@@ -130,6 +133,10 @@ export function EditAccountModal({
 
         <Form.Item name="two_factor_secret" label="2FA Secret (optional)">
           <Input placeholder="Two-factor authentication" />
+        </Form.Item>
+
+        <Form.Item name="country_code" label="Country">
+          <CountrySelect placeholder="Select country (optional)" />
         </Form.Item>
 
         <Form.Item

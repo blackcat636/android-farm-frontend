@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Table, Tag, Alert, Space, Tabs, Switch, Tooltip, Select, message } from 'antd';
+import { Table, Tag, Alert, Space, Tabs, Switch, Tooltip, Select, message, Modal, Button, InputNumber } from 'antd';
+import { CopyOutlined, DeleteOutlined, CheckOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { type Emulator } from '@/lib/api/agent';
 import { useMemo } from 'react';
@@ -17,6 +18,15 @@ export default function EmulatorsPage() {
   const [backendEmulators, setBackendEmulators] = useState<BackendEmulator[]>([]);
   const [loadingBackend, setLoadingBackend] = useState(false);
   const [visibilityUpdating, setVisibilityUpdating] = useState<Record<string, boolean>>({});
+  const [isTemplateUpdating, setIsTemplateUpdating] = useState<Record<string, boolean>>({});
+  const [readinessUpdating, setReadinessUpdating] = useState<Record<string, boolean>>({});
+  const [cloneModalOpen, setCloneModalOpen] = useState(false);
+  const [cloneTemplateId, setCloneTemplateId] = useState<string>('');
+  const [cloneCount, setCloneCount] = useState(1);
+  const [cloneLoading, setCloneLoading] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<BackendEmulator | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const agentOptions = useMemo(() => {
     const seen = new Set<string>();
@@ -71,6 +81,97 @@ export default function EmulatorsPage() {
     } finally {
       setVisibilityUpdating((prev) => ({ ...prev, [id]: false }));
     }
+  };
+
+  const handleIsTemplateChange = async (id: string, checked: boolean) => {
+    const token = tokenStorage.get();
+    if (!token) return;
+    setIsTemplateUpdating((prev) => ({ ...prev, [id]: true }));
+    try {
+      const client = createBackendClient(token);
+      await client.updateEmulator(id, { is_template: checked });
+      message.success(checked ? 'Відмічено як шаблон' : 'Знято відмітку шаблону');
+      await fetchBackendEmulators();
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || 'Не вдалося оновити');
+    } finally {
+      setIsTemplateUpdating((prev) => ({ ...prev, [id]: false }));
+    }
+  };
+
+  const handleReadinessChange = async (id: string, value: string) => {
+    const token = tokenStorage.get();
+    if (!token) return;
+    setReadinessUpdating((prev) => ({ ...prev, [id]: true }));
+    try {
+      const client = createBackendClient(token);
+      await client.updateEmulator(id, { readiness_status: value });
+      message.success('Готовність оновлено');
+      await fetchBackendEmulators();
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || 'Не вдалося оновити');
+    } finally {
+      setReadinessUpdating((prev) => ({ ...prev, [id]: false }));
+    }
+  };
+
+  const handleCloneClick = (record?: BackendEmulator) => {
+    if (record && record.is_template) {
+      setCloneTemplateId(record.id);
+    } else {
+      setCloneTemplateId(backendEmulators.find((e) => e.is_template)?.id || '');
+    }
+    setCloneCount(1);
+    setCloneModalOpen(true);
+  };
+
+  const handleCloneConfirm = async () => {
+    if (!cloneTemplateId) {
+      message.error('Оберіть шаблон');
+      return;
+    }
+    const token = tokenStorage.get();
+    if (!token) return;
+    setCloneLoading(true);
+    try {
+      const client = createBackendClient(token);
+      await client.cloneEmulators(cloneTemplateId, cloneCount);
+      message.success(`Клонування запущено (${cloneCount} шт.). Це може зайняти кілька хвилин.`);
+      setCloneModalOpen(false);
+      await fetchBackendEmulators();
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || 'Помилка клонування');
+    } finally {
+      setCloneLoading(false);
+    }
+  };
+
+  const handleDeleteClick = (record: BackendEmulator) => {
+    setDeleteTarget(record);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    const token = tokenStorage.get();
+    if (!token) return;
+    setDeleteLoading(true);
+    try {
+      const client = createBackendClient(token);
+      await client.deleteEmulator(deleteTarget.id);
+      message.success('Емулятор видалено');
+      setDeleteModalOpen(false);
+      setDeleteTarget(null);
+      await fetchBackendEmulators();
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || 'Помилка видалення');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const handleMarkReady = async (id: string) => {
+    await handleReadinessChange(id, 'ready');
   };
 
   const columns: ColumnsType<Emulator> = [
@@ -166,6 +267,74 @@ export default function EmulatorsPage() {
         );
       },
     },
+    {
+      title: 'Шаблон',
+      key: 'is_template',
+      render: (_: unknown, record: BackendEmulator) => (
+        <Tooltip title="Шаблон для клонування. Не доступний для задач та біндінгу.">
+          <Switch
+            size="small"
+            checked={!!record.is_template}
+            loading={isTemplateUpdating[record.id]}
+            onChange={(checked) => handleIsTemplateChange(record.id, checked)}
+          />
+        </Tooltip>
+      ),
+    },
+    {
+      title: 'Готовність',
+      key: 'readiness_status',
+      render: (_: unknown, record: BackendEmulator) => {
+        const status = record.readiness_status || 'new';
+        return (
+          <Select
+            size="small"
+            value={status}
+            style={{ width: 110 }}
+            loading={readinessUpdating[record.id]}
+            onChange={(v) => handleReadinessChange(record.id, v)}
+            options={[
+              { value: 'new', label: 'Новий' },
+              { value: 'ready', label: 'Готовий' },
+              { value: 'in_use', label: 'В роботі' },
+            ]}
+          />
+        );
+      },
+    },
+    {
+      title: 'Дії',
+      key: 'actions',
+      render: (_: unknown, record: BackendEmulator) => (
+        <Space>
+          {(record.readiness_status || 'new') === 'new' && (
+            <Tooltip title="Позначити як готовий">
+              <Button
+                size="small"
+                icon={<CheckOutlined />}
+                onClick={() => handleMarkReady(record.id)}
+                loading={readinessUpdating[record.id]}
+              />
+            </Tooltip>
+          )}
+          <Tooltip title="Клонувати з шаблону">
+            <Button
+              size="small"
+              icon={<CopyOutlined />}
+              onClick={() => handleCloneClick(record)}
+            />
+          </Tooltip>
+          <Tooltip title="Видалити емулятор">
+            <Button
+              size="small"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() => handleDeleteClick(record)}
+            />
+          </Tooltip>
+        </Space>
+      ),
+    },
   ];
 
   return (
@@ -235,8 +404,13 @@ export default function EmulatorsPage() {
             children: (
               <>
                 <p style={{ color: '#666', marginBottom: 16 }}>
-                  Видимі емулятори показуються в API та отримують задачі з черги. Приховані — ні. Новий емулятор після sync за замовчуванням прихований; увімкніть видимість, щоб він зʼявився в списках та отримував задачі.
+                  Видимі емулятори показуються в API та отримують задачі з черги. Приховані — ні. Шаблонні — тільки для клонування. Для задач і біндінгу доступні тільки з готовністю «Готовий» або «В роботі».
                 </p>
+                <div style={{ marginBottom: 16 }}>
+                  <Button type="primary" icon={<CopyOutlined />} onClick={() => handleCloneClick()}>
+                    Клонувати з шаблону
+                  </Button>
+                </div>
                 <Table
                   columns={backendColumns}
                   dataSource={backendEmulators}
@@ -250,6 +424,59 @@ export default function EmulatorsPage() {
           },
         ]}
       />
+
+      <Modal
+        title="Клонувати емулятори"
+        open={cloneModalOpen}
+        onOk={handleCloneConfirm}
+        onCancel={() => setCloneModalOpen(false)}
+        confirmLoading={cloneLoading}
+        okText="Клонувати"
+      >
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <div>
+            <span style={{ marginRight: 8 }}>Шаблон:</span>
+            <Select
+              style={{ minWidth: 200 }}
+              value={cloneTemplateId || undefined}
+              onChange={setCloneTemplateId}
+              placeholder="Оберіть шаблон"
+              options={backendEmulators
+                .filter((e) => e.is_template)
+                .map((e) => ({ value: e.id, label: `${e.emulator_name || e.emulator_id} (${e.agent_id})` }))}
+            />
+          </div>
+          <div>
+            <span style={{ marginRight: 8 }}>Кількість:</span>
+            <InputNumber
+              min={1}
+              max={10}
+              value={cloneCount}
+              onChange={(v) => setCloneCount(v ?? 1)}
+            />
+          </div>
+          <p style={{ color: '#666', fontSize: 12 }}>
+            Клонування може зайняти кілька хвилин на кожен емулятор.
+          </p>
+        </Space>
+      </Modal>
+
+      <Modal
+        title="Видалити емулятор"
+        open={deleteModalOpen}
+        onOk={handleDeleteConfirm}
+        onCancel={() => { setDeleteModalOpen(false); setDeleteTarget(null); }}
+        confirmLoading={deleteLoading}
+        okText="Видалити"
+        okButtonProps={{ danger: true }}
+      >
+        {deleteTarget && (
+          <p>
+            Видалити емулятор <strong>{deleteTarget.emulator_name || deleteTarget.emulator_id}</strong>?
+            ВМ буде видалено з MEmu. Спочатку видаліть прив&apos;язки, якщо є.
+          </p>
+        )}
+      </Modal>
     </div>
   );
 }

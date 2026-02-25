@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Modal, Form, Input, Select, Switch, message, Space, Typography } from 'antd';
 import { createBackendClient, tokenStorage, type CreateSocialAccountDto } from '@/lib/api/backend';
+import { CountrySelect } from '@/components/common/CountrySelect';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -38,6 +39,7 @@ export function CreateAccountModal({ visible, onCancel, onSuccess }: CreateAccou
         two_factor_secret: values.two_factor_secret,
         requires_proxy: values.requires_proxy ?? true,
         proxy_required_reason: values.proxy_required_reason,
+        country_code: values.country_code || null,
       });
 
       message.success('Account created successfully');
@@ -100,6 +102,10 @@ export function CreateAccountModal({ visible, onCancel, onSuccess }: CreateAccou
 
         <Form.Item name="two_factor_secret" label="2FA Secret (optional)">
           <Input placeholder="Two-factor authentication" />
+        </Form.Item>
+
+        <Form.Item name="country_code" label="Country">
+          <CountrySelect placeholder="Select country (optional)" />
         </Form.Item>
 
         <Form.Item

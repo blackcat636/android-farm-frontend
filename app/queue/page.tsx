@@ -218,6 +218,12 @@ export default function QueuePage() {
       render: (text) => text ? <Tag>{text}</Tag> : '-',
     },
     {
+      title: 'Country',
+      dataIndex: ['country_name', 'country_code'],
+      key: 'country',
+      render: (_: unknown, record: Task) => record.country_name || record.country_code || '-',
+    },
+    {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
@@ -463,6 +469,9 @@ export default function QueuePage() {
               <p><strong>Task ID:</strong> {record.id}</p>
               {record.account_id && (
                 <p><strong>Account ID:</strong> {record.account_id}</p>
+              )}
+              {(record.country_code || record.country_name) && (
+                <p><strong>Country:</strong> {record.country_name || record.country_code}</p>
               )}
               {record.proxy_id && (
                 <p><strong>Proxy ID:</strong> {record.proxy_id}</p>

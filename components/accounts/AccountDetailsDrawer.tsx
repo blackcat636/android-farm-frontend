@@ -58,7 +58,7 @@ export function AccountDetailsDrawer({
   const [loadingOccupiedEmulators, setLoadingOccupiedEmulators] = useState(false);
   const [proxyForm] = Form.useForm();
   const [bindForm] = Form.useForm();
-  const { emulators, loading: loadingEmulators } = useAllEmulators(false);
+  const { emulators, loading: loadingEmulators } = useAllEmulators(false, false, true);
 
   useEffect(() => {
     if (visible && account) {
@@ -267,6 +267,9 @@ export function AccountDetailsDrawer({
           <Descriptions.Item label="Username">{account.username}</Descriptions.Item>
           <Descriptions.Item label="Email">{maskEmail(account.email)}</Descriptions.Item>
           <Descriptions.Item label="Phone">{account.phone || '-'}</Descriptions.Item>
+          <Descriptions.Item label="Country">
+            {account.country_name || account.country_code || '-'}
+          </Descriptions.Item>
           <Descriptions.Item label="Status">
             <Space orientation="vertical" size="small">
             <Tag color={getStatusColor(account.status)} style={{ textTransform: 'capitalize' }}>

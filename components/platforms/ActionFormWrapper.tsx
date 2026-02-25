@@ -10,6 +10,7 @@ import { useAllEmulators } from '@/hooks/useAllEmulators';
 import { useAccountEmulatorSelection } from '@/hooks/useAccountEmulatorSelection';
 import { createBackendClient, tokenStorage } from '@/lib/api/backend';
 import { AccountEmulatorSelector } from './AccountEmulatorSelector';
+import { CountrySelect } from '@/components/common/CountrySelect';
 import Loading from '@/components/common/Loading';
 import { message } from 'antd';
 
@@ -50,7 +51,7 @@ export function ActionFormWrapper({
 }: ActionFormWrapperProps) {
   const router = useRouter();
   const [form] = Form.useForm();
-  const { emulators, loading: loadingEmulators } = useAllEmulators(false);
+  const { emulators, loading: loadingEmulators } = useAllEmulators(false, false, true);
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -139,6 +140,14 @@ export function ActionFormWrapper({
             platformDisplayName={platformDisplayName}
             selection={selection}
           />
+
+          <Form.Item
+            name="country_code"
+            label="Country (optional)"
+            tooltip="Only accounts from this country will receive the task when account is not specified"
+          >
+            <CountrySelect placeholder="Any country" />
+          </Form.Item>
 
           {children({
             form,

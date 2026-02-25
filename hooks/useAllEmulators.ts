@@ -10,7 +10,7 @@ import { createBackendClient, tokenStorage } from '@/lib/api/backend';
  */
 const DEFAULT_ACTIVE_WITHIN_MINUTES = 15;
 
-export function useAllEmulators(onlyActive = true, includeHidden = false) {
+export function useAllEmulators(onlyActive = true, includeHidden = false, forTasksAndBinding = false) {
   const { user } = useAuth();
   const [emulators, setEmulators] = useState<Emulator[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +35,10 @@ export function useAllEmulators(onlyActive = true, includeHidden = false) {
         const { emulators: list } = await backendClient.getAllEmulators({
           include_hidden: includeHidden,
           active_within_minutes: DEFAULT_ACTIVE_WITHIN_MINUTES,
+          ...(forTasksAndBinding && {
+            exclude_templates: true,
+            readiness_status: 'ready,in_use',
+          }),
         });
 
         const normalized = (list || [])
@@ -58,7 +62,7 @@ export function useAllEmulators(onlyActive = true, includeHidden = false) {
     };
 
     fetchAllEmulators();
-  }, [onlyActive, includeHidden, user]);
+  }, [onlyActive, includeHidden, forTasksAndBinding, user]);
 
   return { emulators, loading, error, agentErrors };
 }
