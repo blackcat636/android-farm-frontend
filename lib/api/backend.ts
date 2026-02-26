@@ -608,6 +608,27 @@ export function createBackendClient(token: string) {
         return response.data;
       },
 
+      // Proxy providers
+      async getProxyProviders(): Promise<ProxyProvider[]> {
+        const response = await api.get<ProxyProvider[]>('/api/proxy-providers');
+        return response.data;
+      },
+
+      async createProxyProvider(data: CreateProxyProviderDto): Promise<ProxyProvider> {
+        const response = await api.post<ProxyProvider>('/api/proxy-providers', data);
+        return response.data;
+      },
+
+      async updateProxyProvider(id: string, data: UpdateProxyProviderDto): Promise<ProxyProvider> {
+        const response = await api.put<ProxyProvider>(`/api/proxy-providers/${id}`, data);
+        return response.data;
+      },
+
+      async deleteProxyProvider(id: string): Promise<{ success: boolean }> {
+        const response = await api.delete<{ success: boolean }>(`/api/proxy-providers/${id}`);
+        return response.data;
+      },
+
       async getSocialAccounts(query?: {
         platform?: string;
         status?: string;
@@ -875,6 +896,9 @@ export interface SocialAccount {
   phone?: string;
   requires_proxy: boolean;
   proxy_required_reason?: string;
+  proxy_source?: string;
+  proxy_provider_id?: string | null;
+  proxy_type?: string | null;
   status: string;
   account_status_reason?: string;
   last_activity?: string;
@@ -901,6 +925,9 @@ export interface CreateSocialAccountDto {
   requires_proxy?: boolean;
   proxy_required_reason?: string;
   country_code?: string | null;
+  proxy_source?: string;
+  proxy_provider_id?: string | null;
+  proxy_type?: string | null;
 }
 
 export interface UpdateSocialAccountDto {
@@ -915,6 +942,9 @@ export interface UpdateSocialAccountDto {
   status?: string;
   account_status_reason?: string;
   country_code?: string | null;
+  proxy_source?: string;
+  proxy_provider_id?: string | null;
+  proxy_type?: string | null;
 }
 
 export interface AccountProxy {
@@ -943,6 +973,31 @@ export interface CreateProxyDto {
   proxy_type?: string;
   proxy_username?: string;
   proxy_password?: string;
+}
+
+export interface ProxyProvider {
+  id: string;
+  user_id: string;
+  name: string;
+  type: string;
+  config: Record<string, unknown>;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateProxyProviderDto {
+  name: string;
+  type: string;
+  config: Record<string, unknown>;
+  is_active?: boolean;
+}
+
+export interface UpdateProxyProviderDto {
+  name?: string;
+  type?: string;
+  config?: Record<string, unknown>;
+  is_active?: boolean;
 }
 
 export interface AccountEmulatorBinding {

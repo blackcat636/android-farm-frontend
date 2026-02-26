@@ -2,7 +2,7 @@
 
 import { Layout, Menu, Drawer } from 'antd';
 import { usePathname, useRouter } from 'next/navigation';
-import { DashboardOutlined, AppstoreOutlined, MobileOutlined, HistoryOutlined, UnorderedListOutlined, UserOutlined, HeartOutlined, KeyOutlined, SafetyOutlined, StopOutlined, MenuOutlined } from '@ant-design/icons';
+import { DashboardOutlined, AppstoreOutlined, MobileOutlined, HistoryOutlined, UnorderedListOutlined, UserOutlined, HeartOutlined, KeyOutlined, SafetyOutlined, StopOutlined, ApiOutlined } from '@ant-design/icons';
 import AppHeader from './AppHeader';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
@@ -80,6 +80,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
       key: '/posts',
       icon: <HeartOutlined />,
       label: 'Posts & Likes',
+    },
+    {
+      key: '/proxy-providers',
+      icon: <ApiOutlined />,
+      label: 'Proxy Providers',
     },
     {
       key: '/api-keys',

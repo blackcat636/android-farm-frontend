@@ -1,13 +1,12 @@
 'use client';
 
-import { useState } from 'react';
-import { Modal, Form, Input, Select, Switch, message, Space, Typography } from 'antd';
-import { createBackendClient, tokenStorage, type CreateSocialAccountDto } from '@/lib/api/backend';
+import { useState, useEffect } from 'react';
+import { Modal, Form, Input, Select, Switch, message } from 'antd';
+import { createBackendClient, tokenStorage, type CreateSocialAccountDto, type ProxyProvider } from '@/lib/api/backend';
 import { CountrySelect } from '@/components/common/CountrySelect';
 
 const { Option } = Select;
 const { TextArea } = Input;
-const { Text } = Typography;
 
 interface CreateAccountModalProps {
   visible: boolean;
@@ -18,6 +17,17 @@ interface CreateAccountModalProps {
 export function CreateAccountModal({ visible, onCancel, onSuccess }: CreateAccountModalProps) {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [proxyProviders, setProxyProviders] = useState<ProxyProvider[]>([]);
+
+  useEffect(() => {
+    if (visible) {
+      const token = tokenStorage.get();
+      if (token) {
+        const backendClient = createBackendClient(token);
+        backendClient.getProxyProviders().then(setProxyProviders).catch(() => setProxyProviders([]));
+      }
+    }
+  }, [visible]);
 
   const handleSubmit = async () => {
     try {
@@ -40,6 +50,9 @@ export function CreateAccountModal({ visible, onCancel, onSuccess }: CreateAccou
         requires_proxy: values.requires_proxy ?? true,
         proxy_required_reason: values.proxy_required_reason,
         country_code: values.country_code || null,
+        proxy_source: values.proxy_source || 'account',
+        proxy_provider_id: values.proxy_source === 'provider' ? values.proxy_provider_id : null,
+        proxy_type: values.proxy_type || null,
       });
 
       message.success('Account created successfully');
@@ -132,6 +145,56 @@ export function CreateAccountModal({ visible, onCancel, onSuccess }: CreateAccou
               >
                 <TextArea rows={2} placeholder="For example: to bypass geo-blocking" />
               </Form.Item>
+            ) : null
+          }
+        </Form.Item>
+
+        <Form.Item
+          noStyle
+          shouldUpdate={(prevValues, currentValues) =>
+            prevValues.requires_proxy !== currentValues.requires_proxy
+          }
+        >
+          {({ getFieldValue }) =>
+            getFieldValue('requires_proxy') ? (
+              <>
+                <Form.Item name="proxy_source" label="Proxy Source" initialValue="account">
+                  <Select>
+                    <Option value="account">Account (manual proxy)</Option>
+                    <Option value="provider">Provider (proxy-service)</Option>
+                  </Select>
+                </Form.Item>
+                <Form.Item
+                  noStyle
+                  shouldUpdate={(p, c) => p.proxy_source !== c.proxy_source}
+                >
+                  {({ getFieldValue: gf }) =>
+                    gf('proxy_source') === 'provider' ? (
+                      <>
+                        <Form.Item
+                          name="proxy_provider_id"
+                          label="Proxy Provider"
+                          rules={[{ required: true, message: 'Select provider' }]}
+                        >
+                          <Select placeholder="Select provider">
+                            {proxyProviders.map((p) => (
+                              <Option key={p.id} value={p.id}>
+                                {p.name} ({p.type})
+                              </Option>
+                            ))}
+                          </Select>
+                        </Form.Item>
+                        <Form.Item name="proxy_type" label="Proxy Type">
+                          <Select placeholder="http (default)">
+                            <Option value="http">HTTP</Option>
+                            <Option value="https">HTTPS</Option>
+                          </Select>
+                        </Form.Item>
+                      </>
+                    ) : null
+                  }
+                </Form.Item>
+              </>
             ) : null
           }
         </Form.Item>
