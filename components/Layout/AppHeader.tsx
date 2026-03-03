@@ -194,7 +194,7 @@ export default function AppHeader({ onMenuClick }: AppHeaderProps) {
                 padding: onMenuClick ? '4px 8px' : undefined,
               }}
             >
-              {!isSmallScreen && user.email}
+              {!isSmallScreen && 'Admin'}
             </Button>
           </Dropdown>
         ) : (
