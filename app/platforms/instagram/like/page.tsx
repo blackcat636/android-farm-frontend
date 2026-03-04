@@ -121,7 +121,7 @@ export default function InstagramLikePage() {
           <ul>
             <li>Enter the Instagram post URL that needs to be liked</li>
             <li>The post will be added to the posts table</li>
-            <li>Like tasks will be created automatically via the "Check Posts Without Likes" job</li>
+            <li>Like tasks will be created automatically via the &quot;Check Posts&quot; job</li>
             <li>After execution, a record will be added to the post_likes table</li>
           </ul>
         </Text>

@@ -1,89 +1,131 @@
 'use client';
 
-import { Input, Form, InputNumber } from 'antd';
-import { EyeOutlined } from '@ant-design/icons';
+import { useState } from 'react';
+import {
+  Card,
+  Button,
+  Form,
+  Input,
+  message,
+  Space,
+  Typography,
+} from 'antd';
+import { ArrowLeftOutlined, EyeOutlined } from '@ant-design/icons';
+import { useRouter } from 'next/navigation';
 import { createBackendClient, tokenStorage } from '@/lib/api/backend';
-import { ActionFormWrapper } from '@/components/platforms/ActionFormWrapper';
+import { CountrySelect } from '@/components/common/CountrySelect';
+
+const { Title, Text } = Typography;
 
 export default function InstagramViewPage() {
+  const router = useRouter();
+  const [form] = Form.useForm();
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (values: { postUrl: string; country_code?: string }) => {
+    try {
+      setLoading(true);
+      const token = tokenStorage.get();
+      if (!token) {
+        message.error('Authorization required');
+        return;
+      }
+
+      const backendClient = createBackendClient(token);
+      await backendClient.viewInstagramPost({
+        postUrl: values.postUrl,
+        country_code: values.country_code || null,
+      });
+
+      message.success('Post added for viewing!');
+      form.resetFields();
+    } catch (err: any) {
+      message.error(
+        err.response?.data?.message || err.message || 'Error adding post',
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <ActionFormWrapper
-      platform="instagram"
-      action="view"
-      title="Instagram View Post"
-      description="Open post in Instagram via Chrome and view it (without liking). Task will be added to the queue."
-      platformDisplayName="Instagram"
-      submitButtonText="Add Task to Queue"
-      submitButtonIcon={<EyeOutlined />}
-      onSubmit={async ({ formValues, accountId, emulatorId, agentId }) => {
-        const token = tokenStorage.get();
-        if (!token) {
-          throw new Error('Authorization required');
-        }
+    <div style={{ maxWidth: 800, margin: '0 auto', padding: 24 }}>
+      <div style={{ marginBottom: 16 }}>
+        <Button
+          icon={<ArrowLeftOutlined />}
+          onClick={() => router.push('/platforms/instagram')}
+        >
+          Back to Instagram
+        </Button>
+      </div>
 
-        const backendClient = createBackendClient(token);
-        const params: Record<string, unknown> = {
-          postUrl: formValues.postUrl,
-        };
-        if (formValues.viewSeconds != null && formValues.viewSeconds > 0) {
-          params.viewSeconds = formValues.viewSeconds;
-        }
+      <Title level={2}>
+        <EyeOutlined /> View Instagram Post
+      </Title>
 
-        const task = await backendClient.addTask({
-          platform: 'instagram',
-          action: 'view',
-          params,
-          account_id: accountId,
-          emulator_id: emulatorId,
-          agent_id: agentId,
-          country_code: formValues.country_code || null,
-        });
+      <Card>
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSubmit}
+          autoComplete="off"
+        >
+          <Form.Item
+            name="country_code"
+            label="Country (optional)"
+            tooltip="Only accounts from this country will receive view tasks"
+          >
+            <CountrySelect placeholder="Any country" />
+          </Form.Item>
 
-        return {
-          task_id: task.id,
-          status: task.status,
-          platform: 'instagram',
-          action: 'view',
-        };
-      }}
-    >
-      {({ loading }) => (
-        <>
           <Form.Item
             name="postUrl"
             label="Instagram Post URL"
             rules={[
-              { required: true, message: 'Enter post URL' },
+              { required: true, message: 'Please enter post URL' },
               {
                 pattern: /instagram\.com|instagr\.am/,
-                message: 'Enter a valid Instagram post URL',
+                message: 'Please enter a valid Instagram post URL',
               },
             ]}
             help="Example: https://www.instagram.com/p/ABC123/"
           >
             <Input
               placeholder="https://www.instagram.com/p/ABC123/"
-              disabled={loading}
               size="large"
             />
           </Form.Item>
 
-          <Form.Item
-            name="viewSeconds"
-            label="View Duration (seconds)"
-            tooltip="How long to view the post (default: 5, range: 1–60)"
-            initialValue={5}
-          >
-            <InputNumber
-              min={1}
-              max={60}
-              placeholder="5"
-              disabled={loading}
-              style={{ width: '100%' }}
-            />
+          <Form.Item>
+            <Space>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={loading}
+                icon={<EyeOutlined />}
+                size="large"
+              >
+                Add Post
+              </Button>
+              <Button onClick={() => form.resetFields()} size="large">
+                Clear
+              </Button>
+            </Space>
           </Form.Item>
-        </>
-      )}
-    </ActionFormWrapper>
+        </Form>
+      </Card>
+
+      <Card style={{ marginTop: 24 }}>
+        <Title level={4}>Information</Title>
+        <Text type="secondary">
+          <ul>
+            <li>Enter the Instagram post URL that needs to be viewed</li>
+            <li>The post will be added to the posts table (needs_view=1)</li>
+            <li>View tasks will be created via the &quot;Check Posts&quot; job</li>
+            <li>Each account will view the post once</li>
+          </ul>
+        </Text>
+      </Card>
+    </div>
   );
 }

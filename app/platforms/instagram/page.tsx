@@ -10,30 +10,31 @@ export default function InstagramPlatformPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  const handleCheckPostsLikes = async () => {
+  const handleCheckPosts = async () => {
     try {
       setLoading(true);
-      const loadingMsg = message.loading({ content: 'Starting posts without likes check...', key: 'check-likes', duration: 0 });
+      const loadingMsg = message.loading({ content: 'Checking posts...', key: 'check-posts', duration: 0 });
       
       const token = tokenStorage.get();
       if (!token) {
-        message.error({ content: 'Authorization required', key: 'check-likes' });
+        message.error({ content: 'Authorization required', key: 'check-posts' });
         return;
       }
 
       const backendClient = createBackendClient(token);
-      const result = await backendClient.triggerJobWebhook('check-posts-likes');
+      const result = await backendClient.triggerJobWebhook('check-posts');
       
       loadingMsg();
+      const data = result.result?.data || {};
       message.success({
-        content: `Task started successfully! Found ${result.result?.data?.totalPostsWithoutLikes || 0} posts without likes, created ${result.result?.data?.totalLikeTasksCreated || 0} tasks.`,
-        key: 'check-likes',
+        content: `Created ${data.likeTasksCreated || 0} like tasks, ${data.viewTasksCreated || 0} view tasks.`,
+        key: 'check-posts',
         duration: 5,
       });
     } catch (error: any) {
       message.error({
         content: `Error: ${error.response?.data?.message || error.message || 'Unknown error'}`,
-        key: 'check-likes',
+        key: 'check-posts',
         duration: 5,
       });
     } finally {
@@ -101,11 +102,11 @@ export default function InstagramPlatformPage() {
           </Button>
           <Button
             size="large"
-            icon={<LikeOutlined />}
-            onClick={handleCheckPostsLikes}
+            icon={<EyeOutlined />}
+            onClick={handleCheckPosts}
             loading={loading}
           >
-            Check Posts Without Likes
+            Check Posts
           </Button>
           <Button
             size="large"

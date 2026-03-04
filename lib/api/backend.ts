@@ -818,12 +818,26 @@ export function createBackendClient(token: string) {
       async likeInstagramPost(data: {
         postUrl: string;
         country_code?: string | null;
-      }): Promise<{
-        ok: boolean;
-        message: string;
-        post: Post;
-      }> {
+      }): Promise<{ ok: boolean; message: string; post: Post }> {
         const response = await api.post('/api/posts/instagram/like', data);
+        return response.data;
+      },
+
+      // Додати Instagram пост для перегляду
+      async viewInstagramPost(data: {
+        postUrl: string;
+        country_code?: string | null;
+      }): Promise<{ ok: boolean; message: string; post: Post }> {
+        const response = await api.post('/api/posts/instagram/view', data);
+        return response.data;
+      },
+
+      // Додати Instagram пост для перегляду + лайку
+      async viewAndLikeInstagramPost(data: {
+        postUrl: string;
+        country_code?: string | null;
+      }): Promise<{ ok: boolean; message: string; post: Post }> {
+        const response = await api.post('/api/posts/instagram/view-and-like', data);
         return response.data;
       },
 
