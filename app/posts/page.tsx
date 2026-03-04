@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Table, Tag, Card } from 'antd';
+import { Table, Tag, Card, Switch } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { createBackendClient, tokenStorage, type Post, type PostLike } from '@/lib/api/backend';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,6 +18,7 @@ export default function PostsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loadingLikesFor, setLoadingLikesFor] = useState<string | null>(null);
+  const [updatingPostId, setUpdatingPostId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -50,6 +51,27 @@ export default function PostsPage() {
 
     fetchPosts();
   }, [user]);
+
+  const handleLikesDisabledChange = async (postId: string, checked: boolean) => {
+    try {
+      setUpdatingPostId(postId);
+      const token = tokenStorage.get();
+      if (!token) throw new Error('Необхідна авторизація');
+
+      const backendClient = createBackendClient(token);
+      await backendClient.updatePost(postId, { likes_disabled: checked });
+
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId ? { ...p, likes_disabled: checked } : p,
+        ),
+      );
+    } catch (err: any) {
+      setError(err.message || 'Помилка оновлення');
+    } finally {
+      setUpdatingPostId(null);
+    }
+  };
 
   const loadLikesForPost = async (postId: string) => {
     // Якщо лайки вже завантажені — не перезавантажуємо
@@ -88,6 +110,21 @@ export default function PostsPage() {
       dataIndex: 'caption',
       key: 'caption',
       render: (text) => text || '-',
+    },
+    {
+      title: 'Відключено для лайків',
+      dataIndex: 'likes_disabled',
+      key: 'likes_disabled',
+      width: 160,
+      render: (disabled: boolean | undefined, record: PostWithLikes) => (
+        <Switch
+          checked={!!disabled}
+          onChange={(checked) => handleLikesDisabledChange(record.id, checked)}
+          loading={updatingPostId === record.id}
+          checkedChildren="Так"
+          unCheckedChildren="Ні"
+        />
+      ),
     },
     {
       title: 'Post URL',

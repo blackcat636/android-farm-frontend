@@ -2,7 +2,7 @@
 
 import { Card, Button, Space, message } from 'antd';
 import { useRouter } from 'next/navigation';
-import { FileTextOutlined, LoginOutlined, HistoryOutlined, LikeOutlined, ArrowLeftOutlined, CommentOutlined, EyeOutlined, UserAddOutlined } from '@ant-design/icons';
+import { FileTextOutlined, LoginOutlined, HistoryOutlined, LikeOutlined, HeartOutlined, ArrowLeftOutlined, CommentOutlined, EyeOutlined, UserAddOutlined } from '@ant-design/icons';
 import { createBackendClient, tokenStorage } from '@/lib/api/backend';
 import { useState } from 'react';
 
@@ -80,10 +80,24 @@ export default function InstagramPlatformPage() {
           </Button>
           <Button
             size="large"
+            icon={<EyeOutlined />}
+            onClick={() => router.push('/platforms/instagram/view')}
+          >
+            View Post
+          </Button>
+          <Button
+            size="large"
+            icon={<HeartOutlined />}
+            onClick={() => router.push('/platforms/instagram/viewAndLike')}
+          >
+            View and Like Post
+          </Button>
+          <Button
+            size="large"
             icon={<LikeOutlined />}
             onClick={() => router.push('/platforms/instagram/like')}
           >
-            Like Post
+            Like Post (add to list)
           </Button>
           <Button
             size="large"
@@ -99,13 +113,6 @@ export default function InstagramPlatformPage() {
             onClick={handleInDevelopment}
           >
             🚧 Comment Post
-          </Button>
-          <Button
-            size="large"
-            icon={<EyeOutlined />}
-            onClick={handleInDevelopment}
-          >
-            🚧 View Post
           </Button>
           <Button
             size="large"

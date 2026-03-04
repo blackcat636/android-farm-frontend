@@ -7,6 +7,7 @@ import {
   LoginOutlined, 
   HistoryOutlined, 
   LikeOutlined, 
+  HeartOutlined,
   PlayCircleOutlined,
   CommentOutlined,
   EyeOutlined,
@@ -104,10 +105,24 @@ export default function PlatformsPage() {
           </Button>
           <Button
             size="large"
+            icon={<EyeOutlined />}
+            onClick={() => router.push('/platforms/instagram/view')}
+          >
+            View Post
+          </Button>
+          <Button
+            size="large"
+            icon={<HeartOutlined />}
+            onClick={() => router.push('/platforms/instagram/viewAndLike')}
+          >
+            View and Like Post
+          </Button>
+          <Button
+            size="large"
             icon={<LikeOutlined />}
             onClick={() => router.push('/platforms/instagram/like')}
           >
-            Add Like
+            Add Like (list)
           </Button>
           <Button
             size="large"
@@ -123,13 +138,6 @@ export default function PlatformsPage() {
             onClick={handleInDevelopment}
           >
             🚧 Comment Post
-          </Button>
-          <Button
-            size="large"
-            icon={<EyeOutlined />}
-            onClick={handleInDevelopment}
-          >
-            🚧 View Post
           </Button>
           <Button
             size="large"

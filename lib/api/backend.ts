@@ -121,6 +121,8 @@ export interface Post {
   caption?: string;
   media_path?: string;
   published?: boolean;
+  /** Якщо true, пост не видається для завдань лайків */
+  likes_disabled?: boolean;
   created_at: string;
 }
 
@@ -524,6 +526,11 @@ export function createBackendClient(token: string) {
 
       async getPostLikes(postId: string): Promise<PostLike[]> {
         const response = await api.get<PostLike[]>(`/api/posts/${postId}/likes`);
+        return response.data;
+      },
+
+      async updatePost(postId: string, data: { likes_disabled?: boolean }): Promise<Post> {
+        const response = await api.patch<Post>(`/api/posts/${postId}`, data);
         return response.data;
       },
 
