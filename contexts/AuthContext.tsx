@@ -7,6 +7,7 @@ import { App } from 'antd';
 interface User {
   id: string;
   email: string;
+  role?: string;
 }
 
 interface AuthContextType {
@@ -111,7 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await authApi.signIn({ email, password });
       tokenStorage.set(response.access_token, response.refresh_token);
-      setUser(response.user);
+      await refreshUser(true);
       message.success('Вхід виконано успішно');
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || 'Помилка входу';

@@ -120,6 +120,7 @@ frontend/
 | Роут | Опис |
 |------|------|
 | `/` | Dashboard — платформи, емулятори, статистика |
+| `/users` | Користувачі та ролі (тільки admin/superadmin) |
 | `/platforms` | Список платформ |
 | `/platforms/[platform]` | Деталі платформи, список дій |
 | `/platforms/[platform]/[action]` | Динамічна форма дії |
@@ -151,7 +152,7 @@ frontend/
 
 ### 2. AuthContext
 
-- **user**, **loading**
+- **user** (id, email, role), **loading**
 - **signIn**, **signUp**, **signOut**, **refreshUser**
 - Підписка на `tokenRefreshFailed`, оновлення після refresh токену
 
@@ -159,7 +160,7 @@ frontend/
 
 - **createBackendApi(token)** — базовий axios з токеном
 - **createBackendClient(token)** — повний клієнт: auth, agents, emulators, execute, history, queue, posts, social-accounts, account-proxies, account-bindings, sync
-- **authApi** — signIn, signUp, signOut, getMe, refresh, api-keys
+- **authApi** — signIn, signUp, signOut, getMe, refresh, api-keys, getUsers, setUserRole
 - **tokenStorage** — get, set, remove, getRefresh
 
 ### 4. Hooks

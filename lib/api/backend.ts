@@ -35,6 +35,15 @@ export interface AuthResponse {
   user: any;
 }
 
+export type Role = 'user' | 'manager' | 'admin' | 'superadmin';
+
+export interface UserWithRole {
+  id: string;
+  email?: string;
+  role: string;
+  created_at?: string;
+}
+
 export interface Agent {
   id: string;
   name?: string;
@@ -179,11 +188,12 @@ function processQueue(error: any, token: string | null = null) {
 // Request interceptor для автоматичного додавання токену
 globalAxiosInstance.interceptors.request.use(
   (config) => {
-    // Не додаємо токен для auth endpoints (крім /me та /api-keys)
+    // Не додаємо токен для auth endpoints (крім /me, /api-keys, /users)
     if (
       config.url?.startsWith('/api/auth/') &&
       !config.url.includes('/me') &&
-      !config.url.includes('/api-keys')
+      !config.url.includes('/api-keys') &&
+      !config.url.includes('/users')
     ) {
       return config;
     }
@@ -350,6 +360,18 @@ export const authApi = {
   async getMe(token: string): Promise<any> {
     const api = createBackendApi(token);
     const response = await api.get('/api/auth/me');
+    return response.data;
+  },
+
+  async getUsers(): Promise<UserWithRole[]> {
+    const api = createBackendApi();
+    const response = await api.get<UserWithRole[]>('/api/auth/users');
+    return response.data;
+  },
+
+  async setUserRole(userId: string, role: Role): Promise<{ role: string }> {
+    const api = createBackendApi();
+    const response = await api.put<{ role: string }>(`/api/auth/users/${userId}/role`, { role });
     return response.data;
   },
 
