@@ -11,7 +11,6 @@ import { useAccountEmulatorSelection } from '@/hooks/useAccountEmulatorSelection
 import { createBackendClient, tokenStorage } from '@/lib/api/backend';
 import { AccountEmulatorSelector } from './AccountEmulatorSelector';
 import { CountrySelect } from '@/components/common/CountrySelect';
-import Loading from '@/components/common/Loading';
 import { message } from 'antd';
 
 export interface ActionFormWrapperProps {
@@ -101,10 +100,6 @@ export function ActionFormWrapper({
       setLoading(false);
     }
   };
-
-  if (loadingEmulators) {
-    return <Loading />;
-  }
 
   return (
     <div>

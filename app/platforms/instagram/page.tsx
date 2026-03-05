@@ -2,13 +2,18 @@
 
 import { Card, Button, Space, message } from 'antd';
 import { useRouter } from 'next/navigation';
-import { FileTextOutlined, LoginOutlined, HistoryOutlined, LikeOutlined, HeartOutlined, ArrowLeftOutlined, CommentOutlined, EyeOutlined, UserAddOutlined } from '@ant-design/icons';
+import { FileTextOutlined, LoginOutlined, HistoryOutlined, HeartOutlined, ArrowLeftOutlined, CommentOutlined, EyeOutlined, UserAddOutlined } from '@ant-design/icons';
 import { createBackendClient, tokenStorage } from '@/lib/api/backend';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { prefetchTaskFormData } from '@/lib/cache/task-form-cache';
 
 export default function InstagramPlatformPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    prefetchTaskFormData('instagram');
+  }, []);
 
   const handleCheckPosts = async () => {
     try {
@@ -68,6 +73,7 @@ export default function InstagramPlatformPage() {
             type="primary"
             size="large"
             icon={<FileTextOutlined />}
+            onMouseEnter={() => prefetchTaskFormData('instagram')}
             onClick={() => router.push('/platforms/instagram/post')}
           >
             Publish Post (post)
@@ -92,13 +98,6 @@ export default function InstagramPlatformPage() {
             onClick={() => router.push('/platforms/instagram/viewAndLike')}
           >
             View and Like Post
-          </Button>
-          <Button
-            size="large"
-            icon={<LikeOutlined />}
-            onClick={() => router.push('/platforms/instagram/like')}
-          >
-            Like Post (add to list)
           </Button>
           <Button
             size="large"

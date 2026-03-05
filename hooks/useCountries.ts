@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createBackendClient, tokenStorage } from '@/lib/api/backend';
+import { getCachedCountries, setCache } from '@/lib/cache/task-form-cache';
 
 export interface Country {
   code: string;
@@ -9,25 +10,31 @@ export interface Country {
 }
 
 export function useCountries() {
-  const [countries, setCountries] = useState<Country[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cached = getCachedCountries();
+  const [countries, setCountries] = useState<Country[]>(cached ?? []);
+  const [loading, setLoading] = useState(!cached);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const token = tokenStorage.get();
     if (!token) {
       setLoading(false);
-      setCountries([]);
+      setCountries(cached ?? []);
       return;
     }
 
     const backendClient = createBackendClient(token);
+    if (!cached) setLoading(true);
     backendClient
       .getCountries()
-      .then((data) => setCountries(data || []))
+      .then((data) => {
+        const list = data || [];
+        setCountries(list);
+        setCache({ countries: list });
+      })
       .catch((err) => {
         setError(err.message || 'Failed to load countries');
-        setCountries([]);
+        if (!cached) setCountries([]);
       })
       .finally(() => setLoading(false));
   }, []);

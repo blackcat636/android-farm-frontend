@@ -163,7 +163,9 @@ export function AccountEmulatorSelector({
               <Select
                 placeholder="Select emulator"
                 disabled={loading || loadingEmulators}
+                loading={loadingEmulators}
                 onChange={handleEmulatorChange}
+                notFoundContent={loadingEmulators ? 'Loading...' : 'No emulators found'}
               >
                 {emulators.map((emulator) => (
                   <Select.Option key={`${emulator.agentId}-${emulator.id}`} value={emulator.id}>
@@ -190,7 +192,9 @@ export function AccountEmulatorSelector({
           <Select
             placeholder="Select emulator"
             disabled={loading || loadingEmulators}
+            loading={loadingEmulators}
             onChange={handleEmulatorChange}
+            notFoundContent={loadingEmulators ? 'Loading...' : 'No emulators found'}
           >
             {emulators.map((emulator) => (
               <Select.Option key={`${emulator.agentId}-${emulator.id}`} value={emulator.id}>

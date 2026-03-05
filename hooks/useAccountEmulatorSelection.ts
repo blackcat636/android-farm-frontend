@@ -5,6 +5,7 @@ import { message } from 'antd';
 import { type Emulator } from '@/lib/api/agent';
 import { createBackendClient, tokenStorage, type SocialAccount, type AccountEmulatorBinding } from '@/lib/api/backend';
 import { useAuth } from '@/contexts/AuthContext';
+import { getCachedAccounts, mergeAccountsIntoCache } from '@/lib/cache/task-form-cache';
 
 export interface UseAccountEmulatorSelectionProps {
   platform: string;
@@ -38,9 +39,10 @@ export function useAccountEmulatorSelection({
   loading = false,
 }: UseAccountEmulatorSelectionProps): UseAccountEmulatorSelectionReturn {
   const { user } = useAuth();
+  const cachedAccounts = getCachedAccounts(platform);
   const [selectionType, setSelectionType] = useState<'account' | 'emulator'>('account');
-  const [accounts, setAccounts] = useState<SocialAccount[]>([]);
-  const [loadingAccounts, setLoadingAccounts] = useState(false);
+  const [accounts, setAccounts] = useState<SocialAccount[]>(cachedAccounts ?? []);
+  const [loadingAccounts, setLoadingAccounts] = useState(!cachedAccounts);
   const [selectedAccount, setSelectedAccount] = useState<SocialAccount | null>(null);
   const [binding, setBinding] = useState<AccountEmulatorBinding | null>(null);
   const [selectedEmulator, setSelectedEmulator] = useState<Emulator | null>(null);
@@ -64,7 +66,7 @@ export function useAccountEmulatorSelection({
 
   const loadAccounts = async () => {
     try {
-      setLoadingAccounts(true);
+      if (!cachedAccounts) setLoadingAccounts(true);
       const token = tokenStorage.get();
       if (!token) return;
 
@@ -73,9 +75,10 @@ export function useAccountEmulatorSelection({
         platform,
         status: 'active',
       });
-      
-      // Не фільтруємо заблоковані - показуємо всі, але вони будуть disabled в селекті
-      setAccounts(response.data || []);
+
+      const list = response.data || [];
+      setAccounts(list);
+      mergeAccountsIntoCache(platform, list);
     } catch (err: any) {
       console.error('Помилка завантаження акаунтів:', err);
       message.error('Не вдалося завантажити акаунти');

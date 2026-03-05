@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { type Emulator } from '@/lib/api/agent';
 import { useAuth } from '@/contexts/AuthContext';
 import { createBackendClient, tokenStorage } from '@/lib/api/backend';
+import { getCachedEmulators, setCache } from '@/lib/cache/task-form-cache';
 
 /**
  * Хук для отримання емуляторів з БД (GET /api/emulators, тільки з активних агентів).
@@ -12,8 +13,9 @@ const DEFAULT_ACTIVE_WITHIN_MINUTES = 15;
 
 export function useAllEmulators(onlyActive = true, includeHidden = false, forTasksAndBinding = false) {
   const { user } = useAuth();
-  const [emulators, setEmulators] = useState<Emulator[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cached = forTasksAndBinding ? getCachedEmulators() : null;
+  const [emulators, setEmulators] = useState<Emulator[]>(cached ?? []);
+  const [loading, setLoading] = useState(!cached);
   const [error, setError] = useState<string | null>(null);
   const [agentErrors, setAgentErrors] = useState<Record<string, string>>({});
 
@@ -29,7 +31,7 @@ export function useAllEmulators(onlyActive = true, includeHidden = false, forTas
       const backendClient = createBackendClient(token);
 
       try {
-        setLoading(true);
+        if (!cached) setLoading(true);
         setError(null);
 
         const { emulators: list } = await backendClient.getAllEmulators({
@@ -55,6 +57,7 @@ export function useAllEmulators(onlyActive = true, includeHidden = false, forTas
           }));
 
         setEmulators(normalized);
+        if (forTasksAndBinding) setCache({ emulators: normalized });
       } catch (err: any) {
         setError(err?.response?.data?.message || err?.message || 'Помилка завантаження емуляторів');
       } finally {
