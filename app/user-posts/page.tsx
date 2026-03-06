@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Table, Tag, Select, Card, Space, Button, message, Modal, Form, Input } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { ReloadOutlined, PlusOutlined } from '@ant-design/icons';
+import { ReloadOutlined, PlusOutlined, SendOutlined } from '@ant-design/icons';
 import { createBackendClient, authApi, tokenStorage, type UserWithRole } from '@/lib/api/backend';
 import { useAuth } from '@/contexts/AuthContext';
 import Loading from '@/components/common/Loading';
@@ -110,6 +110,19 @@ export default function UserPostsPage() {
     }
   };
 
+  const handleProcess = async (id: string) => {
+    try {
+      const token = tokenStorage.get();
+      if (!token) throw new Error('Authorization required');
+      const client = createBackendClient(token);
+      await client.processUserPost(id);
+      message.success('Post sent for processing');
+      fetchPosts(pagination.current);
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || err.message || 'Error processing post');
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
   }, []);
@@ -126,6 +139,7 @@ export default function UserPostsPage() {
 
   const statusColors: Record<string, string> = {
     new: 'blue',
+    processing: 'cyan',
     active: 'green',
     paused: 'orange',
     deleted: 'red',
@@ -179,6 +193,17 @@ export default function UserPostsPage() {
       key: 'created_at',
       render: (text: string) => new Date(text).toLocaleString('en-US'),
     },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_: any, record: UserPost) => (
+        record.status === 'new' ? (
+          <Button type="primary" icon={<SendOutlined />} size="small" onClick={() => handleProcess(record.id)}>
+            Process
+          </Button>
+        ) : null
+      ),
+    },
   ];
 
   const cloneColumns: ColumnsType<UserPostClone> = [
@@ -230,6 +255,7 @@ export default function UserPostsPage() {
             onChange={(value) => setFilters({ ...filters, status: value })}
             options={[
               { label: 'New', value: 'new' },
+              { label: 'Processing', value: 'processing' },
               { label: 'Active', value: 'active' },
               { label: 'Paused', value: 'paused' },
               { label: 'Deleted', value: 'deleted' },

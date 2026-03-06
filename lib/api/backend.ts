@@ -923,6 +923,11 @@ export function createBackendClient(token: string) {
         return response.data;
       },
 
+      async processUserPost(id: string): Promise<any> {
+        const response = await api.post(`/api/user-posts/${id}/process`);
+        return response.data;
+      },
+
       async addTaskToBlacklist(taskId: string, reason?: string): Promise<BlacklistEntry> {
         const response = await api.post<BlacklistEntry>(`/api/queue/blacklist/from-task/${taskId}`, { reason });
         return response.data;
