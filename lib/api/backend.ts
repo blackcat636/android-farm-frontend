@@ -918,6 +918,11 @@ export function createBackendClient(token: string) {
         return response.data;
       },
 
+      async createAdminUserPost(data: { user_id: string; url: string; description?: string; platform?: string }): Promise<any> {
+        const response = await api.post('/api/user-posts/admin/create', data);
+        return response.data;
+      },
+
       async addTaskToBlacklist(taskId: string, reason?: string): Promise<BlacklistEntry> {
         const response = await api.post<BlacklistEntry>(`/api/queue/blacklist/from-task/${taskId}`, { reason });
         return response.data;

@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Table, Tag, Select, Card, Space, Button, message } from 'antd';
+import { Table, Tag, Select, Card, Space, Button, message, Modal, Form, Input } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { ReloadOutlined } from '@ant-design/icons';
+import { ReloadOutlined, PlusOutlined } from '@ant-design/icons';
 import { createBackendClient, authApi, tokenStorage, type UserWithRole } from '@/lib/api/backend';
 import { useAuth } from '@/contexts/AuthContext';
 import Loading from '@/components/common/Loading';
@@ -48,6 +48,9 @@ export default function UserPostsPage() {
   const [filters, setFilters] = useState<{ user_id?: string; status?: string }>({});
   const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
   const [expandedClones, setExpandedClones] = useState<Record<string, UserPostClone[]>>({});
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createForm] = Form.useForm();
 
   const fetchUsers = async () => {
     try {
@@ -87,6 +90,24 @@ export default function UserPostsPage() {
       const response = await client.getAdminUserPostClones({ user_post_id: postId, limit: 100 });
       setExpandedClones((prev) => ({ ...prev, [postId]: response.data || [] }));
     } catch {}
+  };
+
+  const handleCreatePost = async (values: { user_id: string; url: string; description?: string; platform?: string }) => {
+    try {
+      setCreateLoading(true);
+      const token = tokenStorage.get();
+      if (!token) throw new Error('Authorization required');
+      const client = createBackendClient(token);
+      await client.createAdminUserPost(values);
+      message.success('Post created successfully');
+      setCreateModalOpen(false);
+      createForm.resetFields();
+      fetchPosts(1);
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || err.message || 'Error creating post');
+    } finally {
+      setCreateLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -179,9 +200,14 @@ export default function UserPostsPage() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <h1 style={{ margin: 0 }}>User Posts</h1>
-        <Button icon={<ReloadOutlined />} onClick={() => fetchPosts(pagination.current)} loading={loading}>
-          Refresh
-        </Button>
+        <Space>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModalOpen(true)}>
+            Add Post
+          </Button>
+          <Button icon={<ReloadOutlined />} onClick={() => fetchPosts(pagination.current)} loading={loading}>
+            Refresh
+          </Button>
+        </Space>
       </div>
 
       <Card style={{ marginBottom: 16 }}>
@@ -241,6 +267,42 @@ export default function UserPostsPage() {
           },
         }}
       />
+      <Modal
+        title="Add Post"
+        open={createModalOpen}
+        onCancel={() => { setCreateModalOpen(false); createForm.resetFields(); }}
+        onOk={() => createForm.submit()}
+        confirmLoading={createLoading}
+        okText="Create"
+      >
+        <Form form={createForm} layout="vertical" onFinish={handleCreatePost}>
+          <Form.Item name="user_id" label="User" rules={[{ required: true, message: 'Please select a user' }]}>
+            <Select
+              placeholder="Select user"
+              showSearch
+              optionFilterProp="label"
+              options={users.map((u) => ({ label: u.email || u.id, value: u.id }))}
+            />
+          </Form.Item>
+          <Form.Item name="url" label="URL" rules={[{ required: true, message: 'Please enter URL' }]}>
+            <Input placeholder="https://..." />
+          </Form.Item>
+          <Form.Item name="description" label="Description">
+            <Input.TextArea rows={3} placeholder="Optional description" />
+          </Form.Item>
+          <Form.Item name="platform" label="Platform">
+            <Select
+              placeholder="Select platform"
+              allowClear
+              options={[
+                { label: 'Instagram', value: 'instagram' },
+                { label: 'TikTok', value: 'tiktok' },
+                { label: 'YouTube', value: 'youtube' },
+              ]}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 }

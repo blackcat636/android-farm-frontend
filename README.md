@@ -33,7 +33,7 @@ npm start
 
 ## Структура
 
-- `app/` — сторінки (platforms, emulators, accounts, queue, history, posts, captcha, blacklist, api-keys)
+- `app/` — сторінки (platforms, emulators, accounts, queue, history, posts, captcha, blacklist, api-keys, user-posts, user-post-clones)
 - `components/` — UI компоненти
 - `contexts/` — AuthContext, AgentsContext
 - `hooks/` — useBackendAgentApi, useAllEmulators, useAgentApi, useAccountEmulatorSelection
