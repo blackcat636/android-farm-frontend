@@ -889,6 +889,35 @@ export function createBackendClient(token: string) {
         return response.data;
       },
 
+      // User Posts (admin)
+      async getAdminUserPosts(query?: {
+        user_id?: string;
+        status?: string;
+        page?: number;
+        limit?: number;
+      }): Promise<{ data: any[]; total: number; page: number; limit: number }> {
+        const cleanedQuery = Object.fromEntries(
+          Object.entries(query || {}).filter(([, value]) => value !== undefined),
+        );
+        const response = await api.get('/api/user-posts/admin/all', { params: cleanedQuery });
+        return response.data;
+      },
+
+      async getAdminUserPostClones(query?: {
+        user_id?: string;
+        user_post_id?: string;
+        account_id?: string;
+        status?: string;
+        page?: number;
+        limit?: number;
+      }): Promise<{ data: any[]; total: number; page: number; limit: number }> {
+        const cleanedQuery = Object.fromEntries(
+          Object.entries(query || {}).filter(([, value]) => value !== undefined),
+        );
+        const response = await api.get('/api/user-posts/admin/clones', { params: cleanedQuery });
+        return response.data;
+      },
+
       async addTaskToBlacklist(taskId: string, reason?: string): Promise<BlacklistEntry> {
         const response = await api.post<BlacklistEntry>(`/api/queue/blacklist/from-task/${taskId}`, { reason });
         return response.data;
