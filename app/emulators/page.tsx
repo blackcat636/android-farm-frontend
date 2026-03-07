@@ -129,12 +129,8 @@ export default function EmulatorsPage() {
     }
   };
 
-  const handleCloneClick = (record?: BackendEmulator) => {
-    if (record && record.is_template) {
-      setCloneTemplateId(record.id);
-    } else {
-      setCloneTemplateId(backendEmulators.find((e) => e.is_template)?.id || '');
-    }
+  const handleCloneClick = () => {
+    setCloneTemplateId(backendEmulators.find((e) => e.is_template)?.id || '');
     setCloneCount(1);
     setCloneModalOpen(true);
   };
@@ -343,13 +339,6 @@ export default function EmulatorsPage() {
               />
             </Tooltip>
           )}
-          <Tooltip title="Клонувати з шаблону">
-            <Button
-              size="small"
-              icon={<CopyOutlined />}
-              onClick={() => handleCloneClick(record)}
-            />
-          </Tooltip>
           <Tooltip title="Видалити емулятор">
             <Button
               size="small"
@@ -420,6 +409,10 @@ export default function EmulatorsPage() {
                   rowKey={(record) => `${record.agentId ?? (record as any).agent_id}-${record.id}`}
                   pagination={false}
                   style={{ marginTop: 24 }}
+                  onRow={(record) => ({
+                    style: { cursor: 'pointer' },
+                    onClick: () => router.push(`/emulators/${record.id}`),
+                  })}
                 />
               </>
             ),
@@ -441,9 +434,24 @@ export default function EmulatorsPage() {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onSearch={(v) => setSearchQuery(v)}
                   />
-                  <Button type="primary" icon={<CopyOutlined />} onClick={() => handleCloneClick()}>
-                    Клонувати з шаблону
-                  </Button>
+                  <Tooltip
+                    title={
+                      backendEmulators.some((e) => e.is_template)
+                        ? 'Клонування з емулятора, позначеного як шаблон'
+                        : 'Спочатку позначте один емулятор як шаблон (перемикач «Шаблон» в таблиці)'
+                    }
+                  >
+                    <span>
+                      <Button
+                        type="primary"
+                        icon={<CopyOutlined />}
+                        onClick={handleCloneClick}
+                        disabled={!backendEmulators.some((e) => e.is_template)}
+                      >
+                        Клонувати з шаблону
+                      </Button>
+                    </span>
+                  </Tooltip>
                 </div>
                 <Table
                   columns={backendColumns}
