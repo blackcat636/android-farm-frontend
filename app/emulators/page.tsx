@@ -2,18 +2,20 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Table, Tag, Alert, Space, Tabs, Switch, Tooltip, Select, message, Modal, Button, InputNumber, Input } from 'antd';
+import { Table, Tag, Alert, Space, Tabs, Switch, Tooltip, Select, message, Modal, Button, InputNumber, Input, Form } from 'antd';
 import { CopyOutlined, DeleteOutlined, CheckOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { type Emulator } from '@/lib/api/agent';
 import { useAllEmulators } from '@/hooks/useAllEmulators';
 import { createBackendClient, tokenStorage, type BackendEmulator } from '@/lib/api/backend';
 import { formatEmulatorLabel } from '@/utils/emulatorDisplay';
+import { useAuth } from '@/contexts/AuthContext';
 import Loading from '@/components/common/Loading';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 
 export default function EmulatorsPage() {
   const router = useRouter();
+  const { user: currentUser } = useAuth();
   const [includeHiddenLive, setIncludeHiddenLive] = useState(false);
   const [agentFilter, setAgentFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -30,6 +32,7 @@ export default function EmulatorsPage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<BackendEmulator | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteConfirmPassword, setDeleteConfirmPassword] = useState('');
 
   const agentOptions = useMemo(() => {
     const seen = new Set<string>();
@@ -158,6 +161,7 @@ export default function EmulatorsPage() {
 
   const handleDeleteClick = (record: BackendEmulator) => {
     setDeleteTarget(record);
+    setDeleteConfirmPassword('');
     setDeleteModalOpen(true);
   };
 
@@ -168,10 +172,13 @@ export default function EmulatorsPage() {
     setDeleteLoading(true);
     try {
       const client = createBackendClient(token);
-      await client.deleteEmulator(deleteTarget.id);
+      await client.deleteEmulator(deleteTarget.id, {
+        confirm_password: deleteConfirmPassword || undefined,
+      });
       message.success('Емулятор видалено');
       setDeleteModalOpen(false);
       setDeleteTarget(null);
+      setDeleteConfirmPassword('');
       await fetchBackendEmulators();
     } catch (e: any) {
       message.error(e?.response?.data?.message || 'Помилка видалення');
@@ -339,14 +346,16 @@ export default function EmulatorsPage() {
               />
             </Tooltip>
           )}
-          <Tooltip title="Видалити емулятор">
-            <Button
-              size="small"
-              danger
-              icon={<DeleteOutlined />}
-              onClick={() => handleDeleteClick(record)}
-            />
-          </Tooltip>
+          {currentUser?.role === 'superadmin' && (
+            <Tooltip title="Видалити емулятор (тільки superadmin)">
+              <Button
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
+                onClick={() => handleDeleteClick(record)}
+              />
+            </Tooltip>
+          )}
         </Space>
       ),
     },
@@ -511,16 +520,29 @@ export default function EmulatorsPage() {
         title="Видалити емулятор"
         open={deleteModalOpen}
         onOk={handleDeleteConfirm}
-        onCancel={() => { setDeleteModalOpen(false); setDeleteTarget(null); }}
+        onCancel={() => { setDeleteModalOpen(false); setDeleteTarget(null); setDeleteConfirmPassword(''); }}
         confirmLoading={deleteLoading}
         okText="Видалити"
         okButtonProps={{ danger: true }}
       >
         {deleteTarget && (
-          <p>
-            Видалити емулятор <strong>{deleteTarget.emulator_name || deleteTarget.emulator_id}</strong>?
-            ВМ буде видалено з MEmu. Спочатку видаліть прив&apos;язки, якщо є.
-          </p>
+          <Space direction="vertical" style={{ width: '100%' }} size="middle">
+            <p>
+              Видалити емулятор <strong>{deleteTarget.emulator_name || deleteTarget.emulator_id}</strong>?
+              ВМ буде видалено з MEmu. Спочатку видаліть прив&apos;язки, якщо є.
+            </p>
+            <Form.Item
+              label="Пароль підтвердження"
+              help="Потрібен, якщо налаштовано EMULATOR_DELETE_CONFIRM_PASSWORD на бекенді"
+            >
+              <Input.Password
+                placeholder="Введіть пароль (якщо потрібно)"
+                value={deleteConfirmPassword}
+                onChange={(e) => setDeleteConfirmPassword(e.target.value)}
+                autoComplete="off"
+              />
+            </Form.Item>
+          </Space>
         )}
       </Modal>
     </div>

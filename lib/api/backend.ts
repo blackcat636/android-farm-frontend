@@ -452,8 +452,13 @@ export function createBackendClient(token: string) {
       return response.data;
     },
 
-    async deleteEmulator(id: string): Promise<void> {
-      await api.delete(`/api/emulators/${id}`);
+    async deleteEmulator(
+      id: string,
+      options?: { confirm_password?: string },
+    ): Promise<void> {
+      await api.delete(`/api/emulators/${id}`, {
+        data: options,
+      });
     },
 
     async cloneEmulators(templateEmulatorId: string, count: number = 1): Promise<{ ok: boolean; count: number }> {
