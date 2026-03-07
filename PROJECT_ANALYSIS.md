@@ -29,6 +29,7 @@ frontend/
 │   ├── blacklist/           # Чорний список задач
 │   ├── captcha/             # Капча
 │   ├── emulators/           # Список емуляторів
+│   │   └── [id]/            # Деталі емулятора
 │   ├── history/             # Історія виконання
 │   ├── platforms/           # Платформи та дії
 │   │   ├── [platform]/      # Динамічні сторінки
@@ -94,10 +95,10 @@ frontend/
 | Дані | Endpoint | Примітка |
 |------|----------|----------|
 | Агенти | `GET /api/agents` | Тільки видимі (visibility≠0). `?include_hidden=true` для всіх |
-| Емулятори | `GET /api/emulators` | Тільки з видимих агентів. `include_hidden` стосується емуляторів |
+| Емулятори | `GET /api/emulators`, `GET /api/emulators/:id` | Деталі емулятора — getEmulator(id) |
 | Виконання | `POST /api/execute/:agentId/:platform/:action` або `POST /api/queue` | |
-| Історія | `GET /api/history` | |
-| Черга | `GET/POST /api/queue` | |
+| Історія | `GET /api/history` | Підтримка фільтрів `emulator_id`, `agent_id` |
+| Черга | `GET/POST /api/queue` | Підтримка фільтрів `emulator_id`, `agent_id` |
 | Аккаунти, пости, captcha, blacklist | Відповідні `/api/*` | Див. backend PROJECT_ANALYSIS |
 
 ### Типи (синхронізувати з backend)
@@ -130,6 +131,7 @@ frontend/
 | `/platforms/youtube/search` | YouTube: пошук |
 | `/platforms/tiktok/watch` | TikTok: перегляд |
 | `/emulators` | Список емуляторів (з backend) |
+| `/emulators/[id]` | Деталі емулятора: інформація, прив'язані аккаунти, черга, історія |
 | `/accounts` | Соціальні аккаунти |
 | `/queue` | Черга завдань |
 | `/history` | Історія виконання |

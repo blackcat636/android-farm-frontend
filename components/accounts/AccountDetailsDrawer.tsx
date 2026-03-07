@@ -27,10 +27,12 @@ import {
   type AccountEmulatorBinding,
   type CreateProxyDto,
 } from '@/lib/api/backend';
-import { SafetyOutlined, LinkOutlined, PlusOutlined, EditOutlined, UnlockOutlined, DisconnectOutlined } from '@ant-design/icons';
+import { SafetyOutlined, LinkOutlined, PlusOutlined, EditOutlined, UnlockOutlined, DisconnectOutlined, ExportOutlined } from '@ant-design/icons';
 import { maskEmail } from '@/utils/maskEmail';
+import { formatEmulatorLabel } from '@/utils/emulatorDisplay';
 import { useAllEmulators } from '@/hooks/useAllEmulators';
 import Link from 'next/link';
+import type { BackendEmulator } from '@/lib/api/backend';
 
 const { Option } = Select;
 const { Title, Text } = Typography;
@@ -50,6 +52,7 @@ export function AccountDetailsDrawer({
 }: AccountDetailsDrawerProps) {
   const [proxy, setProxy] = useState<AccountProxy | null>(null);
   const [binding, setBinding] = useState<AccountEmulatorBinding | null>(null);
+  const [emulatorDetails, setEmulatorDetails] = useState<BackendEmulator | null>(null);
   const [loading, setLoading] = useState(false);
   const [proxyModalVisible, setProxyModalVisible] = useState(false);
   const [bindModalVisible, setBindModalVisible] = useState(false);
@@ -65,6 +68,17 @@ export function AccountDetailsDrawer({
       loadDetails();
     }
   }, [visible, account]);
+
+  useEffect(() => {
+    if (!binding?.emulator_id || binding.emulator) return;
+    const token = tokenStorage.get();
+    if (!token) return;
+    const client = createBackendClient(token);
+    client
+      .getEmulator(binding.emulator_id)
+      .then(setEmulatorDetails)
+      .catch(() => setEmulatorDetails(null));
+  }, [binding?.emulator_id, binding?.emulator]);
 
   useEffect(() => {
     if (!bindModalVisible) return;
@@ -104,6 +118,7 @@ export function AccountDetailsDrawer({
       // Load binding
       const bindingData = await backendClient.getBindingForAccount(account.id);
       setBinding(bindingData);
+      setEmulatorDetails(null);
     } catch (err: any) {
       console.error('Error loading details:', err);
     } finally {
@@ -429,7 +444,16 @@ export function AccountDetailsDrawer({
         {binding ? (
           <Card size="small">
             <Descriptions bordered column={1} size="small">
-              <Descriptions.Item label="Emulator ID">{binding.emulator_id}</Descriptions.Item>
+              <Descriptions.Item label="Emulator">
+                <Space>
+                  <span>{formatEmulatorLabel(binding.emulator ?? emulatorDetails) || binding.emulator_id}</span>
+                  <Link href={`/emulators/${binding.emulator_id}`}>
+                    <Button type="link" size="small" icon={<ExportOutlined />}>
+                      Відкрити емулятор
+                    </Button>
+                  </Link>
+                </Space>
+              </Descriptions.Item>
               <Descriptions.Item label="Binding Type">
                 <Tag>{binding.binding_type}</Tag>
               </Descriptions.Item>

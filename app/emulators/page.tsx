@@ -1,19 +1,22 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Table, Tag, Alert, Space, Tabs, Switch, Tooltip, Select, message, Modal, Button, InputNumber } from 'antd';
+import { useEffect, useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import { Table, Tag, Alert, Space, Tabs, Switch, Tooltip, Select, message, Modal, Button, InputNumber, Input } from 'antd';
 import { CopyOutlined, DeleteOutlined, CheckOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { type Emulator } from '@/lib/api/agent';
-import { useMemo } from 'react';
 import { useAllEmulators } from '@/hooks/useAllEmulators';
 import { createBackendClient, tokenStorage, type BackendEmulator } from '@/lib/api/backend';
+import { formatEmulatorLabel } from '@/utils/emulatorDisplay';
 import Loading from '@/components/common/Loading';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 
 export default function EmulatorsPage() {
+  const router = useRouter();
   const [includeHiddenLive, setIncludeHiddenLive] = useState(false);
   const [agentFilter, setAgentFilter] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
   const { emulators, loading, error, agentErrors } = useAllEmulators(false, includeHiddenLive);
   const [backendEmulators, setBackendEmulators] = useState<BackendEmulator[]>([]);
   const [loadingBackend, setLoadingBackend] = useState(false);
@@ -45,6 +48,17 @@ export default function EmulatorsPage() {
   const filteredEmulators = agentFilter
     ? emulators.filter((e) => (e.agentId ?? (e as any).agent_id) === agentFilter)
     : emulators;
+
+  const filteredBackendEmulators = useMemo(() => {
+    if (!searchQuery.trim()) return backendEmulators;
+    const q = searchQuery.trim().toLowerCase();
+    return backendEmulators.filter(
+      (e) =>
+        (e.emulator_name || '').toLowerCase().includes(q) ||
+        (e.emulator_id || '').toLowerCase().includes(q) ||
+        (e.id || '').toLowerCase().includes(q),
+    );
+  }, [backendEmulators, searchQuery]);
 
   // Список емуляторів з бекенду (БД) для управління видимістю
   const fetchBackendEmulators = async () => {
@@ -178,7 +192,13 @@ export default function EmulatorsPage() {
     {
       title: 'ID',
       key: 'id',
-      render: (_: unknown, record: Emulator) => record.emulatorId ?? record.id,
+      render: (_: unknown, record: Emulator) =>
+        formatEmulatorLabel({
+          name: record.name,
+          emulator_id: record.emulatorId ?? (record as any).id,
+          agent_id: record.agentId ?? (record as any).agent_id,
+          agentName: record.agentName ?? (record as any).agent_name,
+        }),
     },
     {
       title: 'Назва',
@@ -235,7 +255,7 @@ export default function EmulatorsPage() {
     {
       title: 'Назва',
       key: 'emulator_name',
-      render: (_: unknown, record: BackendEmulator) => record.emulator_name ?? record.emulator_id ?? record.id,
+      render: (_: unknown, record: BackendEmulator) => formatEmulatorLabel(record),
     },
     {
       title: 'Пристрій',
@@ -256,14 +276,16 @@ export default function EmulatorsPage() {
       render: (_: unknown, record: BackendEmulator) => {
         const visible = record.visibility === 1;
         return (
-          <Tooltip title={visible ? 'Видимий: показується в API та отримує задачі' : 'Прихований: не показується та не отримує задачі'}>
-            <Switch
+          <span onClick={(e) => e.stopPropagation()}>
+            <Tooltip title={visible ? 'Видимий: показується в API та отримує задачі' : 'Прихований: не показується та не отримує задачі'}>
+              <Switch
               size="small"
               checked={visible}
               loading={visibilityUpdating[record.id]}
               onChange={(checked) => handleEmulatorVisibilityChange(record.id, checked)}
-            />
-          </Tooltip>
+              />
+            </Tooltip>
+          </span>
         );
       },
     },
@@ -271,14 +293,16 @@ export default function EmulatorsPage() {
       title: 'Шаблон',
       key: 'is_template',
       render: (_: unknown, record: BackendEmulator) => (
-        <Tooltip title="Шаблон для клонування. Не доступний для задач та біндінгу.">
-          <Switch
-            size="small"
-            checked={!!record.is_template}
-            loading={isTemplateUpdating[record.id]}
-            onChange={(checked) => handleIsTemplateChange(record.id, checked)}
-          />
-        </Tooltip>
+        <span onClick={(e) => e.stopPropagation()}>
+          <Tooltip title="Шаблон для клонування. Не доступний для задач та біндінгу.">
+            <Switch
+              size="small"
+              checked={!!record.is_template}
+              loading={isTemplateUpdating[record.id]}
+              onChange={(checked) => handleIsTemplateChange(record.id, checked)}
+            />
+          </Tooltip>
+        </span>
       ),
     },
     {
@@ -287,18 +311,20 @@ export default function EmulatorsPage() {
       render: (_: unknown, record: BackendEmulator) => {
         const status = record.readiness_status || 'new';
         return (
-          <Select
-            size="small"
-            value={status}
-            style={{ width: 110 }}
-            loading={readinessUpdating[record.id]}
-            onChange={(v) => handleReadinessChange(record.id, v)}
-            options={[
-              { value: 'new', label: 'Новий' },
-              { value: 'ready', label: 'Готовий' },
-              { value: 'in_use', label: 'В роботі' },
-            ]}
-          />
+          <span onClick={(e) => e.stopPropagation()}>
+            <Select
+              size="small"
+              value={status}
+              style={{ width: 110 }}
+              loading={readinessUpdating[record.id]}
+              onChange={(v) => handleReadinessChange(record.id, v)}
+              options={[
+                { value: 'new', label: 'Новий' },
+                { value: 'ready', label: 'Готовий' },
+                { value: 'in_use', label: 'В роботі' },
+              ]}
+            />
+          </span>
         );
       },
     },
@@ -306,7 +332,7 @@ export default function EmulatorsPage() {
       title: 'Дії',
       key: 'actions',
       render: (_: unknown, record: BackendEmulator) => (
-        <Space>
+        <Space onClick={(e) => e.stopPropagation()}>
           {(record.readiness_status || 'new') === 'new' && (
             <Tooltip title="Позначити як готовий">
               <Button
@@ -406,18 +432,30 @@ export default function EmulatorsPage() {
                 <p style={{ color: '#666', marginBottom: 16 }}>
                   Видимі емулятори показуються в API та отримують задачі з черги. Приховані — ні. Шаблонні — тільки для клонування. Для задач і біндінгу доступні тільки з готовністю «Готовий» або «В роботі».
                 </p>
-                <div style={{ marginBottom: 16 }}>
+                <div style={{ marginBottom: 16, display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <Input.Search
+                    placeholder="Пошук за назвою, ID або UUID"
+                    allowClear
+                    style={{ maxWidth: 320 }}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onSearch={(v) => setSearchQuery(v)}
+                  />
                   <Button type="primary" icon={<CopyOutlined />} onClick={() => handleCloneClick()}>
                     Клонувати з шаблону
                   </Button>
                 </div>
                 <Table
                   columns={backendColumns}
-                  dataSource={backendEmulators}
+                  dataSource={filteredBackendEmulators}
                   rowKey="id"
                   loading={loadingBackend}
                   pagination={{ pageSize: 20 }}
                   style={{ marginTop: 24 }}
+                  onRow={(record) => ({
+                    style: { cursor: 'pointer' },
+                    onClick: () => router.push(`/emulators/${record.id}`),
+                  })}
                 />
               </>
             ),

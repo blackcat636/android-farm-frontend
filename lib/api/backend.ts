@@ -108,6 +108,7 @@ export interface HistoryQuery {
   user_id?: string;
   agent_id?: string;
   platform?: string;
+  emulator_id?: string;
   status?: 'pending' | 'success' | 'error';
   page?: number;
   limit?: number;
@@ -304,7 +305,12 @@ globalAxiosInstance.interceptors.response.use(
         console.log(`[API] Повторюю оригінальний запит: ${originalRequest.method?.toUpperCase()} ${originalRequest.url}`);
         return globalAxiosInstance(originalRequest);
       } catch (refreshError: any) {
-        console.error('[API] ❌ Помилка оновлення токену:', refreshError?.response?.data || refreshError?.message);
+        const errMsg =
+          refreshError?.response?.data?.message ??
+          refreshError?.message ??
+          (refreshError?.response?.status ? `HTTP ${refreshError.response.status}` : null) ??
+          JSON.stringify(refreshError?.response?.data ?? 'Unknown error');
+        console.error('[API] ❌ Помилка оновлення токену:', errMsg);
         processQueue(refreshError, null);
         tokenStorage.remove();
         
@@ -423,6 +429,12 @@ export function createBackendClient(token: string) {
 
     async updateAgent(id: string, data: Partial<Pick<Agent, 'name' | 'url' | 'tunnel_url' | 'status' | 'visibility'>>): Promise<Agent> {
       const response = await api.put<Agent>(`/api/agents/${id}`, data);
+      return response.data;
+    },
+
+    /** Деталі емулятора за ID (UUID) */
+    async getEmulator(id: string): Promise<BackendEmulator> {
+      const response = await api.get<BackendEmulator>(`/api/emulators/${id}`);
       return response.data;
     },
 
@@ -567,6 +579,7 @@ export function createBackendClient(token: string) {
       status?: string;
       platform?: string;
       agent_id?: string;
+      emulator_id?: string;
       page?: number;
       limit?: number;
     } = {}): Promise<{
@@ -587,6 +600,7 @@ export function createBackendClient(token: string) {
       if (query.status !== undefined) cleanQuery.status = query.status;
       if (query.platform !== undefined) cleanQuery.platform = query.platform;
       if (query.agent_id !== undefined) cleanQuery.agent_id = query.agent_id;
+      if (query.emulator_id !== undefined) cleanQuery.emulator_id = query.emulator_id;
       if (query.page !== undefined) cleanQuery.page = query.page;
       if (query.limit !== undefined) cleanQuery.limit = query.limit;
       
@@ -1095,6 +1109,16 @@ export interface AccountEmulatorBinding {
   last_used_at?: string;
   last_task_at?: string;
   notes?: string;
+  /** Емулятор (з join при getBindingForAccount) */
+  emulator?: BackendEmulator;
+  /** Аккаунт (з join при getBindingsForEmulator) */
+  account?: {
+    id: string;
+    username: string;
+    email?: string;
+    platform: string;
+    status: string;
+  };
 }
 
 export interface CreateBindingDto {

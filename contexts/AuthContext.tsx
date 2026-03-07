@@ -45,7 +45,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(userData);
       console.log('[AuthContext] ✅ Дані користувача оновлено');
     } catch (error: any) {
-      console.error('[AuthContext] Помилка оновлення користувача:', error?.response?.data || error?.message);
+      const errMsg =
+        error?.response?.data?.message ??
+        error?.message ??
+        (error?.response?.status ? `HTTP ${error.response.status}` : null) ??
+        JSON.stringify(error?.response?.data ?? 'Unknown error');
+      console.error('[AuthContext] Помилка оновлення користувача:', errMsg);
       // Якщо це 401 помилка, токен буде оновлено через interceptor автоматично
       // Не видаляємо токен тут, оскільки interceptor спробує оновити його
       if (error?.response?.status === 401) {

@@ -6,6 +6,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { useRouter } from 'next/navigation';
 import { createBackendClient, tokenStorage, type ExecutionHistory } from '@/lib/api/backend';
 import { useAuth } from '@/contexts/AuthContext';
+import { formatEmulatorLabel } from '@/utils/emulatorDisplay';
 import Loading from '@/components/common/Loading';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import { maskEmail } from '@/utils/maskEmail';
@@ -77,7 +78,12 @@ export default function HistoryPage() {
       title: 'Emulator',
       dataIndex: 'emulator_name',
       key: 'emulator_name',
-      render: (text, record) => text || record.emulator_id,
+      render: (text, record) =>
+        formatEmulatorLabel({
+          emulator_name: record.emulator_name,
+          emulator_id: record.emulator_id,
+          agent_id: record.agent_id,
+        }) || record.emulator_id,
     },
     {
       title: 'Account',

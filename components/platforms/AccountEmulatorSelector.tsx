@@ -2,6 +2,7 @@
 
 import { Form, Select, Radio, Alert, Tag, Switch, Tooltip } from 'antd';
 import { UserOutlined, DesktopOutlined } from '@ant-design/icons';
+import { formatEmulatorLabel } from '@/utils/emulatorDisplay';
 import { type Emulator } from '@/lib/api/agent';
 import { type SocialAccount, type AccountEmulatorBinding } from '@/lib/api/backend';
 import { type UseAccountEmulatorSelectionReturn } from '@/hooks/useAccountEmulatorSelection';
@@ -129,7 +130,7 @@ export function AccountEmulatorSelector({
                 <Alert
                   title={
                     binding
-                      ? `Binding to emulator: ${binding.emulator_id}`
+                      ? `Binding to emulator: ${formatEmulatorLabel(binding.emulator) || binding.emulator_id}`
                       : "Binding not found"
                   }
                   type={binding ? 'success' : 'warning'}
