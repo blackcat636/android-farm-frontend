@@ -485,8 +485,15 @@ export function createBackendClient(token: string) {
       return response.data;
     },
 
-    async getEmulators(agentId: string): Promise<any> {
-      const response = await api.get(`/api/proxy/${agentId}/emulators`);
+    async getEmulators(
+      agentId: string,
+      options?: { refresh?: boolean },
+    ): Promise<any> {
+      const params =
+        options?.refresh === true ? { refresh: 'true' } : undefined;
+      const response = await api.get(`/api/proxy/${agentId}/emulators`, {
+        params,
+      });
       return response.data;
     },
 
