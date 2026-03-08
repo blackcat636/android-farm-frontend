@@ -7,14 +7,21 @@ import { useAuth } from './AuthContext';
 
 const STORAGE_KEY = 'android-farm-agents';
 
+/** Поріг активності: 15 хв (heartbeat кожні 5 хв, cron ставить offline через 15 хв) */
+const ACTIVE_THRESHOLD_MS = 15 * 60 * 1000;
+
 function mapBackendAgentToFrontend(b: BackendAgent): Agent {
+  const lastSeenMs = b.last_seen ? new Date(b.last_seen).getTime() : 0;
+  const isActive =
+    lastSeenMs > 0 && Date.now() - lastSeenMs < ACTIVE_THRESHOLD_MS;
+
   return {
     id: b.id,
     name: b.name || b.id,
     url: b.url || b.tunnel_url || '',
     tunnelUrl: b.tunnel_url,
     agentId: b.id,
-    isActive: b.status === 'online',
+    isActive,
     createdAt: b.created_at || new Date().toISOString(),
     lastUsed: b.last_seen,
     status: b.status,

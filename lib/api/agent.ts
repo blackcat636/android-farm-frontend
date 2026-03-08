@@ -128,9 +128,10 @@ export function createAgentApi(baseURL: string) {
       return response.data;
     },
 
-    // Отримати список емуляторів (cached=1 щоб не викликати ADB на кожен запит)
-    async getEmulators(): Promise<EmulatorsResponse> {
-      const response = await apiClient.get<EmulatorsResponse>('/api/emulators?cached=1');
+    // Отримати список емуляторів (за замовчуванням — кеш; refresh: true — свіжі дані з ADB)
+    async getEmulators(options?: { refresh?: boolean }): Promise<EmulatorsResponse> {
+      const params = options?.refresh ? { refresh: '1' } : undefined;
+      const response = await apiClient.get<EmulatorsResponse>('/api/emulators', { params });
       return response.data;
     },
 
