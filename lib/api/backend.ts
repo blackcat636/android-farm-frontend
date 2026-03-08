@@ -954,6 +954,16 @@ export function createBackendClient(token: string) {
         return response.data;
       },
 
+      async adminDeletePostContent(postId: string): Promise<{ tasks_created: number; skipped: number; clone_ids: string[]; skipped_clone_ids: string[] }> {
+        const response = await api.post(`/api/user-posts/admin/${postId}/delete-content`);
+        return response.data;
+      },
+
+      async adminDeleteCloneContent(cloneId: string): Promise<{ task_id: string }> {
+        const response = await api.post(`/api/user-posts/admin/clones/${cloneId}/delete-content`);
+        return response.data;
+      },
+
       async addTaskToBlacklist(taskId: string, reason?: string): Promise<BlacklistEntry> {
         const response = await api.post<BlacklistEntry>(`/api/queue/blacklist/from-task/${taskId}`, { reason });
         return response.data;

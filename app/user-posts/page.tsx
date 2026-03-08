@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Table, Tag, Select, Card, Space, Button, message, Modal, Form, Input } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { ReloadOutlined, PlusOutlined, SendOutlined } from '@ant-design/icons';
+import { ReloadOutlined, PlusOutlined, SendOutlined, DeleteOutlined } from '@ant-design/icons';
 import { createBackendClient, authApi, tokenStorage, type UserWithRole } from '@/lib/api/backend';
 import { useAuth } from '@/contexts/AuthContext';
 import Loading from '@/components/common/Loading';
@@ -110,6 +110,35 @@ export default function UserPostsPage() {
     }
   };
 
+  const handleDeleteContent = async (postId: string) => {
+    try {
+      const token = tokenStorage.get();
+      if (!token) throw new Error('Authorization required');
+      const client = createBackendClient(token);
+      const response = await client.adminDeletePostContent(postId);
+      message.success(`Delete tasks created: ${response.tasks_created}, skipped: ${response.skipped}`);
+      fetchPosts(pagination.current);
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || err.message || 'Error deleting content');
+    }
+  };
+
+  const handleDeleteCloneContent = async (cloneId: string) => {
+    try {
+      const token = tokenStorage.get();
+      if (!token) throw new Error('Authorization required');
+      const client = createBackendClient(token);
+      await client.adminDeleteCloneContent(cloneId);
+      message.success('Delete task created');
+      // Re-fetch clones for all expanded posts
+      for (const postId of Object.keys(expandedClones)) {
+        fetchClones(postId);
+      }
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || err.message || 'Error deleting content');
+    }
+  };
+
   const handleProcess = async (id: string) => {
     try {
       const token = tokenStorage.get();
@@ -143,6 +172,8 @@ export default function UserPostsPage() {
     active: 'green',
     paused: 'orange',
     deleted: 'red',
+    deleting: 'orange',
+    delete_failed: 'red',
   };
 
   const columns: ColumnsType<UserPost> = [
@@ -197,11 +228,32 @@ export default function UserPostsPage() {
       title: 'Actions',
       key: 'actions',
       render: (_: any, record: UserPost) => (
-        record.status === 'new' ? (
-          <Button type="primary" icon={<SendOutlined />} size="small" onClick={() => handleProcess(record.id)}>
-            Process
-          </Button>
-        ) : null
+        <Space>
+          {record.status === 'new' && (
+            <Button type="primary" icon={<SendOutlined />} size="small" onClick={() => handleProcess(record.id)}>
+              Process
+            </Button>
+          )}
+          {(record.status === 'active' || record.status === 'processing') && (
+            <Button
+              type="primary"
+              danger
+              icon={<DeleteOutlined />}
+              size="small"
+              onClick={() => {
+                Modal.confirm({
+                  title: 'Delete Content',
+                  content: 'This will create delete tasks for all published/active clones. Continue?',
+                  okText: 'Delete',
+                  okType: 'danger',
+                  onOk: () => handleDeleteContent(record.id),
+                });
+              }}
+            >
+              Delete Content
+            </Button>
+          )}
+        </Space>
       ),
     },
   ];
@@ -216,6 +268,31 @@ export default function UserPostsPage() {
     { title: 'Likes', dataIndex: 'likes_count', key: 'likes_count' },
     { title: 'Status', dataIndex: 'status', key: 'status', render: (s: string) => <Tag color={statusColors[s] || 'default'}>{s}</Tag> },
     { title: 'Date', dataIndex: 'created_at', key: 'created_at', render: (text: string) => new Date(text).toLocaleString('en-US') },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_: any, record: UserPostClone) => (
+        ['published', 'active'].includes(record.status) ? (
+          <Button
+            type="primary"
+            danger
+            icon={<DeleteOutlined />}
+            size="small"
+            onClick={() => {
+              Modal.confirm({
+                title: 'Delete Clone Content',
+                content: 'This will create a delete task for this clone. Continue?',
+                okText: 'Delete',
+                okType: 'danger',
+                onOk: () => handleDeleteCloneContent(record.id),
+              });
+            }}
+          >
+            Delete
+          </Button>
+        ) : null
+      ),
+    },
   ];
 
   if (loading && !posts.length) return <Loading />;
