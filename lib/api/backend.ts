@@ -954,6 +954,11 @@ export function createBackendClient(token: string) {
         return response.data;
       },
 
+      async getVideoStatus(postId: string): Promise<{ job_id: string; status: string; progress?: number; total?: number }> {
+        const response = await api.get(`/api/user-posts/${postId}/video-status`);
+        return response.data;
+      },
+
       async adminDeletePostContent(postId: string): Promise<{ tasks_created: number; skipped: number; clone_ids: string[]; skipped_clone_ids: string[] }> {
         const response = await api.post(`/api/user-posts/admin/${postId}/delete-content`);
         return response.data;

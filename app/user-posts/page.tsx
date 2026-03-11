@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Table, Tag, Select, Card, Space, Button, message, Modal, Form, Input } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { ReloadOutlined, PlusOutlined, SendOutlined, DeleteOutlined } from '@ant-design/icons';
+import { ReloadOutlined, PlusOutlined, SendOutlined, DeleteOutlined, SyncOutlined } from '@ant-design/icons';
 import { createBackendClient, authApi, tokenStorage, type UserWithRole } from '@/lib/api/backend';
 import { useAuth } from '@/contexts/AuthContext';
 import Loading from '@/components/common/Loading';
@@ -20,6 +20,8 @@ interface UserPost {
   views_count: number;
   likes_count: number;
   status: string;
+  video_job_id?: string | null;
+  video_job_status?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -152,6 +154,26 @@ export default function UserPostsPage() {
     }
   };
 
+  const [checkStatusLoading, setCheckStatusLoading] = useState<Record<string, boolean>>({});
+  const handleCheckVideoStatus = async (id: string) => {
+    try {
+      setCheckStatusLoading((prev) => ({ ...prev, [id]: true }));
+      const token = tokenStorage.get();
+      if (!token) throw new Error('Authorization required');
+      const client = createBackendClient(token);
+      const result = await client.getVideoStatus(id);
+      const text =
+        result.progress !== undefined && result.total !== undefined
+          ? `Status: ${result.status}, progress: ${result.progress}/${result.total}`
+          : `Status: ${result.status}`;
+      Modal.info({ title: 'Video Job Status', content: text });
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || err.message || 'Error fetching status');
+    } finally {
+      setCheckStatusLoading((prev) => ({ ...prev, [id]: false }));
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
   }, []);
@@ -219,6 +241,20 @@ export default function UserPostsPage() {
       render: (s: string) => <Tag color={statusColors[s] || 'default'}>{s}</Tag>,
     },
     {
+      title: 'Job ID',
+      dataIndex: 'video_job_id',
+      key: 'video_job_id',
+      width: 120,
+      render: (id: string) => (id ? id.slice(0, 12) + '…' : '-'),
+    },
+    {
+      title: 'Job Status',
+      dataIndex: 'video_job_status',
+      key: 'video_job_status',
+      width: 100,
+      render: (s: string) => (s ? <Tag>{s}</Tag> : '-'),
+    },
+    {
       title: 'Date',
       dataIndex: 'created_at',
       key: 'created_at',
@@ -232,6 +268,16 @@ export default function UserPostsPage() {
           {record.status === 'new' && (
             <Button type="primary" icon={<SendOutlined />} size="small" onClick={() => handleProcess(record.id)}>
               Process
+            </Button>
+          )}
+          {record.status === 'processing' && record.video_job_id && (
+            <Button
+              icon={<SyncOutlined />}
+              size="small"
+              onClick={() => handleCheckVideoStatus(record.id)}
+              loading={checkStatusLoading[record.id]}
+            >
+              Check status
             </Button>
           )}
           {(record.status === 'active' || record.status === 'processing') && (
