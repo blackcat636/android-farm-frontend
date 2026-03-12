@@ -241,6 +241,8 @@ export function EditAccountModal({
             <Option value="restricted">Restricted</Option>
             <Option value="suspended">Suspended</Option>
             <Option value="inactive">Inactive</Option>
+            <Option value="warming_up">Warming Up</Option>
+            <Option value="testing">Testing</Option>
           </Select>
         </Form.Item>
 

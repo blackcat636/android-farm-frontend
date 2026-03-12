@@ -175,6 +175,7 @@ export default function AccountsPage() {
       restricted: 'orange',
       suspended: 'volcano',
       inactive: 'default',
+      testing: 'cyan',
     };
     return colors[status] || 'default';
   };
@@ -417,6 +418,7 @@ export default function AccountsPage() {
             <Option value="restricted">Restricted</Option>
             <Option value="suspended">Suspended</Option>
             <Option value="inactive">Inactive</Option>
+            <Option value="testing">Testing</Option>
           </Select>
 
           <Select
