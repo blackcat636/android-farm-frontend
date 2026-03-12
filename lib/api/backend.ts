@@ -944,7 +944,12 @@ export function createBackendClient(token: string) {
         return response.data;
       },
 
-      async createAdminUserPost(data: { user_id: string; url: string; description?: string; platform?: string }): Promise<any> {
+      async getPlatformPublishOptions(): Promise<Record<string, Record<string, { label: string; options: { value: string; label: string }[]; default: string }>>> {
+        const response = await api.get('/api/config/platform-publish-options');
+        return response.data;
+      },
+
+      async createAdminUserPost(data: { user_id: string; url: string; description?: string; platform?: string; publish_options?: Record<string, unknown> }): Promise<any> {
         const response = await api.post('/api/user-posts/admin/create', data);
         return response.data;
       },
@@ -1042,6 +1047,7 @@ export interface CreateSocialAccountDto {
   platform: string;
   username: string;
   email?: string;
+  email_password?: string;
   phone?: string;
   password: string;
   two_factor_secret?: string;
@@ -1057,6 +1063,7 @@ export interface UpdateSocialAccountDto {
   platform?: string;
   username?: string;
   email?: string;
+  email_password?: string;
   phone?: string;
   password?: string;
   two_factor_secret?: string;

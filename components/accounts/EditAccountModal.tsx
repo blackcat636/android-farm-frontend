@@ -74,7 +74,7 @@ export function EditAccountModal({
       const updateData: UpdateSocialAccountDto = {
         platform: values.platform,
         username: values.username,
-        email: values.email,
+        email: values.email || undefined,
         phone: values.phone,
         two_factor_secret: values.two_factor_secret || undefined,
         country_code: values.country_code || null,
@@ -90,6 +90,10 @@ export function EditAccountModal({
       // Add password only if it's changed
       if (values.password) {
         updateData.password = values.password;
+      }
+      // Add email password only if it's changed
+      if (values.email_password) {
+        updateData.email_password = values.email_password;
       }
 
       const backendClient = createBackendClient(token);
@@ -137,8 +141,12 @@ export function EditAccountModal({
           <Input placeholder="username" />
         </Form.Item>
 
-        <Form.Item name="email" label="Email">
+        <Form.Item name="email" label="Email (optional)">
           <Input type="email" placeholder="email@example.com" />
+        </Form.Item>
+
+        <Form.Item name="email_password" label="Email password (leave empty to keep unchanged)">
+          <Input.Password placeholder="New email password" />
         </Form.Item>
 
         <Form.Item name="phone" label="Phone">

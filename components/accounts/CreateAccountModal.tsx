@@ -43,7 +43,8 @@ export function CreateAccountModal({ visible, onCancel, onSuccess }: CreateAccou
       await backendClient.createSocialAccount({
         platform: values.platform,
         username: values.username,
-        email: values.email,
+        email: values.email || undefined,
+        email_password: values.email_password || undefined,
         phone: values.phone,
         password: values.password,
         two_factor_secret: values.two_factor_secret,
@@ -97,8 +98,12 @@ export function CreateAccountModal({ visible, onCancel, onSuccess }: CreateAccou
           <Input placeholder="username" />
         </Form.Item>
 
-        <Form.Item name="email" label="Email">
+        <Form.Item name="email" label="Email (optional)">
           <Input type="email" placeholder="email@example.com" />
+        </Form.Item>
+
+        <Form.Item name="email_password" label="Email password (optional)">
+          <Input.Password placeholder="Password for email (e.g. app password)" />
         </Form.Item>
 
         <Form.Item name="phone" label="Phone">

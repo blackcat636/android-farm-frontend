@@ -53,6 +53,7 @@ export default function UserPostsPage() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [createForm] = Form.useForm();
+  const [publishOptionsConfig, setPublishOptionsConfig] = useState<Record<string, Record<string, { label: string; options: { value: string; label: string }[]; default: string }>> | null>(null);
 
   const fetchUsers = async () => {
     try {
@@ -94,13 +95,16 @@ export default function UserPostsPage() {
     } catch {}
   };
 
-  const handleCreatePost = async (values: { user_id: string; url: string; description?: string; platform?: string }) => {
+  const handleCreatePost = async (values: { user_id: string; url: string; description?: string; platform?: string; publish_options?: Record<string, Record<string, unknown>> }) => {
     try {
       setCreateLoading(true);
       const token = tokenStorage.get();
       if (!token) throw new Error('Authorization required');
       const client = createBackendClient(token);
-      await client.createAdminUserPost(values);
+      const platform = values.platform;
+      const opts = platform ? (values.publish_options || {})[platform] ?? {} : {};
+      const publish_options = platform ? { [platform]: opts } : {};
+      await client.createAdminUserPost({ ...values, publish_options });
       message.success('Post created successfully');
       setCreateModalOpen(false);
       createForm.resetFields();
@@ -349,7 +353,21 @@ export default function UserPostsPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <h1 style={{ margin: 0 }}>User Posts</h1>
         <Space>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModalOpen(true)}>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={async () => {
+              setCreateModalOpen(true);
+              try {
+                const token = tokenStorage.get();
+                if (token) {
+                  const client = createBackendClient(token);
+                  const config = await client.getPlatformPublishOptions();
+                  setPublishOptionsConfig(config);
+                }
+              } catch {}
+            }}
+          >
             Add Post
           </Button>
           <Button icon={<ReloadOutlined />} onClick={() => fetchPosts(pagination.current)} loading={loading}>
@@ -449,6 +467,22 @@ export default function UserPostsPage() {
                 { label: 'YouTube', value: 'youtube' },
               ]}
             />
+          </Form.Item>
+          <Form.Item noStyle shouldUpdate={(prev, curr) => prev.platform !== curr.platform}>
+            {({ getFieldValue }) => {
+              const platform = getFieldValue('platform');
+              const field = platform && publishOptionsConfig?.[platform]?.upload_type;
+              if (!field) return null;
+              return (
+                <Form.Item
+                  name={['publish_options', platform, 'upload_type']}
+                  label={field.label}
+                  initialValue={field.default}
+                >
+                  <Select placeholder={`Select ${field.label}`} options={field.options} />
+                </Form.Item>
+              );
+            }}
           </Form.Item>
         </Form>
       </Modal>
