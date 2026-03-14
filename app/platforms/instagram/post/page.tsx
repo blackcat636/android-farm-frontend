@@ -1,5 +1,4 @@
 'use client';
-export const runtime = 'edge';
 
 import { Input, Form } from 'antd';
 import { FileTextOutlined } from '@ant-design/icons';

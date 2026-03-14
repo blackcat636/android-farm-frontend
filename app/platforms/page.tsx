@@ -1,6 +1,6 @@
 'use client';
 
-import { Card, Button, Space, message } from 'antd';
+import { Card, Button, Space, App } from 'antd';
 import { useRouter } from 'next/navigation';
 import { 
   FileTextOutlined, 
@@ -18,6 +18,7 @@ import { useState, useEffect } from 'react';
 import { prefetchTaskFormData } from '@/lib/cache/task-form-cache';
 
 export default function PlatformsPage() {
+  const { message } = App.useApp();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -149,6 +150,77 @@ export default function PlatformsPage() {
         </Space>
       </Card>
 
+      {/* TikTok */}
+      <Card 
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontWeight: 600, fontSize: '20px', color: '#0a0e27', letterSpacing: '-0.01em' }}>TikTok</span>
+            <Button
+              type="link"
+              onClick={() => router.push('/platforms/tiktok')}
+            >
+              Details
+            </Button>
+          </div>
+        }
+        style={{ 
+          marginTop: 24,
+          border: '1px solid #e2e8f0',
+          borderRadius: 12,
+          overflow: 'hidden',
+        }}
+        styles={{
+          header: {
+            background: 'linear-gradient(135deg, #fafbfc 0%, #ffffff 100%)',
+            borderBottom: '1px solid #e2e8f0',
+            padding: '20px 24px',
+          },
+          body: {
+            padding: '24px',
+          },
+        }}
+      >
+        <h2 style={{ fontWeight: 600, fontSize: '16px', color: '#161b22', marginBottom: 20, marginTop: 0 }}>Main Actions</h2>
+        <Space size="middle" wrap style={{ marginTop: 16 }}>
+          <Button
+            type="primary"
+            size="large"
+            icon={<EyeOutlined />}
+            onClick={() => router.push('/platforms/tiktok/view')}
+          >
+            View Video (view)
+          </Button>
+          <Button
+            size="large"
+            icon={<HeartOutlined />}
+            onClick={() => router.push('/platforms/tiktok/viewAndLike')}
+          >
+            View and Like Video (viewAndLike)
+          </Button>
+          <Button
+            size="large"
+            icon={<EyeOutlined />}
+            onClick={handleCheckPosts}
+            loading={loading}
+          >
+            Check Posts
+          </Button>
+          <Button
+            size="large"
+            icon={<UserAddOutlined />}
+            onClick={handleInDevelopment}
+          >
+            🚧 Subscribe
+          </Button>
+          <Button
+            size="large"
+            icon={<CommentOutlined />}
+            onClick={handleInDevelopment}
+          >
+            🚧 Comments
+          </Button>
+        </Space>
+      </Card>
       {/* YouTube */}
       <Card 
         title={
@@ -253,14 +325,6 @@ export default function PlatformsPage() {
         <h2 style={{ fontWeight: 600, fontSize: '16px', color: '#161b22', marginBottom: 20, marginTop: 0 }}>Main Actions</h2>
         <Space size="middle" wrap style={{ marginTop: 16 }}>
           <Button
-            type="primary"
-            size="large"
-            icon={<PlayCircleOutlined />}
-            onClick={() => router.push('/platforms/tiktok/view')}
-          >
-            View Video (view)
-          </Button>
-          <Button
             size="large"
             icon={<EyeOutlined />}
             onClick={handleInDevelopment}
@@ -340,61 +404,6 @@ export default function PlatformsPage() {
         </Space>
       </Card>
 
-      {/* TikTok */}
-      <Card 
-        title={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontWeight: 600, fontSize: '20px', color: '#0a0e27', letterSpacing: '-0.01em' }}>TikTok</span>
-            <Button
-              type="link"
-              onClick={() => router.push('/platforms/tiktok')}
-            >
-              Details
-            </Button>
-          </div>
-        }
-        style={{ 
-          marginTop: 24,
-          border: '1px solid #e2e8f0',
-          borderRadius: 12,
-          overflow: 'hidden',
-        }}
-        styles={{
-          header: {
-            background: 'linear-gradient(135deg, #fafbfc 0%, #ffffff 100%)',
-            borderBottom: '1px solid #e2e8f0',
-            padding: '20px 24px',
-          },
-          body: {
-            padding: '24px',
-          },
-        }}
-      >
-        <h2 style={{ fontWeight: 600, fontSize: '16px', color: '#161b22', marginBottom: 20, marginTop: 0 }}>Main Actions</h2>
-        <Space size="middle" wrap style={{ marginTop: 16 }}>
-          <Button
-            size="large"
-            icon={<EyeOutlined />}
-            onClick={handleInDevelopment}
-          >
-            🚧 View
-          </Button>
-          <Button
-            size="large"
-            icon={<UserAddOutlined />}
-            onClick={handleInDevelopment}
-          >
-            🚧 Subscribe
-          </Button>
-          <Button
-            size="large"
-            icon={<CommentOutlined />}
-            onClick={handleInDevelopment}
-          >
-            🚧 Comments
-          </Button>
-        </Space>
-      </Card>
     </div>
   );
 }

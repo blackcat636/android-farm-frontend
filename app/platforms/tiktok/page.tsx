@@ -1,12 +1,13 @@
 'use client';
 
-import { Card, Button, Space, message } from 'antd';
+import { Card, Button, Space, App } from 'antd';
 import { useRouter } from 'next/navigation';
 import { ArrowLeftOutlined, EyeOutlined, HeartOutlined, UserAddOutlined, CommentOutlined, HistoryOutlined } from '@ant-design/icons';
 import { createBackendClient, tokenStorage } from '@/lib/api/backend';
 import { useState } from 'react';
 
 export default function TikTokPlatformPage() {
+  const { message } = App.useApp();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 

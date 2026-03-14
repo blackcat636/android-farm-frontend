@@ -1,6 +1,6 @@
 'use client';
 
-import { Card, Button, Space, message } from 'antd';
+import { Card, Button, Space, App } from 'antd';
 import { useRouter } from 'next/navigation';
 import { FileTextOutlined, LoginOutlined, HistoryOutlined, HeartOutlined, ArrowLeftOutlined, CommentOutlined, EyeOutlined, UserAddOutlined } from '@ant-design/icons';
 import { createBackendClient, tokenStorage } from '@/lib/api/backend';
@@ -8,12 +8,14 @@ import { useState, useEffect } from 'react';
 import { prefetchTaskFormData } from '@/lib/cache/task-form-cache';
 
 export default function InstagramPlatformPage() {
+  const { message } = App.useApp();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     prefetchTaskFormData('instagram');
-  }, []);
+    router.prefetch('/platforms/instagram/post');
+  }, [router]);
 
   const handleCheckPosts = async () => {
     try {
