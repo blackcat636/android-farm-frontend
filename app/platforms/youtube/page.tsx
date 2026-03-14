@@ -97,14 +97,14 @@ export default function YouTubePlatformPage() {
             icon={<CommentOutlined />}
             onClick={handleInDevelopment}
           >
-            Comment
+            🚧 Comment
           </Button>
           <Button
             size="large"
             icon={<UserAddOutlined />}
             onClick={handleInDevelopment}
           >
-            Subscribe
+            🚧 Subscribe
           </Button>
           <Button
             size="large"

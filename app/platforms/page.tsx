@@ -264,16 +264,24 @@ export default function PlatformsPage() {
           <Button
             size="large"
             icon={<EyeOutlined />}
-            onClick={handleInDevelopment}
+            onClick={() => router.push('/platforms/youtube/view')}
           >
-            🚧 Watch Video
+            Watch Video
           </Button>
           <Button
             size="large"
             icon={<LikeOutlined />}
-            onClick={handleInDevelopment}
+            onClick={() => router.push('/platforms/youtube/viewAndLike')}
           >
-            🚧 Like
+            View and Like
+          </Button>
+          <Button
+            size="large"
+            icon={<EyeOutlined />}
+            onClick={handleCheckPosts}
+            loading={loading}
+          >
+            Check Posts
           </Button>
           <Button
             size="large"
