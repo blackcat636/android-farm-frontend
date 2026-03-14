@@ -889,6 +889,24 @@ export function createBackendClient(token: string) {
         return response.data;
       },
 
+      // Додати TikTok відео для перегляду
+      async viewTikTokPost(data: {
+        videoUrl: string;
+        country_code?: string | null;
+      }): Promise<{ ok: boolean; message: string; post: Post }> {
+        const response = await api.post('/api/posts/tiktok/view', data);
+        return response.data;
+      },
+
+      // Додати TikTok відео для перегляду + лайку
+      async viewAndLikeTikTokPost(data: {
+        videoUrl: string;
+        country_code?: string | null;
+      }): Promise<{ ok: boolean; message: string; post: Post }> {
+        const response = await api.post('/api/posts/tiktok/view-and-like', data);
+        return response.data;
+      },
+
       // Чорний список задач
       async getBlacklist(): Promise<BlacklistEntry[]> {
         const response = await api.get<BlacklistEntry[]>('/api/queue/blacklist');

@@ -3,9 +3,41 @@
 import { Card, Button, Space, message } from 'antd';
 import { useRouter } from 'next/navigation';
 import { ArrowLeftOutlined, EyeOutlined, HeartOutlined, UserAddOutlined, CommentOutlined, HistoryOutlined } from '@ant-design/icons';
+import { createBackendClient, tokenStorage } from '@/lib/api/backend';
+import { useState } from 'react';
 
 export default function TikTokPlatformPage() {
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
+
+  const handleCheckPosts = async () => {
+    try {
+      setLoading(true);
+      const loadingMsg = message.loading({ content: 'Checking posts...', key: 'check-posts', duration: 0 });
+      const token = tokenStorage.get();
+      if (!token) {
+        message.error({ content: 'Authorization required', key: 'check-posts' });
+        return;
+      }
+      const backendClient = createBackendClient(token);
+      const result = await backendClient.triggerJobWebhook('check-posts');
+      loadingMsg();
+      const data = result.result?.data || {};
+      message.success({
+        content: `Created ${data.likeTasksCreated || 0} like tasks, ${data.viewTasksCreated || 0} view tasks.`,
+        key: 'check-posts',
+        duration: 5,
+      });
+    } catch (error: any) {
+      message.error({
+        content: `Error: ${error.response?.data?.message || error.message || 'Unknown error'}`,
+        key: 'check-posts',
+        duration: 5,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleInDevelopment = () => {
     message.warning({
@@ -43,6 +75,14 @@ export default function TikTokPlatformPage() {
             onClick={() => router.push('/platforms/tiktok/viewAndLike')}
           >
             View and Like Video
+          </Button>
+          <Button
+            size="large"
+            icon={<EyeOutlined />}
+            onClick={handleCheckPosts}
+            loading={loading}
+          >
+            Check Posts
           </Button>
           <Button
             size="large"

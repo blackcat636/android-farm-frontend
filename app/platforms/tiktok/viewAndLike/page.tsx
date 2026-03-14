@@ -1,92 +1,131 @@
 'use client';
-export const runtime = 'edge';
 
-import { InputNumber, Form, Input } from 'antd';
-import { HeartOutlined } from '@ant-design/icons';
+import { useState } from 'react';
+import {
+  Card,
+  Button,
+  Form,
+  Input,
+  message,
+  Space,
+  Typography,
+} from 'antd';
+import { ArrowLeftOutlined, HeartOutlined } from '@ant-design/icons';
+import { useRouter } from 'next/navigation';
 import { createBackendClient, tokenStorage } from '@/lib/api/backend';
-import { ActionFormWrapper } from '@/components/platforms/ActionFormWrapper';
+import { CountrySelect } from '@/components/common/CountrySelect';
+
+const { Title, Text } = Typography;
 
 export default function TikTokViewAndLikePage() {
+  const router = useRouter();
+  const [form] = Form.useForm();
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (values: { videoUrl: string; country_code?: string }) => {
+    try {
+      setLoading(true);
+      const token = tokenStorage.get();
+      if (!token) {
+        message.error('Authorization required');
+        return;
+      }
+
+      const backendClient = createBackendClient(token);
+      await backendClient.viewAndLikeTikTokPost({
+        videoUrl: values.videoUrl?.trim(),
+        country_code: values.country_code || null,
+      });
+
+      message.success('Video added for view and like!');
+      form.resetFields();
+    } catch (err: any) {
+      message.error(
+        err.response?.data?.message || err.message || 'Error adding video',
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <ActionFormWrapper
-      platform="tiktok"
-      action="viewAndLike"
-      title="TikTok View and Like"
-      description="Enter TikTok video URL. The video will open in Chrome, then in the TikTok app, and will be liked."
-      platformDisplayName="TikTok"
-      submitButtonText="Add Task to Queue"
-      submitButtonIcon={<HeartOutlined />}
-      onSubmit={async ({ formValues, accountId, emulatorId, agentId }) => {
-        const token = tokenStorage.get();
-        if (!token) {
-          throw new Error('Authorization required');
-        }
+    <div style={{ maxWidth: 800, margin: '0 auto', padding: 24 }}>
+      <div style={{ marginBottom: 16 }}>
+        <Button
+          icon={<ArrowLeftOutlined />}
+          onClick={() => router.push('/platforms/tiktok')}
+        >
+          Back to TikTok
+        </Button>
+      </div>
 
-        const backendClient = createBackendClient(token);
+      <Title level={2}>
+        <HeartOutlined /> View and Like TikTok Video
+      </Title>
 
-        const params: any = {
-          videoUrl: formValues.videoUrl?.trim(),
-          viewSeconds: formValues.duration ?? 30,
-          duration: formValues.duration ?? 30,
-        };
+      <Card>
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSubmit}
+          autoComplete="off"
+        >
+          <Form.Item
+            name="country_code"
+            label="Country (optional)"
+            tooltip="Only accounts from this country will receive view and like tasks"
+          >
+            <CountrySelect placeholder="Any country" />
+          </Form.Item>
 
-        const task = await backendClient.addTask({
-          platform: 'tiktok',
-          action: 'viewAndLike',
-          params,
-          account_id: accountId,
-          emulator_id: emulatorId,
-          agent_id: agentId,
-          requireSession: formValues.requireSession || false,
-          country_code: formValues.country_code || null,
-        });
-
-        return {
-          task_id: task.id,
-          status: task.status,
-          platform: 'tiktok',
-          action: 'viewAndLike',
-        };
-      }}
-    >
-      {({ loading }) => (
-        <>
           <Form.Item
             name="videoUrl"
             label="TikTok Video URL"
             rules={[
-              { required: true, message: 'Enter TikTok video URL' },
+              { required: true, message: 'Please enter video URL' },
               {
                 pattern: /tiktok\.com|vm\.tiktok\.com/,
-                message: 'Enter a valid TikTok URL (tiktok.com or vm.tiktok.com)',
+                message: 'Please enter a valid TikTok URL (tiktok.com or vm.tiktok.com)',
               },
             ]}
             help="Example: https://www.tiktok.com/@user/video/1234567890"
           >
             <Input
               placeholder="https://www.tiktok.com/@user/video/1234567890"
-              disabled={loading}
+              size="large"
             />
           </Form.Item>
-          <Form.Item
-            name="duration"
-            label="Watch Time (seconds)"
-            rules={[
-              { required: true, message: 'Enter watch time' },
-              { type: 'number', min: 3, message: 'Minimum 3 seconds' },
-            ]}
-            initialValue={30}
-          >
-            <InputNumber
-              min={3}
-              max={600}
-              placeholder="30"
-              style={{ width: '100%' }}
-              disabled={loading}
-            />
+
+          <Form.Item>
+            <Space>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={loading}
+                icon={<HeartOutlined />}
+                size="large"
+              >
+                Add Video
+              </Button>
+              <Button onClick={() => form.resetFields()} size="large">
+                Clear
+              </Button>
+            </Space>
           </Form.Item>
-        </>
-      )}
-    </ActionFormWrapper>
+        </Form>
+      </Card>
+
+      <Card style={{ marginTop: 24 }}>
+        <Title level={4}>Information</Title>
+        <Text type="secondary">
+          <ul>
+            <li>Enter the TikTok video URL that needs to be viewed and liked</li>
+            <li>The video will be added to the posts table (needs_view=1, needs_like=1)</li>
+            <li>View and like tasks will be created via the &quot;Check Posts&quot; job</li>
+            <li>Each account will view and like the video once</li>
+          </ul>
+        </Text>
+      </Card>
+    </div>
   );
 }
