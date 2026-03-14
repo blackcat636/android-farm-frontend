@@ -256,9 +256,9 @@ export default function PlatformsPage() {
             type="primary"
             size="large"
             icon={<PlayCircleOutlined />}
-            onClick={() => router.push('/platforms/tiktok/watch')}
+            onClick={() => router.push('/platforms/tiktok/view')}
           >
-            Watch (watch)
+            View Video (view)
           </Button>
           <Button
             size="large"

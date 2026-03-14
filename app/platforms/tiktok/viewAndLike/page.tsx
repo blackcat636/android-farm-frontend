@@ -1,21 +1,21 @@
 'use client';
 export const runtime = 'edge';
 
-import { InputNumber, Form } from 'antd';
-import { PlayCircleOutlined } from '@ant-design/icons';
+import { InputNumber, Form, Input } from 'antd';
+import { HeartOutlined } from '@ant-design/icons';
 import { createBackendClient, tokenStorage } from '@/lib/api/backend';
 import { ActionFormWrapper } from '@/components/platforms/ActionFormWrapper';
 
-export default function TikTokWatchPage() {
+export default function TikTokViewAndLikePage() {
   return (
     <ActionFormWrapper
       platform="tiktok"
-      action="watch"
-      title="TikTok Watch"
-      description="Select an account or emulator and set watch duration. Disabled emulators will be started automatically."
+      action="viewAndLike"
+      title="TikTok View and Like"
+      description="Enter TikTok video URL. The video will open in Chrome, then in the TikTok app, and will be liked."
       platformDisplayName="TikTok"
       submitButtonText="Add Task to Queue"
-      submitButtonIcon={<PlayCircleOutlined />}
+      submitButtonIcon={<HeartOutlined />}
       onSubmit={async ({ formValues, accountId, emulatorId, agentId }) => {
         const token = tokenStorage.get();
         if (!token) {
@@ -25,12 +25,14 @@ export default function TikTokWatchPage() {
         const backendClient = createBackendClient(token);
 
         const params: any = {
-          duration: formValues.duration || 30,
+          videoUrl: formValues.videoUrl?.trim(),
+          viewSeconds: formValues.duration ?? 30,
+          duration: formValues.duration ?? 30,
         };
 
         const task = await backendClient.addTask({
           platform: 'tiktok',
-          action: 'watch',
+          action: 'viewAndLike',
           params,
           account_id: accountId,
           emulator_id: emulatorId,
@@ -43,12 +45,29 @@ export default function TikTokWatchPage() {
           task_id: task.id,
           status: task.status,
           platform: 'tiktok',
-          action: 'watch',
+          action: 'viewAndLike',
         };
       }}
     >
       {({ loading }) => (
         <>
+          <Form.Item
+            name="videoUrl"
+            label="TikTok Video URL"
+            rules={[
+              { required: true, message: 'Enter TikTok video URL' },
+              {
+                pattern: /tiktok\.com|vm\.tiktok\.com/,
+                message: 'Enter a valid TikTok URL (tiktok.com or vm.tiktok.com)',
+              },
+            ]}
+            help="Example: https://www.tiktok.com/@user/video/1234567890"
+          >
+            <Input
+              placeholder="https://www.tiktok.com/@user/video/1234567890"
+              disabled={loading}
+            />
+          </Form.Item>
           <Form.Item
             name="duration"
             label="Watch Time (seconds)"

@@ -2,7 +2,7 @@
 
 import { Card, Button, Space, message } from 'antd';
 import { useRouter } from 'next/navigation';
-import { ArrowLeftOutlined, EyeOutlined, UserAddOutlined, CommentOutlined, HistoryOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, EyeOutlined, HeartOutlined, UserAddOutlined, CommentOutlined, HistoryOutlined } from '@ant-design/icons';
 
 export default function TikTokPlatformPage() {
   const router = useRouter();
@@ -30,11 +30,19 @@ export default function TikTokPlatformPage() {
         <h2>Available Actions</h2>
         <Space size="middle" wrap style={{ marginTop: 16 }}>
           <Button
+            type="primary"
             size="large"
             icon={<EyeOutlined />}
-            onClick={handleInDevelopment}
+            onClick={() => router.push('/platforms/tiktok/view')}
           >
-            🚧 View
+            View Video
+          </Button>
+          <Button
+            size="large"
+            icon={<HeartOutlined />}
+            onClick={() => router.push('/platforms/tiktok/viewAndLike')}
+          >
+            View and Like Video
           </Button>
           <Button
             size="large"
