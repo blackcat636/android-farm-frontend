@@ -43,18 +43,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const userData = await authApi.getMe(token);
       setUser(userData);
-      console.log('[AuthContext] ✅ Дані користувача оновлено');
+      console.log('[AuthContext] User data updated');
     } catch (error: any) {
       const errMsg =
         error?.response?.data?.message ??
         error?.message ??
         (error?.response?.status ? `HTTP ${error.response.status}` : null) ??
         JSON.stringify(error?.response?.data ?? 'Unknown error');
-      console.error('[AuthContext] Помилка оновлення користувача:', errMsg);
+      console.error('[AuthContext] Error updating user:', errMsg);
       // Якщо це 401 помилка, токен буде оновлено через interceptor автоматично
       // Не видаляємо токен тут, оскільки interceptor спробує оновити його
       if (error?.response?.status === 401) {
-        console.log('[AuthContext] Отримано 401, очікую на оновлення токену через interceptor...');
+        console.log('[AuthContext] Got 401, waiting for token refresh via interceptor...');
         // Не встановлюємо loading = false, оскільки interceptor може оновити токен
         return;
       }
@@ -75,10 +75,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Callback для оповіщення про успішний refresh
     const handleTokenRefreshed = (token: string) => {
-      console.log('[AuthContext] Токен оновлено, оновлюю дані користувача...');
+      console.log('[AuthContext] Token refreshed, updating user data...');
       // Оновлюємо дані користувача після успішного refresh токену
       refreshUser().catch((error) => {
-        console.error('[AuthContext] Помилка оновлення користувача після refresh:', error);
+        console.error('[AuthContext] Error updating user after refresh:', error);
       });
     };
 
@@ -87,14 +87,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Також слухаємо window events (для додаткової надійності)
     const handleTokenRefreshedEvent = (event: CustomEvent) => {
-      console.log('[AuthContext] Отримано подію tokenRefreshed, оновлюю дані користувача...');
+      console.log('[AuthContext] tokenRefreshed event received, updating user data...');
       refreshUser().catch((error) => {
-        console.error('[AuthContext] Помилка оновлення користувача після refresh:', error);
+        console.error('[AuthContext] Error updating user after refresh:', error);
       });
     };
 
     const handleTokenRefreshFailed = () => {
-      console.warn('[AuthContext] Оновлення токену не вдалося, очищаю дані користувача');
+      console.warn('[AuthContext] Token refresh failed, clearing user data');
       tokenStorage.remove();
       setUser(null);
     };

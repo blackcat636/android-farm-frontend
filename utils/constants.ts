@@ -19,7 +19,7 @@ export async function getAgentApiUrl(agentId?: string): Promise<string> {
         return response.url;
       }
     } catch (err) {
-      console.warn('Не вдалося отримати URL тунелю з Cloudflare KV, використовуємо fallback');
+      console.warn('Failed to get tunnel URL from Cloudflare KV, using fallback');
     }
   }
 

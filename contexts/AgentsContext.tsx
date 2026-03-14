@@ -63,7 +63,7 @@ export function AgentsProvider({ children }: { children: React.ReactNode }) {
         });
       }
     } catch (error) {
-      console.error('Помилка завантаження агентів з бекенду:', error);
+      console.error('Error loading agents from backend:', error);
     }
   }, []);
 
@@ -164,7 +164,7 @@ export function AgentsProvider({ children }: { children: React.ReactNode }) {
         updateAgent(agentId, { tunnelUrl: response.data.url });
       }
     } catch (error) {
-      console.error('Помилка оновлення URL тунелю:', error);
+      console.error('Error updating tunnel URL:', error);
     }
   }, [agents, updateAgent]);
 

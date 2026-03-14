@@ -168,6 +168,32 @@ let failedQueue: Array<{
   reject: (error: any) => void;
 }> = [];
 
+const REFRESH_LOCK_KEY = 'auth_refresh_in_progress';
+const REFRESH_LOCK_TTL_MS = 15000;
+
+/** Чекає, поки інша вкладка завершить refresh (уникає "Already Used") */
+function waitForExternalRefresh(): Promise<string | null> {
+  if (typeof window === 'undefined') return Promise.resolve(null);
+  const deadline = Date.now() + REFRESH_LOCK_TTL_MS;
+  return new Promise((resolve) => {
+    const check = () => {
+      if (Date.now() > deadline) {
+        localStorage.removeItem(REFRESH_LOCK_KEY);
+        resolve(null);
+        return;
+      }
+      const token = tokenStorage.get();
+      const lock = localStorage.getItem(REFRESH_LOCK_KEY);
+      if (token && !lock) {
+        resolve(token);
+        return;
+      }
+      setTimeout(check, 150);
+    };
+    setTimeout(check, 100);
+  });
+}
+
 // Callback для оповіщення про успішний refresh токену
 let onTokenRefreshed: ((token: string) => void) | null = null;
 
@@ -222,7 +248,7 @@ globalAxiosInstance.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (originalRequest.url === '/api/auth/refresh' || originalRequest.url?.includes('/api/auth/refresh')) {
         // Якщо це сам refresh endpoint повернув 401 - виходимо
-        console.warn('[API] Refresh token також недійсний, вимагаємо повторного входу');
+        console.warn('[API] Refresh token invalid, re-login required');
         tokenStorage.remove();
         processQueue(error, null);
         
@@ -237,7 +263,7 @@ globalAxiosInstance.interceptors.response.use(
       // Перевіряємо чи є refresh token
       const refreshToken = tokenStorage.getRefresh();
       if (!refreshToken) {
-        console.warn('[API] Немає refresh token, вимагаємо повторного входу');
+        console.warn('[API] No refresh token, re-login required');
         tokenStorage.remove();
         
         // Оповіщаємо про невдалий refresh
@@ -250,14 +276,31 @@ globalAxiosInstance.interceptors.response.use(
 
       originalRequest._retry = true;
 
+      // Якщо інша вкладка вже робить refresh — чекаємо на неї
+      const externalLock = typeof window !== 'undefined' ? localStorage.getItem(REFRESH_LOCK_KEY) : null;
+      if (externalLock && !isRefreshing) {
+        const lockTime = parseInt(externalLock, 10);
+        if (!isNaN(lockTime) && Date.now() - lockTime < REFRESH_LOCK_TTL_MS) {
+          console.log('[API] Another tab is refreshing token, waiting...');
+          const newToken = await waitForExternalRefresh();
+          if (newToken) {
+            originalRequest.headers = originalRequest.headers || {};
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            return globalAxiosInstance(originalRequest);
+          }
+        } else {
+          localStorage.removeItem(REFRESH_LOCK_KEY);
+        }
+      }
+
       // Якщо вже відбувається refresh, додаємо запит в чергу
       if (isRefreshing) {
-        console.log('[API] Refresh вже виконується, додаю запит в чергу...');
+        console.log('[API] Refresh already in progress, queueing request...');
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
           .then((token) => {
-            console.log('[API] Отримано новий токен з черги, повторюю запит...');
+            console.log('[API] Got new token from queue, retrying request...');
             originalRequest.headers.Authorization = `Bearer ${token}`;
             // Оновлюємо токен в config для повторного запиту
             originalRequest.headers = originalRequest.headers || {};
@@ -265,15 +308,18 @@ globalAxiosInstance.interceptors.response.use(
             return globalAxiosInstance(originalRequest);
           })
           .catch((err) => {
-            console.error('[API] Помилка при повторному виконанні запиту з черги:', err);
+            console.error('[API] Error retrying queued request:', err);
             return Promise.reject(err);
           });
       }
 
       isRefreshing = true;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(REFRESH_LOCK_KEY, String(Date.now()));
+      }
 
       try {
-        console.log('[API] Оновлюю токен через refresh token...');
+        console.log('[API] Refreshing token...');
         const response = await authApi.refresh(refreshToken);
         const { access_token, refresh_token: newRefreshToken } = response;
 
@@ -285,7 +331,7 @@ globalAxiosInstance.interceptors.response.use(
           try {
             onTokenRefreshed(access_token);
           } catch (callbackError) {
-            console.warn('[API] Помилка в callback onTokenRefreshed:', callbackError);
+            console.warn('[API] Error in onTokenRefreshed callback:', callbackError);
           }
         }
 
@@ -294,7 +340,7 @@ globalAxiosInstance.interceptors.response.use(
           window.dispatchEvent(new CustomEvent('tokenRefreshed', { detail: { token: access_token } }));
         }
 
-        console.log('[API] ✅ Токен успішно оновлено');
+        console.log('[API] Token refreshed successfully');
 
         // Оновлюємо заголовок і повторюємо оригінальний запит
         originalRequest.headers = originalRequest.headers || {};
@@ -302,7 +348,7 @@ globalAxiosInstance.interceptors.response.use(
         // Видаляємо _retry прапорець для можливості повторного refresh якщо потрібно
         delete originalRequest._retry;
         
-        console.log(`[API] Повторюю оригінальний запит: ${originalRequest.method?.toUpperCase()} ${originalRequest.url}`);
+        console.log(`[API] Retrying original request: ${originalRequest.method?.toUpperCase()} ${originalRequest.url}`);
         return globalAxiosInstance(originalRequest);
       } catch (refreshError: any) {
         const errMsg =
@@ -310,7 +356,7 @@ globalAxiosInstance.interceptors.response.use(
           refreshError?.message ??
           (refreshError?.response?.status ? `HTTP ${refreshError.response.status}` : null) ??
           JSON.stringify(refreshError?.response?.data ?? 'Unknown error');
-        console.error('[API] ❌ Помилка оновлення токену:', errMsg);
+        console.error('[API] Token refresh failed:', errMsg);
         processQueue(refreshError, null);
         tokenStorage.remove();
         
@@ -322,6 +368,9 @@ globalAxiosInstance.interceptors.response.use(
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem(REFRESH_LOCK_KEY);
+        }
       }
     }
 

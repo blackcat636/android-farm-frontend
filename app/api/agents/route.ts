@@ -12,7 +12,7 @@ const CLOUDFLARE_API_BASE = 'https://api.cloudflare.com/client/v4';
  */
 async function listAllAgents() {
   if (!CLOUDFLARE_ACCOUNT_ID || !CLOUDFLARE_API_TOKEN || !CLOUDFLARE_KV_NAMESPACE_ID) {
-    console.warn('[api/agents] Cloudflare KV не налаштовано');
+    console.warn('[api/agents] Cloudflare KV not configured');
     return [];
   }
 
@@ -28,7 +28,7 @@ async function listAllAgents() {
     );
 
     if (!response.ok) {
-      console.error(`[api/agents] Помилка отримання ключів: ${response.status}`);
+      console.error(`[api/agents] Error fetching keys: ${response.status}`);
       return [];
     }
 
@@ -74,13 +74,13 @@ async function listAllAgents() {
           });
         }
       } catch (error) {
-        console.error(`[api/agents] Помилка отримання URL для агента ${agentId}:`, error);
+        console.error(`[api/agents] Error fetching URL for agent ${agentId}:`, error);
       }
     }
 
     return agents;
   } catch (error) {
-    console.error('[api/agents] Помилка отримання списку агентів:', error);
+    console.error('[api/agents] Error fetching agents list:', error);
     return [];
   }
 }
@@ -131,7 +131,7 @@ async function getAgentTunnelUrl(agentId: string): Promise<{ url: string; name: 
       };
     }
   } catch (error) {
-    console.error(`[api/agents] Помилка отримання URL для агента ${agentId}:`, error);
+    console.error(`[api/agents] Error fetching URL for agent ${agentId}:`, error);
     return null;
   }
 }

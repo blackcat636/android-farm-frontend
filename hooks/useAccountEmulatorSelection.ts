@@ -80,7 +80,7 @@ export function useAccountEmulatorSelection({
       setAccounts(list);
       mergeAccountsIntoCache(platform, list);
     } catch (err: any) {
-      console.error('Помилка завантаження акаунтів:', err);
+      console.error('Error loading accounts:', err);
       message.error('Не вдалося завантажити акаунти');
     } finally {
       setLoadingAccounts(false);
@@ -96,7 +96,7 @@ export function useAccountEmulatorSelection({
       const binding = await backendClient.getBindingForAccount(accountId);
       setBinding(binding);
     } catch (err: any) {
-      console.error('Помилка завантаження прив\'язки:', err);
+      console.error('Error loading binding:', err);
       setBinding(null);
     }
   };
@@ -149,7 +149,7 @@ export function useAccountEmulatorSelection({
         await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
       }
     } catch (err: any) {
-      console.error('Помилка створення прив\'язки:', err);
+      console.error('Error creating binding:', err);
       throw err;
     } finally {
       setBindingVerificationInProgress(false);

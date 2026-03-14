@@ -20,7 +20,7 @@ export function useTunnelUrl(agentId?: string) {
           setError(response.message || 'URL тунелю не знайдено');
         }
       } catch (err: any) {
-        console.error('Помилка отримання URL тунелю:', err);
+        console.error('Error fetching tunnel URL:', err);
         setError(err.message || 'Не вдалося отримати URL тунелю');
       } finally {
         setLoading(false);

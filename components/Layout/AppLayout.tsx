@@ -200,7 +200,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
             placement="left"
             onClose={() => setMobileMenuOpen(false)}
             open={mobileMenuOpen}
-            bodyStyle={{ padding: 0 }}
             width={260}
             styles={{
               body: {

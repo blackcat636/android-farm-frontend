@@ -83,11 +83,11 @@ function createClients(baseURL: string) {
   // Додаємо interceptor для логування помилок (для обох клієнтів)
   const errorInterceptor = (error: any) => {
     if (error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) {
-      console.error('Не вдалося підключитися до агента:', baseURL);
+      console.error('Failed to connect to agent:', baseURL);
     } else if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
-      console.error('Таймаут запиту. Операція займає занадто багато часу.');
+      console.error('Request timeout. Operation is taking too long.');
     } else {
-      console.error('API помилка:', error.response?.data || error.message);
+      console.error('API error:', error.response?.data || error.message);
     }
     return Promise.reject(error);
   };

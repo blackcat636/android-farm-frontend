@@ -34,7 +34,7 @@ export async function getAgentsFromKV(): Promise<AgentFromKV[]> {
     const data: AgentsListResponse = await response.json();
     return data.agents || [];
   } catch (error) {
-    console.error('Помилка отримання списку агентів з KV:', error);
+    console.error('Error fetching agents list from KV:', error);
     return [];
   }
 }
@@ -57,7 +57,7 @@ export async function getAgentInfoFromKV(agentId: string): Promise<{ url: string
     }
     return null;
   } catch (error) {
-    console.error(`Помилка отримання інформації про агента ${agentId}:`, error);
+    console.error(`Error fetching agent ${agentId} info:`, error);
     return null;
   }
 }
