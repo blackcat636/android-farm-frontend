@@ -956,6 +956,33 @@ export function createBackendClient(token: string) {
         return response.data;
       },
 
+      // Додати YouTube відео для перегляду
+      async viewYouTubePost(data: {
+        videoUrl: string;
+        country_code?: string | null;
+      }): Promise<{ ok: boolean; message: string; post: Post }> {
+        const response = await api.post('/api/posts/youtube/view', data);
+        return response.data;
+      },
+
+      // Додати YouTube відео для перегляду + лайку
+      async viewAndLikeYouTubePost(data: {
+        videoUrl: string;
+        country_code?: string | null;
+      }): Promise<{ ok: boolean; message: string; post: Post }> {
+        const response = await api.post('/api/posts/youtube/view-and-like', data);
+        return response.data;
+      },
+
+      // Додати YouTube відео для лайку
+      async likeYouTubePost(data: {
+        videoUrl: string;
+        country_code?: string | null;
+      }): Promise<{ ok: boolean; message: string; post: Post }> {
+        const response = await api.post('/api/posts/youtube/like', data);
+        return response.data;
+      },
+
       // Чорний список задач
       async getBlacklist(): Promise<BlacklistEntry[]> {
         const response = await api.get<BlacklistEntry[]>('/api/queue/blacklist');
