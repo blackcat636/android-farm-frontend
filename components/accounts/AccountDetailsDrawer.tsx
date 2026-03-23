@@ -245,6 +245,7 @@ export function AccountDetailsDrawer({
       restricted: 'orange',
       suspended: 'volcano',
       inactive: 'default',
+      view_only: 'blue',
     };
     return colors[status] || 'default';
   };

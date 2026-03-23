@@ -176,6 +176,7 @@ export default function AccountsPage() {
       suspended: 'volcano',
       inactive: 'default',
       testing: 'cyan',
+      view_only: 'blue',
     };
     return colors[status] || 'default';
   };
@@ -253,6 +254,7 @@ export default function AccountsPage() {
         { text: 'Restricted', value: 'restricted' },
         { text: 'Suspended', value: 'suspended' },
         { text: 'Inactive', value: 'inactive' },
+        { text: 'View Only', value: 'view_only' },
       ],
       onFilter: (value, record) => record.status === value,
     },
@@ -418,6 +420,7 @@ export default function AccountsPage() {
             <Option value="restricted">Restricted</Option>
             <Option value="suspended">Suspended</Option>
             <Option value="inactive">Inactive</Option>
+            <Option value="view_only">View Only</Option>
             <Option value="testing">Testing</Option>
           </Select>
 
