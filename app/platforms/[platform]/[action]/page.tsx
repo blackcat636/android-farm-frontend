@@ -27,6 +27,10 @@ export default function ExecuteActionPage() {
     return null; // Will be redirected via router.replace in useEffect
   }
 
+  if (platform === 'youtube' && action === 'post') {
+    return null; // Use dedicated page at /platforms/youtube/post
+  }
+
   if (!platform || !action) {
     return null;
   }

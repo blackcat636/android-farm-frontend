@@ -2,7 +2,8 @@
 
 import { Card, Button, Space, App } from 'antd';
 import { useRouter } from 'next/navigation';
-import { PlayCircleOutlined, HistoryOutlined, ArrowLeftOutlined, EyeOutlined, LikeOutlined, CommentOutlined, UserAddOutlined } from '@ant-design/icons';
+import { useEffect } from 'react';
+import { PlayCircleOutlined, HistoryOutlined, ArrowLeftOutlined, EyeOutlined, LikeOutlined, CommentOutlined, UserAddOutlined, FileTextOutlined } from '@ant-design/icons';
 import { createBackendClient, tokenStorage } from '@/lib/api/backend';
 import { useState } from 'react';
 
@@ -10,6 +11,10 @@ export default function YouTubePlatformPage() {
   const { message } = App.useApp();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    router.prefetch('/platforms/youtube/post');
+  }, [router]);
 
   const handleCheckPosts = async () => {
     try {
@@ -83,6 +88,14 @@ export default function YouTubePlatformPage() {
             onClick={() => router.push('/platforms/youtube/viewAndLike')}
           >
             View and Like
+          </Button>
+          <Button
+            type="primary"
+            size="large"
+            icon={<FileTextOutlined />}
+            onClick={() => router.push('/platforms/youtube/post')}
+          >
+            Post Video
           </Button>
           <Button
             size="large"

@@ -277,6 +277,13 @@ export default function PlatformsPage() {
           </Button>
           <Button
             size="large"
+            icon={<FileTextOutlined />}
+            onClick={() => router.push('/platforms/youtube/post')}
+          >
+            Post
+          </Button>
+          <Button
+            size="large"
             icon={<EyeOutlined />}
             onClick={handleCheckPosts}
             loading={loading}
