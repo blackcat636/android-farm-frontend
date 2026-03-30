@@ -1043,7 +1043,7 @@ export function createBackendClient(token: string) {
         return response.data;
       },
 
-      async createAdminUserPost(data: { user_id: string; url: string; description?: string; platform?: string; publish_options?: Record<string, unknown> }): Promise<any> {
+      async createAdminUserPost(data: { user_id: string; url: string; title?: string; description?: string; platform?: string; publish_options?: Record<string, unknown> }): Promise<any> {
         const response = await api.post('/api/user-posts/admin/create', data);
         return response.data;
       },

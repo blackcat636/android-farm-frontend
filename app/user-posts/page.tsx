@@ -14,6 +14,7 @@ interface UserPost {
   id: string;
   user_id: string;
   url?: string;
+  title?: string;
   description?: string;
   screenshot_url?: string;
   platform?: string;
@@ -33,6 +34,7 @@ interface UserPostClone {
   account_id?: string;
   url?: string;
   social_url?: string;
+  title?: string;
   description?: string;
   platform?: string;
   views_count: number;
@@ -95,7 +97,7 @@ export default function UserPostsPage() {
     } catch {}
   };
 
-  const handleCreatePost = async (values: { user_id: string; url: string; description?: string; platform?: string; publish_options?: Record<string, Record<string, unknown>> }) => {
+  const handleCreatePost = async (values: { user_id: string; url: string; title?: string; description?: string; platform?: string; publish_options?: Record<string, Record<string, unknown>> }) => {
     try {
       setCreateLoading(true);
       const token = tokenStorage.get();
@@ -217,6 +219,13 @@ export default function UserPostsPage() {
       render: (userId: string) => getUserEmail(userId),
     },
     {
+      title: 'Title',
+      dataIndex: 'title',
+      key: 'title',
+      ellipsis: true,
+      render: (text: string) => text || '-',
+    },
+    {
       title: 'URL',
       dataIndex: 'url',
       key: 'url',
@@ -311,6 +320,7 @@ export default function UserPostsPage() {
   const cloneColumns: ColumnsType<UserPostClone> = [
     { title: 'ID', dataIndex: 'id', key: 'id', width: 100, render: (id: string) => id.slice(0, 8) },
     { title: 'Account', dataIndex: 'account_id', key: 'account_id', render: (id: string) => id ? id.slice(0, 8) : '-' },
+    { title: 'Title', dataIndex: 'title', key: 'title', ellipsis: true, render: (text: string) => text || '-' },
     { title: 'URL', dataIndex: 'url', key: 'url', ellipsis: true, render: (url: string) => url ? <a href={url} target="_blank" rel="noopener noreferrer">{url}</a> : '-' },
     { title: 'Social URL', dataIndex: 'social_url', key: 'social_url', ellipsis: true, render: (url: string) => url ? <a href={url} target="_blank" rel="noopener noreferrer">{url}</a> : '-' },
     { title: 'Platform', dataIndex: 'platform', key: 'platform', render: (p: string) => p ? <Tag color="purple">{p}</Tag> : '-' },
@@ -453,6 +463,9 @@ export default function UserPostsPage() {
           </Form.Item>
           <Form.Item name="url" label="URL" rules={[{ required: true, message: 'Please enter URL' }]}>
             <Input placeholder="https://..." />
+          </Form.Item>
+          <Form.Item name="title" label="Title">
+            <Input placeholder="Optional title" />
           </Form.Item>
           <Form.Item name="description" label="Description">
             <Input.TextArea rows={3} placeholder="Optional description" />
