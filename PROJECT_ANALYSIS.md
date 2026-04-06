@@ -128,6 +128,7 @@ frontend/
 | `/platforms/instagram/post` | Instagram: публікація |
 | `/platforms/instagram/login` | Instagram: логін |
 | `/platforms/instagram/like` | Instagram: лайк |
+| `/platforms/facebook/marketplacePost` | Facebook: Marketplace post (dedicated form) |
 | `/platforms/youtube/search` | YouTube: пошук |
 | `/platforms/tiktok/watch` | TikTok: перегляд |
 | `/emulators` | Список емуляторів (з backend) |
@@ -139,6 +140,18 @@ frontend/
 | `/captcha` | Капча |
 | `/api-keys` | API ключі |
 | `/blacklist` | Чорний список задач |
+
+---
+
+## 🧩 Facebook Marketplace (Nexus Labs)
+
+- У frontend додано dedicated-форму для задачі `facebook/marketplacePost`:
+  - сторінка: `/platforms/facebook/marketplacePost`
+  - entry points: `/platforms` (Facebook card) і `/platforms/facebook`
+- Форма збирає параметри:
+  - `title` (required), `description` (required), `price` (required)
+  - `imageUrls`, `imagePaths`, `location`, `category` (optional)
+- Submit використовує існуючий queue flow через `createBackendClient(...).addTask` (та helper `addFacebookMarketplaceTask`), без змін backend endpoint-ів.
 
 ---
 

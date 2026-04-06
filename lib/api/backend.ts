@@ -147,6 +147,16 @@ export interface PostLike {
   created_at: string;
 }
 
+export interface FacebookMarketplacePostParams {
+  title: string;
+  description: string;
+  price?: string;
+  imageUrls?: string[];
+  imagePaths?: string[];
+  location?: string;
+  category?: string;
+}
+
 // Глобальний instance axios з interceptor
 // baseURL буде оновлюватися динамічно через createBackendApi
 const globalAxiosInstance = axios.create({
@@ -687,6 +697,24 @@ export function createBackendClient(token: string) {
       country_code?: string | null;
     }): Promise<Task> {
       const response = await api.post<Task>('/api/queue/add', data);
+      return response.data;
+    },
+
+    async addFacebookMarketplaceTask(data: {
+      params: FacebookMarketplacePostParams;
+      account_id?: string;
+      emulator_id?: string;
+      emulator_type?: string;
+      agent_id?: string;
+      priority?: number;
+      requireSession?: boolean;
+      country_code?: string | null;
+    }): Promise<Task> {
+      const response = await api.post<Task>('/api/queue/add', {
+        platform: 'facebook',
+        action: 'marketplacePost',
+        ...data,
+      });
       return response.data;
     },
 

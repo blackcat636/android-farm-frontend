@@ -2,7 +2,7 @@
 
 import { Card, Button, Space, message } from 'antd';
 import { useRouter } from 'next/navigation';
-import { ArrowLeftOutlined, EyeOutlined, UserAddOutlined, CommentOutlined, HistoryOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, EyeOutlined, UserAddOutlined, CommentOutlined, HistoryOutlined, FileTextOutlined } from '@ant-design/icons';
 
 export default function FacebookPlatformPage() {
   const router = useRouter();
@@ -29,6 +29,14 @@ export default function FacebookPlatformPage() {
       <Card style={{ marginTop: 24 }}>
         <h2>Available Actions</h2>
         <Space size="middle" wrap style={{ marginTop: 16 }}>
+          <Button
+            type="primary"
+            size="large"
+            icon={<FileTextOutlined />}
+            onClick={() => router.push('/platforms/facebook/marketplacePost')}
+          >
+            Marketplace Post
+          </Button>
           <Button
             size="large"
             icon={<EyeOutlined />}
