@@ -204,6 +204,14 @@ export default function UserPostsPage() {
     delete_failed: 'red',
   };
 
+  const cloneStatusColors: Record<string, string> = {
+    ...statusColors,
+    queued: 'gold',
+    pending: 'geekblue',
+    published: 'green',
+    failed: 'red',
+  };
+
   const columns: ColumnsType<UserPost> = [
     {
       title: 'ID',
@@ -326,7 +334,7 @@ export default function UserPostsPage() {
     { title: 'Platform', dataIndex: 'platform', key: 'platform', render: (p: string) => p ? <Tag color="purple">{p}</Tag> : '-' },
     { title: 'Views', dataIndex: 'views_count', key: 'views_count' },
     { title: 'Likes', dataIndex: 'likes_count', key: 'likes_count' },
-    { title: 'Status', dataIndex: 'status', key: 'status', render: (s: string) => <Tag color={statusColors[s] || 'default'}>{s}</Tag> },
+    { title: 'Status', dataIndex: 'status', key: 'status', render: (s: string) => <Tag color={cloneStatusColors[s] || 'default'}>{s}</Tag> },
     { title: 'Date', dataIndex: 'created_at', key: 'created_at', render: (text: string) => new Date(text).toLocaleString('en-US') },
     {
       title: 'Actions',
