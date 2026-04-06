@@ -36,12 +36,68 @@ export interface AuthResponse {
 }
 
 export type Role = 'user' | 'manager' | 'admin' | 'superadmin';
+export type PermissionEffect = 'allow' | 'deny';
+export type PermissionScope = 'own' | 'team' | 'all';
 
 export interface UserWithRole {
   id: string;
   email?: string;
   role: string;
   created_at?: string;
+}
+
+export interface PermissionCatalogItem {
+  id: string;
+  key: string;
+  description: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface RolePermissionItem {
+  role: Role;
+  permission_key: string;
+  effect: PermissionEffect;
+  scope: PermissionScope;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface UserPermissionItem {
+  user_id: string;
+  permission_key: string;
+  effect: PermissionEffect;
+  scope: PermissionScope;
+  expires_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface EffectivePermissionItem {
+  key: string;
+  effect: PermissionEffect;
+  scope: PermissionScope;
+}
+
+export interface EffectivePermissionsResponse {
+  user_id: string;
+  role: string;
+  permissions: EffectivePermissionItem[];
+}
+
+export interface SetRolePermissionRequest {
+  role: Role;
+  permission_key: string;
+  effect: PermissionEffect;
+  scope?: PermissionScope;
+}
+
+export interface SetUserPermissionRequest {
+  user_id: string;
+  permission_key: string;
+  effect: PermissionEffect;
+  scope?: PermissionScope;
+  expires_at?: string;
 }
 
 export interface Agent {
@@ -437,6 +493,64 @@ export const authApi = {
   async setUserRole(userId: string, role: Role): Promise<{ role: string }> {
     const api = createBackendApi();
     const response = await api.put<{ role: string }>(`/api/auth/users/${userId}/role`, { role });
+    return response.data;
+  },
+
+  async getPermissionsCatalog(): Promise<PermissionCatalogItem[]> {
+    const api = createBackendApi();
+    const response = await api.get<PermissionCatalogItem[]>('/api/permissions/catalog');
+    return response.data;
+  },
+
+  async getRolePermissions(role?: Role): Promise<RolePermissionItem[]> {
+    const api = createBackendApi();
+    const response = await api.get<RolePermissionItem[]>('/api/permissions/roles', {
+      params: role ? { role } : undefined,
+    });
+    return response.data;
+  },
+
+  async setRolePermission(data: SetRolePermissionRequest): Promise<RolePermissionItem> {
+    const api = createBackendApi();
+    const response = await api.put<RolePermissionItem>('/api/permissions/roles', data);
+    return response.data;
+  },
+
+  async deleteRolePermission(role: Role, permissionKey: string): Promise<{ message: string }> {
+    const api = createBackendApi();
+    const response = await api.delete<{ message: string }>(
+      `/api/permissions/roles/${role}/${encodeURIComponent(permissionKey)}`,
+    );
+    return response.data;
+  },
+
+  async getUserPermissions(userId?: string): Promise<UserPermissionItem[]> {
+    const api = createBackendApi();
+    const response = await api.get<UserPermissionItem[]>('/api/permissions/users', {
+      params: userId ? { user_id: userId } : undefined,
+    });
+    return response.data;
+  },
+
+  async setUserPermission(data: SetUserPermissionRequest): Promise<UserPermissionItem> {
+    const api = createBackendApi();
+    const response = await api.put<UserPermissionItem>('/api/permissions/users', data);
+    return response.data;
+  },
+
+  async deleteUserPermission(userId: string, permissionKey: string): Promise<{ message: string }> {
+    const api = createBackendApi();
+    const response = await api.delete<{ message: string }>(
+      `/api/permissions/users/${userId}/${encodeURIComponent(permissionKey)}`,
+    );
+    return response.data;
+  },
+
+  async getEffectiveUserPermissions(userId: string): Promise<EffectivePermissionsResponse> {
+    const api = createBackendApi();
+    const response = await api.get<EffectivePermissionsResponse>(
+      `/api/permissions/users/${userId}/effective`,
+    );
     return response.data;
   },
 

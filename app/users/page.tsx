@@ -182,9 +182,14 @@ export default function UsersPage() {
 
           <Card
             extra={
-              <Button icon={<ReloadOutlined />} onClick={fetchUsers}>
-                Оновити
-              </Button>
+              <Space>
+                <Button onClick={() => router.push('/access-control')}>
+                  Access Control
+                </Button>
+                <Button icon={<ReloadOutlined />} onClick={fetchUsers}>
+                  Оновити
+                </Button>
+              </Space>
             }
           >
             <Table

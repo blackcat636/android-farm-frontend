@@ -1,8 +1,8 @@
-# Детальний аналіз проекту Android Farm Frontend
+# Детальний аналіз проекту Nexus Labs Frontend
 
 ## 📋 Загальний опис
 
-**Android Farm Frontend** — Next.js веб-додаток для управління агентами, емуляторами, чергою завдань, соціальними аккаунтами, постами, історією виконання. Інтегрується з **backend** через REST API. **Усі дані доступні тільки залогіненому користувачу.**
+**Nexus Labs Frontend** — Next.js веб-додаток для управління агентами, емуляторами, чергою завдань, соціальними аккаунтами, постами, історією виконання. Інтегрується з **backend** через REST API. **Усі дані доступні тільки залогіненому користувачу.**
 
 ---
 
@@ -122,6 +122,7 @@ frontend/
 |------|------|
 | `/` | Dashboard — платформи, емулятори, статистика |
 | `/users` | Користувачі та ролі (тільки admin/superadmin) |
+| `/access-control` | Адмінка доступів: ролі, права ролей, user overrides, effective permissions |
 | `/platforms` | Список платформ |
 | `/platforms/[platform]` | Деталі платформи, список дій |
 | `/platforms/[platform]/[action]` | Динамічна форма дії |
@@ -175,7 +176,7 @@ frontend/
 
 - **createBackendApi(token)** — базовий axios з токеном
 - **createBackendClient(token)** — повний клієнт: auth, agents, emulators, execute, history, queue, posts, social-accounts, account-proxies, account-bindings, sync
-- **authApi** — signIn, signUp, signOut, getMe, refresh, api-keys, getUsers, setUserRole
+- **authApi** — signIn, signUp, signOut, getMe, refresh, api-keys, getUsers, setUserRole, permissions API (`/api/permissions/*`)
 - **tokenStorage** — get, set, remove, getRefresh
 
 ### 4. Hooks
@@ -244,6 +245,24 @@ npm run build && npm start
 ### Синхронізація з backend
 
 При зміні типів або endpoints у backend — оновлювати `lib/api/backend.ts` та цей документ. Правило: `.cursor/rules/docs-sync.mdc`
+
+### Access Control (Roles + Permissions)
+
+- Нова сторінка `/access-control` об'єднує керування доступом в Nexus Labs:
+  - `Users & Roles` — перегляд користувачів та зміна ролей.
+  - `Role Permissions` — CRUD прав ролей.
+  - `User Overrides` — CRUD персональних прав користувача.
+  - `Effective permissions` — read-only merged view прав користувача.
+- Використовує backend endpoints:
+  - `GET /api/permissions/catalog`
+  - `GET /api/permissions/roles`
+  - `PUT /api/permissions/roles`
+  - `DELETE /api/permissions/roles/:role/:permissionKey`
+  - `GET /api/permissions/users`
+  - `PUT /api/permissions/users`
+  - `DELETE /api/permissions/users/:userId/:permissionKey`
+  - `GET /api/permissions/users/:userId/effective`
+- Доступ до сторінки обмежено `admin/superadmin`, а runtime-помилки `403` показуються як readable error-block без падіння UI.
 
 ---
 

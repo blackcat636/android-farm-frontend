@@ -52,6 +52,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
       label: 'Users',
     },
     {
+      key: '/access-control',
+      icon: <SafetyOutlined />,
+      label: 'Access Control',
+    },
+    {
       key: '/platforms',
       icon: <AppstoreOutlined />,
       label: 'Platforms',
