@@ -262,6 +262,18 @@ npm run build && npm start
   - `PUT /api/permissions/users`
   - `DELETE /api/permissions/users/:userId/:permissionKey`
   - `GET /api/permissions/users/:userId/effective`
+
+## Moderation + platform permissions
+
+- Додано permission helper `frontend/lib/auth/permissions.ts`:
+  - `can(permissionKey)`
+  - `canAny(permissionKeys)`
+- `platforms` UI фільтрує доступні платформи/дії на основі effective permissions (`request.user.permissions` з backend).
+- Додано сторінку `frontend/app/moderation/page.tsx`:
+  - список moderation requests,
+  - approve/reject для reviewer (`moderation.review`),
+  - refresh та базовий review note UX.
+- Форми створення задач (`/platforms/...`) обробляють backend-відповідь `status: moderation_pending` і повертають `request_id` замість `task_id`, коли запуск іде через модерацію.
 - Доступ до сторінки обмежено `admin/superadmin`, а runtime-помилки `403` показуються як readable error-block без падіння UI.
 
 ---

@@ -57,6 +57,15 @@ export default function FacebookMarketplacePostPage() {
           country_code: formValues.country_code || null,
         });
 
+        if ('request_id' in task) {
+          return {
+            status: task.status,
+            request_id: task.request_id,
+            platform: 'facebook',
+            action: 'marketplacePost',
+          };
+        }
+
         return {
           task_id: task.id,
           status: task.status,

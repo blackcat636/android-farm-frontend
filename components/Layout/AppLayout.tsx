@@ -57,6 +57,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
       label: 'Access Control',
     },
     {
+      key: '/moderation',
+      icon: <SafetyOutlined />,
+      label: 'Moderation',
+    },
+    {
       key: '/platforms',
       icon: <AppstoreOutlined />,
       label: 'Platforms',
@@ -140,7 +145,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         borderBottom: '1px solid #edf2f7',
         marginBottom: '12px',
       }}>
-        Android Farm
+        Nexus Labs
       </div>
       <Menu
         mode="inline"
@@ -199,7 +204,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 backgroundClip: 'text',
                 letterSpacing: '-0.03em',
               }}>
-                Android Farm
+                Nexus Labs
               </div>
             }
             placement="left"

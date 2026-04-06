@@ -85,6 +85,22 @@ export interface EffectivePermissionsResponse {
   permissions: EffectivePermissionItem[];
 }
 
+export interface ModerationRequestItem {
+  id: string;
+  user_id: string;
+  kind: string;
+  platform?: string | null;
+  action?: string | null;
+  payload: Record<string, unknown>;
+  required_permission: string;
+  status: 'pending' | 'approved' | 'rejected' | 'executed' | 'failed';
+  reviewed_by?: string | null;
+  review_note?: string | null;
+  reviewed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface SetRolePermissionRequest {
   role: Role;
   permission_key: string;
@@ -809,8 +825,8 @@ export function createBackendClient(token: string) {
       priority?: number;
       requireSession?: boolean;
       country_code?: string | null;
-    }): Promise<Task> {
-      const response = await api.post<Task>('/api/queue/add', data);
+    }): Promise<Task | { status: 'moderation_pending'; request_id: string }> {
+      const response = await api.post<Task | { status: 'moderation_pending'; request_id: string }>('/api/queue/add', data);
       return response.data;
     },
 
@@ -823,8 +839,8 @@ export function createBackendClient(token: string) {
       priority?: number;
       requireSession?: boolean;
       country_code?: string | null;
-    }): Promise<Task> {
-      const response = await api.post<Task>('/api/queue/add', {
+    }): Promise<Task | { status: 'moderation_pending'; request_id: string }> {
+      const response = await api.post<Task | { status: 'moderation_pending'; request_id: string }>('/api/queue/add', {
         platform: 'facebook',
         action: 'marketplacePost',
         ...data,
@@ -1192,6 +1208,26 @@ export function createBackendClient(token: string) {
 
       async processUserPost(id: string): Promise<any> {
         const response = await api.post(`/api/user-posts/${id}/process`);
+        return response.data;
+      },
+
+      async getModerationRequests(): Promise<ModerationRequestItem[]> {
+        const response = await api.get<ModerationRequestItem[]>('/api/moderation');
+        return response.data;
+      },
+
+      async getModerationRequest(id: string): Promise<ModerationRequestItem> {
+        const response = await api.get<ModerationRequestItem>(`/api/moderation/${id}`);
+        return response.data;
+      },
+
+      async approveModerationRequest(id: string, note?: string): Promise<ModerationRequestItem> {
+        const response = await api.post<ModerationRequestItem>(`/api/moderation/${id}/approve`, { note });
+        return response.data;
+      },
+
+      async rejectModerationRequest(id: string, note?: string): Promise<ModerationRequestItem> {
+        const response = await api.post<ModerationRequestItem>(`/api/moderation/${id}/reject`, { note });
         return response.data;
       },
 

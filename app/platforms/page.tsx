@@ -16,11 +16,43 @@ import {
 import { createBackendClient, tokenStorage } from '@/lib/api/backend';
 import { useState, useEffect } from 'react';
 import { prefetchTaskFormData } from '@/lib/cache/task-form-cache';
+import { useAuth } from '@/contexts/AuthContext';
+import { canAny } from '@/lib/auth/permissions';
 
 export default function PlatformsPage() {
   const { message } = App.useApp();
   const router = useRouter();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const permissions = (user as any)?.permissions ?? [];
+
+  const canUsePlatform = (platform: 'instagram' | 'tiktok' | 'youtube' | 'facebook' | 'twitter') => {
+    const map: Record<string, string[]> = {
+      instagram: [
+        'queue.instagram.post.create',
+        'queue.instagram.view.create',
+        'queue.instagram.like.create',
+        'queue.instagram.viewAndLike.create',
+      ],
+      tiktok: [
+        'queue.tiktok.post.create',
+        'queue.tiktok.view.create',
+        'queue.tiktok.viewAndLike.create',
+      ],
+      youtube: [
+        'queue.youtube.post.create',
+        'queue.youtube.view.create',
+        'queue.youtube.like.create',
+        'queue.youtube.viewAndLike.create',
+        'queue.youtube.search.create',
+      ],
+      facebook: [
+        'queue.facebook.marketplacePost.create',
+      ],
+      twitter: [],
+    };
+    return canAny(permissions, map[platform]);
+  };
 
   useEffect(() => {
     prefetchTaskFormData('instagram');
@@ -71,6 +103,7 @@ export default function PlatformsPage() {
       <h1>Platforms</h1>
       
       {/* Instagram */}
+      {canUsePlatform('instagram') && (
       <Card 
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -149,8 +182,10 @@ export default function PlatformsPage() {
           </Button>
         </Space>
       </Card>
+      )}
 
       {/* TikTok */}
+      {canUsePlatform('tiktok') && (
       <Card 
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -221,7 +256,9 @@ export default function PlatformsPage() {
           </Button>
         </Space>
       </Card>
+      )}
       {/* YouTube */}
+      {canUsePlatform('youtube') && (
       <Card 
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -306,8 +343,10 @@ export default function PlatformsPage() {
           </Button>
         </Space>
       </Card>
+      )}
 
       {/* Facebook */}
+      {canUsePlatform('facebook') && (
       <Card 
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -363,8 +402,10 @@ export default function PlatformsPage() {
           </Button>
         </Space>
       </Card>
+      )}
 
       {/* Twitter/X */}
+      {canUsePlatform('twitter') && (
       <Card 
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -419,6 +460,7 @@ export default function PlatformsPage() {
           </Button>
         </Space>
       </Card>
+      )}
 
     </div>
   );

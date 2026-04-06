@@ -44,6 +44,15 @@ export default function InstagramPostPage() {
           country_code: formValues.country_code || null,
         });
 
+        if ('request_id' in task) {
+          return {
+            status: task.status,
+            request_id: task.request_id,
+            platform: 'instagram',
+            action: 'post',
+          };
+        }
+
         return {
           task_id: task.id,
           status: task.status,

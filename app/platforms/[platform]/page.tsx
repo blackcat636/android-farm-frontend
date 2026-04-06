@@ -10,6 +10,7 @@ import { useAllEmulators } from '@/hooks/useAllEmulators';
 import { createBackendClient, tokenStorage } from '@/lib/api/backend';
 import Loading from '@/components/common/Loading';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
+import { can } from '@/lib/auth/permissions';
 
 export default function PlatformDetailPage() {
   const router = useRouter();
@@ -18,6 +19,7 @@ export default function PlatformDetailPage() {
   const { user } = useAuth();
   const { emulators, loading: loadingEmulators } = useAllEmulators(false);
   const [actions, setActions] = useState<string[]>([]);
+  const permissions = (user as any)?.permissions ?? [];
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,7 +45,11 @@ export default function PlatformDetailPage() {
         setLoading(true);
         const backendClient = createBackendClient(token);
         const response = await backendClient.getPlatformActions(firstAgentId, platform);
-        setActions(response.actions || []);
+        const backendActions = response.actions || [];
+        const filteredActions = backendActions.filter((action: string) =>
+          can(permissions, `queue.${String(platform).toLowerCase()}.${action}.create`),
+        );
+        setActions(filteredActions);
         setError(null);
       } catch (err: any) {
         setError(err.message || 'Error loading platform actions');
@@ -53,7 +59,7 @@ export default function PlatformDetailPage() {
     };
 
     fetchActions();
-  }, [platform, user, firstAgentId]);
+  }, [platform, user, firstAgentId, permissions]);
 
   if (loadingEmulators || loading) {
     return <Loading />;
