@@ -229,6 +229,29 @@ export interface FacebookMarketplacePostParams {
   category?: string;
 }
 
+export interface MarketplaceListing {
+  id: string;
+  owner_user_id: string;
+  created_by: string;
+  social_account_id: string | null;
+  title: string;
+  description: string;
+  price: string | null;
+  country_code: string | null;
+  params: Record<string, unknown>;
+  scheduled_at: string;
+  status: string;
+  moderation_request_id: string | null;
+  last_task_queue_id: string | null;
+  emulator_id: string | null;
+  agent_id: string | null;
+  published_at: string | null;
+  external_url: string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // Глобальний instance axios з interceptor
 // baseURL буде оновлюватися динамічно через createBackendApi
 const globalAxiosInstance = axios.create({
@@ -830,21 +853,48 @@ export function createBackendClient(token: string) {
       return response.data;
     },
 
-    async addFacebookMarketplaceTask(data: {
-      params: FacebookMarketplacePostParams;
-      account_id?: string;
+    async createMarketplaceListing(body: {
+      title: string;
+      description: string;
+      price?: string;
+      scheduled_at: string;
+      for_user_id?: string;
+      social_account_id?: string;
       emulator_id?: string;
-      emulator_type?: string;
       agent_id?: string;
-      priority?: number;
-      requireSession?: boolean;
       country_code?: string | null;
-    }): Promise<Task | { status: 'moderation_pending'; request_id: string }> {
-      const response = await api.post<Task | { status: 'moderation_pending'; request_id: string }>('/api/queue/add', {
-        platform: 'facebook',
-        action: 'marketplacePost',
-        ...data,
-      });
+      requireSession?: boolean;
+      imageUrls?: string[];
+      imagePaths?: string[];
+      location?: string;
+      category?: string;
+    }): Promise<{ listing: MarketplaceListing; moderation?: { request_id: string } }> {
+      const response = await api.post<{ listing: MarketplaceListing; moderation?: { request_id: string } }>(
+        '/api/marketplace-listings',
+        body,
+      );
+      return response.data;
+    },
+
+    async getMarketplaceListings(query?: {
+      page?: number;
+      limit?: number;
+      owner_user_id?: string;
+    }): Promise<{ data: MarketplaceListing[]; total: number; page: number; limit: number }> {
+      const cleanedQuery = Object.fromEntries(
+        Object.entries(query || {}).filter(([, value]) => value !== undefined),
+      );
+      const response = await api.get<{
+        data: MarketplaceListing[];
+        total: number;
+        page: number;
+        limit: number;
+      }>('/api/marketplace-listings', { params: cleanedQuery });
+      return response.data;
+    },
+
+    async cancelMarketplaceListing(id: string): Promise<MarketplaceListing> {
+      const response = await api.post<MarketplaceListing>(`/api/marketplace-listings/${id}/cancel`, {});
       return response.data;
     },
 

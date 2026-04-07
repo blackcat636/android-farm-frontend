@@ -1,6 +1,7 @@
 'use client';
 
-import { Form, Input, InputNumber, Switch } from 'antd';
+import { useEffect } from 'react';
+import { Form, Input, InputNumber, Result, Switch } from 'antd';
 import { FileTextOutlined } from '@ant-design/icons';
 import {
   createBackendClient,
@@ -20,21 +21,82 @@ function splitLines(value?: string): string[] | undefined {
   return lines.length ? lines : undefined;
 }
 
+function defaultScheduledLocal(): string {
+  const d = new Date();
+  d.setMinutes(0, 0, 0);
+  d.setHours(d.getHours() + 1);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function ScheduledAtField({ form, loading }: { form: { getFieldValue: (n: string) => unknown; setFieldsValue: (v: object) => void }; loading: boolean }) {
+  useEffect(() => {
+    const cur = form.getFieldValue('scheduled_at');
+    if (cur === undefined || cur === '') {
+      form.setFieldsValue({ scheduled_at: defaultScheduledLocal() });
+    }
+  }, [form]);
+  return (
+    <Form.Item
+      name="scheduled_at"
+      label="Publish at (local time)"
+      rules={[{ required: true, message: 'Select date and time' }]}
+    >
+      <Input type="datetime-local" disabled={loading} />
+    </Form.Item>
+  );
+}
+
 export default function FacebookMarketplacePostPage() {
   return (
     <ActionFormWrapper
       platform="facebook"
       action="marketplacePost"
       title="Facebook Marketplace Post"
-      description="Create a queue task for Facebook Marketplace posting. This is a dedicated form for the agent scenario skeleton and future UI-dump-driven steps."
+      description="Create a scheduled Marketplace listing. It is stored and enqueued at the chosen time. Account/emulator selection is optional but recommended."
       platformDisplayName="Facebook"
-      submitButtonText="Add Marketplace Task to Queue"
+      submitButtonText="Schedule listing"
       submitButtonIcon={<FileTextOutlined />}
+      successMessage="Listing saved"
+      renderResult={(payload: { listing?: { id: string; status: string; scheduled_at: string }; moderation?: { request_id: string } }) => {
+        const listing = payload?.listing;
+        if (!listing) return null;
+        return (
+          <Result
+            status="success"
+            title={payload.moderation?.request_id ? 'Submitted for moderation' : 'Listing scheduled'}
+            subTitle={
+              <div>
+                <p>
+                  <strong>Listing ID:</strong> {listing.id}
+                </p>
+                <p>
+                  <strong>Status:</strong> {listing.status}
+                </p>
+                <p>
+                  <strong>Scheduled at:</strong> {new Date(listing.scheduled_at).toLocaleString()}
+                </p>
+                {payload.moderation?.request_id && (
+                  <p>
+                    <strong>Moderation request:</strong> {payload.moderation.request_id}
+                  </p>
+                )}
+              </div>
+            }
+          />
+        );
+      }}
       onSubmit={async ({ formValues, accountId, emulatorId, agentId }) => {
         const token = tokenStorage.get();
         if (!token) {
           throw new Error('Authorization required');
         }
+
+        const scheduledLocal = formValues.scheduled_at as string | undefined;
+        if (!scheduledLocal) {
+          throw new Error('Select schedule date and time');
+        }
+        const scheduled_at = new Date(scheduledLocal).toISOString();
 
         const backendClient = createBackendClient(token);
 
@@ -48,34 +110,29 @@ export default function FacebookMarketplacePostPage() {
           category: formValues.category?.trim() || undefined,
         };
 
-        const task = await backendClient.addFacebookMarketplaceTask({
-          params,
-          account_id: accountId,
+        const res = await backendClient.createMarketplaceListing({
+          title: params.title!,
+          description: params.description!,
+          price: params.price,
+          scheduled_at,
+          social_account_id: accountId,
           emulator_id: emulatorId,
           agent_id: agentId,
-          requireSession: formValues.requireSession || false,
+          requireSession: Boolean(formValues.requireSession),
           country_code: formValues.country_code || null,
+          imageUrls: params.imageUrls,
+          imagePaths: params.imagePaths,
+          location: params.location,
+          category: params.category,
         });
 
-        if ('request_id' in task) {
-          return {
-            status: task.status,
-            request_id: task.request_id,
-            platform: 'facebook',
-            action: 'marketplacePost',
-          };
-        }
-
-        return {
-          task_id: task.id,
-          status: task.status,
-          platform: 'facebook',
-          action: 'marketplacePost',
-        };
+        return { listing: res.listing, moderation: res.moderation };
       }}
     >
-      {({ loading }) => (
+      {({ loading, form }) => (
         <>
+          <ScheduledAtField form={form} loading={loading} />
+
           <Form.Item
             name="title"
             label="Listing Title"
@@ -84,7 +141,7 @@ export default function FacebookMarketplacePostPage() {
             <Input
               placeholder="Example: iPhone 13 Pro 256GB"
               disabled={loading}
-              maxLength={120}
+              maxLength={500}
               showCount
             />
           </Form.Item>
@@ -98,7 +155,7 @@ export default function FacebookMarketplacePostPage() {
               rows={5}
               placeholder="Describe item condition, accessories, delivery terms..."
               disabled={loading}
-              maxLength={4000}
+              maxLength={8000}
               showCount
             />
           </Form.Item>
@@ -142,11 +199,11 @@ export default function FacebookMarketplacePostPage() {
           </Form.Item>
 
           <Form.Item name="location" label="Location (optional)">
-            <Input placeholder="City or area" disabled={loading} maxLength={120} />
+            <Input placeholder="City or area" disabled={loading} maxLength={256} />
           </Form.Item>
 
           <Form.Item name="category" label="Category (optional)">
-            <Input placeholder="Electronics, Furniture..." disabled={loading} maxLength={80} />
+            <Input placeholder="Electronics, Furniture..." disabled={loading} maxLength={128} />
           </Form.Item>
 
           <Form.Item
@@ -162,4 +219,3 @@ export default function FacebookMarketplacePostPage() {
     </ActionFormWrapper>
   );
 }
-

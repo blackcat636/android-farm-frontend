@@ -146,13 +146,9 @@ frontend/
 
 ## 🧩 Facebook Marketplace (Nexus Labs)
 
-- У frontend додано dedicated-форму для задачі `facebook/marketplacePost`:
-  - сторінка: `/platforms/facebook/marketplacePost`
-  - entry points: `/platforms` (Facebook card) і `/platforms/facebook`
-- Форма збирає параметри:
-  - `title` (required), `description` (required), `price` (required)
-  - `imageUrls`, `imagePaths`, `location`, `category` (optional)
-- Submit використовує існуючий queue flow через `createBackendClient(...).addTask` (та helper `addFacebookMarketplaceTask`), без змін backend endpoint-ів.
+- Сторінка `/platforms/facebook/marketplacePost`: та сама `ActionFormWrapper` (акаунт/емулятор/агент + країна), додано **publish at** (`scheduled_at`, local datetime).
+- Submit: `createBackendClient(...).createMarketplaceListing` → `POST /api/marketplace-listings` (зберігання + модерація за політикою; виконання в черзі за розкладом на backend).
+- `ActionFormWrapper` підтримує опційні `successMessage` та `renderResult` для кастомного успіху (listing id / moderation request).
 
 ---
 

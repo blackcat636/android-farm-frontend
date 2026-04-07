@@ -35,6 +35,10 @@ export interface ActionFormWrapperProps {
     selectedAccount: SocialAccount | null;
     selectedEmulator: Emulator | null;
   }) => Promise<any>;
+  /** When set, replaces default Result block after submit */
+  renderResult?: (result: any) => ReactNode;
+  /** Overrides default antd message.success text */
+  successMessage?: string;
 }
 
 export function ActionFormWrapper({
@@ -47,6 +51,8 @@ export function ActionFormWrapper({
   submitButtonIcon,
   children,
   onSubmit,
+  renderResult,
+  successMessage,
 }: ActionFormWrapperProps) {
   const router = useRouter();
   const [form] = Form.useForm();
@@ -91,7 +97,7 @@ export function ActionFormWrapper({
       });
 
       setResult(result);
-      message.success('Task added to queue!');
+      message.success(successMessage ?? 'Task added to queue!');
     } catch (err: any) {
       const errorMessage = err.message || 'Error creating task';
       setError(errorMessage);
@@ -175,38 +181,41 @@ export function ActionFormWrapper({
           />
         )}
 
-        {result && (
-          <Result
-            status="success"
-            title="Task Added to Queue!"
-            subTitle={
-              <div>
-                <p>
-                  <strong>Task ID:</strong> {result.task_id || result.id}
-                </p>
-                <p>
-                  <strong>Status:</strong> {result.status}
-                </p>
-                <p>
-                  <strong>Platform:</strong> {result.platform || platform}
-                </p>
-                <p>
-                  <strong>Action:</strong> {result.action || action}
-                </p>
-                {selectedAccount && (
+        {result &&
+          (renderResult ? (
+            <div style={{ marginTop: 16 }}>{renderResult(result)}</div>
+          ) : (
+            <Result
+              status="success"
+              title="Task Added to Queue!"
+              subTitle={
+                <div>
                   <p>
-                    <strong>Account:</strong> {selectedAccount.username}
+                    <strong>Task ID:</strong> {result.task_id || result.id}
                   </p>
-                )}
-                {selectedEmulator && (
                   <p>
-                    <strong>Emulator:</strong> {selectedEmulator.name}
+                    <strong>Status:</strong> {result.status}
                   </p>
-                )}
-              </div>
-            }
-          />
-        )}
+                  <p>
+                    <strong>Platform:</strong> {result.platform || platform}
+                  </p>
+                  <p>
+                    <strong>Action:</strong> {result.action || action}
+                  </p>
+                  {selectedAccount && (
+                    <p>
+                      <strong>Account:</strong> {selectedAccount.username}
+                    </p>
+                  )}
+                  {selectedEmulator && (
+                    <p>
+                      <strong>Emulator:</strong> {selectedEmulator.name}
+                    </p>
+                  )}
+                </div>
+              }
+            />
+          ))}
       </Card>
     </div>
   );
