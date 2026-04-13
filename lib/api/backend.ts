@@ -227,7 +227,18 @@ export interface FacebookMarketplacePostParams {
   imagePaths?: string[];
   location?: string;
   category?: string;
+  condition?: string;
+  listingType?: string;
 }
+
+/** Відповідь GET /api/platforms/facebook/marketplace/options */
+export interface FacebookMarketplaceOptions {
+  categories: string[];
+  conditions: string[];
+  listingTypes: string[];
+}
+
+const FACEBOOK_MARKETPLACE_API = '/api/platforms/facebook/marketplace';
 
 export interface MarketplaceListing {
   id: string;
@@ -853,6 +864,11 @@ export function createBackendClient(token: string) {
       return response.data;
     },
 
+    async getFacebookMarketplaceOptions(): Promise<FacebookMarketplaceOptions> {
+      const response = await api.get<FacebookMarketplaceOptions>(`${FACEBOOK_MARKETPLACE_API}/options`);
+      return response.data;
+    },
+
     async createMarketplaceListing(body: {
       title: string;
       description: string;
@@ -868,9 +884,12 @@ export function createBackendClient(token: string) {
       imagePaths?: string[];
       location?: string;
       category?: string;
+      condition?: string;
+      listingType?: string;
+      submitPublish?: boolean;
     }): Promise<{ listing: MarketplaceListing; moderation?: { request_id: string } }> {
       const response = await api.post<{ listing: MarketplaceListing; moderation?: { request_id: string } }>(
-        '/api/marketplace-listings',
+        `${FACEBOOK_MARKETPLACE_API}/listings`,
         body,
       );
       return response.data;
@@ -889,12 +908,12 @@ export function createBackendClient(token: string) {
         total: number;
         page: number;
         limit: number;
-      }>('/api/marketplace-listings', { params: cleanedQuery });
+      }>(`${FACEBOOK_MARKETPLACE_API}/listings`, { params: cleanedQuery });
       return response.data;
     },
 
     async cancelMarketplaceListing(id: string): Promise<MarketplaceListing> {
-      const response = await api.post<MarketplaceListing>(`/api/marketplace-listings/${id}/cancel`, {});
+      const response = await api.post<MarketplaceListing>(`${FACEBOOK_MARKETPLACE_API}/listings/${id}/cancel`, {});
       return response.data;
     },
 

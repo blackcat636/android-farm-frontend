@@ -147,7 +147,7 @@ frontend/
 ## 🧩 Facebook Marketplace (Nexus Labs)
 
 - Сторінка `/platforms/facebook/marketplacePost`: та сама `ActionFormWrapper` (акаунт/емулятор/агент + країна), додано **publish at** (`scheduled_at`, local datetime).
-- Submit: `createBackendClient(...).createMarketplaceListing` → `POST /api/marketplace-listings` (зберігання + модерація за політикою; виконання в черзі за розкладом на backend).
+- Submit: `createBackendClient(...).createMarketplaceListing` → `POST /api/platforms/facebook/marketplace/listings` (зберігання + модерація за політикою; виконання в черзі за розкладом на backend). Довідники для форми: `GET /api/platforms/facebook/marketplace/options` (`getFacebookMarketplaceOptions`).
 - `ActionFormWrapper` підтримує опційні `successMessage` та `renderResult` для кастомного успіху (listing id / moderation request).
 
 ---

@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect } from 'react';
-import { Form, Input, InputNumber, Result, Switch } from 'antd';
+import { useEffect, useState } from 'react';
+import { Form, Input, InputNumber, Result, Select, Switch } from 'antd';
 import { FileTextOutlined } from '@ant-design/icons';
 import {
   createBackendClient,
   tokenStorage,
+  type FacebookMarketplaceOptions,
   type FacebookMarketplacePostParams,
 } from '@/lib/api/backend';
 import { ActionFormWrapper } from '@/components/platforms/ActionFormWrapper';
@@ -48,6 +49,25 @@ function ScheduledAtField({ form, loading }: { form: { getFieldValue: (n: string
 }
 
 export default function FacebookMarketplacePostPage() {
+  const [fbOptions, setFbOptions] = useState<FacebookMarketplaceOptions | null>(null);
+
+  useEffect(() => {
+    const token = tokenStorage.get();
+    if (!token) return;
+    let cancelled = false;
+    createBackendClient(token)
+      .getFacebookMarketplaceOptions()
+      .then((data) => {
+        if (!cancelled) setFbOptions(data);
+      })
+      .catch(() => {
+        if (!cancelled) setFbOptions(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <ActionFormWrapper
       platform="facebook"
@@ -107,7 +127,9 @@ export default function FacebookMarketplacePostPage() {
           imageUrls: splitLines(formValues.imageUrls),
           imagePaths: splitLines(formValues.imagePaths),
           location: formValues.location?.trim() || undefined,
-          category: formValues.category?.trim() || undefined,
+          category: (formValues.category as string | undefined)?.trim() || undefined,
+          condition: (formValues.condition as string | undefined)?.trim() || undefined,
+          listingType: (formValues.listingType as string | undefined)?.trim() || undefined,
         };
 
         const res = await backendClient.createMarketplaceListing({
@@ -124,6 +146,9 @@ export default function FacebookMarketplacePostPage() {
           imagePaths: params.imagePaths,
           location: params.location,
           category: params.category,
+          condition: params.condition,
+          listingType: params.listingType,
+          submitPublish: formValues.submitPublish !== false,
         });
 
         return { listing: res.listing, moderation: res.moderation };
@@ -132,6 +157,20 @@ export default function FacebookMarketplacePostPage() {
       {({ loading, form }) => (
         <>
           <ScheduledAtField form={form} loading={loading} />
+
+          <Form.Item
+            name="listingType"
+            label="Listing type"
+            tooltip="Matches Facebook Marketplace create flow; the agent taps this label on device."
+            initialValue="One item"
+          >
+            <Select
+              allowClear
+              placeholder={fbOptions ? 'Select type' : 'Loading…'}
+              disabled={loading || !fbOptions}
+              options={(fbOptions?.listingTypes || []).map((t) => ({ value: t, label: t }))}
+            />
+          </Form.Item>
 
           <Form.Item
             name="title"
@@ -203,7 +242,33 @@ export default function FacebookMarketplacePostPage() {
           </Form.Item>
 
           <Form.Item name="category" label="Category (optional)">
-            <Input placeholder="Electronics, Furniture..." disabled={loading} maxLength={128} />
+            <Select
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              placeholder={fbOptions ? 'Select category' : 'Loading…'}
+              disabled={loading || !fbOptions}
+              options={(fbOptions?.categories || []).map((c) => ({ value: c, label: c }))}
+            />
+          </Form.Item>
+
+          <Form.Item name="condition" label="Condition (optional)">
+            <Select
+              allowClear
+              placeholder={fbOptions ? 'Select condition' : 'Loading…'}
+              disabled={loading || !fbOptions}
+              options={(fbOptions?.conditions || []).map((c) => ({ value: c, label: c }))}
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="submitPublish"
+            label="Submit publish on device"
+            valuePropName="checked"
+            initialValue={true}
+            tooltip="If off, the agent fills the form only (phased rollout); listing will not be marked published."
+          >
+            <Switch disabled={loading} />
           </Form.Item>
 
           <Form.Item
