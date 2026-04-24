@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { App, Button, DatePicker, Select, Space, Table, Tag } from 'antd';
+import { App, Button, DatePicker, Popconfirm, Select, Space, Table, Tag } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { useAuth } from '@/contexts/AuthContext';
 import { createBackendClient, tokenStorage, ModerationRequestItem } from '@/lib/api/backend';
@@ -186,24 +186,39 @@ export default function ModerationPage() {
             title: 'Actions',
             render: (_: unknown, row: ModerationRequestItem) => (
               <Space onClick={(e) => e.stopPropagation()}>
-                <Button
-                  size="small"
-                  type="primary"
+                <Popconfirm
+                  title="Approve this request?"
+                  okText="Approve"
+                  cancelText="Cancel"
                   disabled={!canReview || row.status !== 'pending'}
-                  loading={acting === row.id}
-                  onClick={(e) => handleApprove(e, row.id)}
+                  onConfirm={(e) => handleApprove(e!, row.id)}
                 >
-                  Approve
-                </Button>
-                <Button
-                  size="small"
-                  danger
+                  <Button
+                    size="small"
+                    type="primary"
+                    disabled={!canReview || row.status !== 'pending'}
+                    loading={acting === row.id}
+                  >
+                    Approve
+                  </Button>
+                </Popconfirm>
+                <Popconfirm
+                  title="Reject this request?"
+                  okText="Reject"
+                  okButtonProps={{ danger: true }}
+                  cancelText="Cancel"
                   disabled={!canReview || row.status !== 'pending'}
-                  loading={acting === row.id}
-                  onClick={(e) => handleReject(e, row.id)}
+                  onConfirm={(e) => handleReject(e!, row.id)}
                 >
-                  Reject
-                </Button>
+                  <Button
+                    size="small"
+                    danger
+                    disabled={!canReview || row.status !== 'pending'}
+                    loading={acting === row.id}
+                  >
+                    Reject
+                  </Button>
+                </Popconfirm>
               </Space>
             ),
           },

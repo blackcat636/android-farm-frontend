@@ -8,6 +8,7 @@ import {
   Card,
   Descriptions,
   Input,
+  Popconfirm,
   Space,
   Spin,
   Tag,
@@ -281,24 +282,39 @@ export default function ModerationDetailPage() {
                 disabled={!isPending}
               />
               <Space>
-                <Button
-                  type="primary"
-                  icon={<CheckOutlined />}
+                <Popconfirm
+                  title="Approve this request?"
+                  okText="Approve"
+                  cancelText="Cancel"
                   disabled={!isPending}
-                  loading={acting}
-                  onClick={handleApprove}
+                  onConfirm={handleApprove}
                 >
-                  Approve
-                </Button>
-                <Button
-                  danger
-                  icon={<CloseOutlined />}
+                  <Button
+                    type="primary"
+                    icon={<CheckOutlined />}
+                    disabled={!isPending}
+                    loading={acting}
+                  >
+                    Approve
+                  </Button>
+                </Popconfirm>
+                <Popconfirm
+                  title="Reject this request?"
+                  okText="Reject"
+                  okButtonProps={{ danger: true }}
+                  cancelText="Cancel"
                   disabled={!isPending}
-                  loading={acting}
-                  onClick={handleReject}
+                  onConfirm={handleReject}
                 >
-                  Reject
-                </Button>
+                  <Button
+                    danger
+                    icon={<CloseOutlined />}
+                    disabled={!isPending}
+                    loading={acting}
+                  >
+                    Reject
+                  </Button>
+                </Popconfirm>
               </Space>
             </Space>
           </Card>
