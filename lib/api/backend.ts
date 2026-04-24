@@ -93,7 +93,7 @@ export interface ModerationRequestItem {
   action?: string | null;
   payload: Record<string, unknown>;
   required_permission: string;
-  status: 'pending' | 'approved' | 'rejected' | 'executed' | 'failed';
+  status: 'pending' | 'approved' | 'rejected' | 'executed' | 'failed' | 'awaiting_account';
   reviewed_by?: string | null;
   review_note?: string | null;
   reviewed_at?: string | null;

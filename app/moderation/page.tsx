@@ -1,19 +1,33 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { App, Button, Input, Space, Table, Tag } from 'antd';
+import { useRouter } from 'next/navigation';
+import { App, Button, Table, Tag } from 'antd';
 import { useAuth } from '@/contexts/AuthContext';
 import { createBackendClient, tokenStorage, ModerationRequestItem } from '@/lib/api/backend';
-import { can } from '@/lib/auth/permissions';
+
+const STATUS_COLOR: Record<string, string> = {
+  pending: 'orange',
+  approved: 'blue',
+  rejected: 'red',
+  executed: 'green',
+  failed: 'volcano',
+  awaiting_account: 'gold',
+};
+
+const KIND_LABEL: Record<string, string> = {
+  'queue.create': 'Queue Task',
+  'marketplace_listing.create': 'Marketplace Listing',
+  'user_posts.create': 'User Post',
+  'user_posts.process': 'User Post Process',
+};
 
 export default function ModerationPage() {
   const { message } = App.useApp();
-  const { user } = useAuth();
+  const { user: _user } = useAuth();
+  const router = useRouter();
   const [rows, setRows] = useState<ModerationRequestItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [note, setNote] = useState('');
-
-  const canReview = can((user as any)?.permissions ?? [], 'moderation.review');
 
   const client = useMemo(() => {
     const token = tokenStorage.get();
@@ -28,7 +42,7 @@ export default function ModerationPage() {
       const data = await client.getModerationRequests();
       setRows(data);
     } catch (error: any) {
-      message.error(error?.response?.data?.message || error?.message || 'Failed to load moderation requests');
+      message.error(error?.response?.data?.message || error?.message || 'Failed to load');
     } finally {
       setLoading(false);
     }
@@ -39,68 +53,41 @@ export default function ModerationPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client]);
 
-  const handleApprove = async (id: string) => {
-    if (!client) return;
-    await client.approveModerationRequest(id, note || undefined);
-    message.success('Moderation request approved');
-    await load();
-  };
-
-  const handleReject = async (id: string) => {
-    if (!client) return;
-    await client.rejectModerationRequest(id, note || undefined);
-    message.success('Moderation request rejected');
-    await load();
-  };
-
   return (
     <div>
-      <h1>Moderation</h1>
-      <Space style={{ marginBottom: 16 }}>
-        <Input
-          placeholder="Review note"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          style={{ width: 320 }}
-        />
-        <Button onClick={load}>Refresh</Button>
-      </Space>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <h1 style={{ margin: 0 }}>Moderation</h1>
+        <Button onClick={load} size="small">Refresh</Button>
+      </div>
       <Table
         rowKey="id"
         loading={loading}
         dataSource={rows}
+        onRow={(row) => ({ onClick: () => router.push(`/moderation/${row.id}`), style: { cursor: 'pointer' } })}
         columns={[
-          { title: 'Kind', dataIndex: 'kind' },
-          { title: 'Platform', dataIndex: 'platform' },
-          { title: 'Action', dataIndex: 'action' },
-          { title: 'Required Permission', dataIndex: 'required_permission' },
+          {
+            title: 'Kind',
+            dataIndex: 'kind',
+            render: (v: string) => <Tag>{KIND_LABEL[v] ?? v}</Tag>,
+          },
+          { title: 'Platform', dataIndex: 'platform', render: (v: string | null) => v ?? '—' },
+          { title: 'Action', dataIndex: 'action', render: (v: string | null) => v ?? '—' },
           {
             title: 'Status',
             dataIndex: 'status',
-            render: (value: string) => <Tag>{value}</Tag>,
+            render: (v: string) => <Tag color={STATUS_COLOR[v] ?? 'default'}>{v}</Tag>,
           },
           {
-            title: 'Actions',
-            render: (_, row) => (
-              <Space>
-                <Button
-                  size="small"
-                  type="primary"
-                  disabled={!canReview || row.status !== 'pending'}
-                  onClick={() => handleApprove(row.id)}
-                >
-                  Approve
-                </Button>
-                <Button
-                  size="small"
-                  danger
-                  disabled={!canReview || row.status !== 'pending'}
-                  onClick={() => handleReject(row.id)}
-                >
-                  Reject
-                </Button>
-              </Space>
-            ),
+            title: 'Created',
+            dataIndex: 'created_at',
+            render: (v: string) => new Date(v).toLocaleString(),
+            sorter: (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+            defaultSortOrder: 'descend',
+          },
+          {
+            title: 'User',
+            dataIndex: 'user_id',
+            render: (v: string) => <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{v?.slice(0, 8)}…</span>,
           },
         ]}
       />
