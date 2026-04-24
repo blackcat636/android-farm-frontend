@@ -6,6 +6,7 @@ import { App, Button, DatePicker, Select, Space, Table, Tag } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { useAuth } from '@/contexts/AuthContext';
 import { createBackendClient, tokenStorage, ModerationRequestItem } from '@/lib/api/backend';
+import { can } from '@/lib/auth/permissions';
 
 const STATUS_COLOR: Record<string, string> = {
   pending: 'orange',
@@ -28,11 +29,14 @@ const KIND_OPTIONS = Object.entries(KIND_LABEL).map(([value, label]) => ({ label
 
 export default function ModerationPage() {
   const { message } = App.useApp();
-  const { user: _user } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
+
+  const canReview = can((user as any)?.permissions ?? [], 'moderation.review');
 
   const [rows, setRows] = useState<ModerationRequestItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [acting, setActing] = useState<string | null>(null);
 
   const [filterStatus, setFilterStatus] = useState<string[]>([]);
   const [filterKind, setFilterKind] = useState<string | null>(null);
@@ -44,6 +48,36 @@ export default function ModerationPage() {
     if (!token) return null;
     return createBackendClient(token);
   }, []);
+
+  const handleApprove = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (!client) return;
+    setActing(id);
+    try {
+      await client.approveModerationRequest(id);
+      message.success('Approved');
+      await load();
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || error?.message || 'Failed');
+    } finally {
+      setActing(null);
+    }
+  };
+
+  const handleReject = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (!client) return;
+    setActing(id);
+    try {
+      await client.rejectModerationRequest(id);
+      message.success('Rejected');
+      await load();
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || error?.message || 'Failed');
+    } finally {
+      setActing(null);
+    }
+  };
 
   const load = async () => {
     if (!client) return;
@@ -147,6 +181,31 @@ export default function ModerationPage() {
             title: 'User',
             dataIndex: 'user_id',
             render: (v: string) => <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{v?.slice(0, 8)}…</span>,
+          },
+          {
+            title: 'Actions',
+            render: (_: unknown, row: ModerationRequestItem) => (
+              <Space onClick={(e) => e.stopPropagation()}>
+                <Button
+                  size="small"
+                  type="primary"
+                  disabled={!canReview || row.status !== 'pending'}
+                  loading={acting === row.id}
+                  onClick={(e) => handleApprove(e, row.id)}
+                >
+                  Approve
+                </Button>
+                <Button
+                  size="small"
+                  danger
+                  disabled={!canReview || row.status !== 'pending'}
+                  loading={acting === row.id}
+                  onClick={(e) => handleReject(e, row.id)}
+                >
+                  Reject
+                </Button>
+              </Space>
+            ),
           },
         ]}
       />
