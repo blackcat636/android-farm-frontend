@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { App, Button, Table, Tag } from 'antd';
+import { App, Button, DatePicker, Select, Space, Table, Tag } from 'antd';
+import type { Dayjs } from 'dayjs';
 import { useAuth } from '@/contexts/AuthContext';
 import { createBackendClient, tokenStorage, ModerationRequestItem } from '@/lib/api/backend';
 
@@ -22,12 +23,21 @@ const KIND_LABEL: Record<string, string> = {
   'user_posts.process': 'User Post Process',
 };
 
+const STATUS_OPTIONS = Object.keys(STATUS_COLOR).map((s) => ({ label: s, value: s }));
+const KIND_OPTIONS = Object.entries(KIND_LABEL).map(([value, label]) => ({ label, value }));
+
 export default function ModerationPage() {
   const { message } = App.useApp();
   const { user: _user } = useAuth();
   const router = useRouter();
+
   const [rows, setRows] = useState<ModerationRequestItem[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const [filterStatus, setFilterStatus] = useState<string[]>([]);
+  const [filterKind, setFilterKind] = useState<string | null>(null);
+  const [filterPlatform, setFilterPlatform] = useState<string | null>(null);
+  const [filterDates, setFilterDates] = useState<[Dayjs, Dayjs] | null>(null);
 
   const client = useMemo(() => {
     const token = tokenStorage.get();
@@ -53,16 +63,65 @@ export default function ModerationPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client]);
 
+  const platformOptions = useMemo(() => {
+    const platforms = Array.from(new Set(rows.map((r) => r.platform).filter(Boolean))) as string[];
+    return platforms.map((p) => ({ label: p, value: p }));
+  }, [rows]);
+
+  const filtered = useMemo(() => {
+    return rows.filter((row) => {
+      if (filterStatus.length && !filterStatus.includes(row.status)) return false;
+      if (filterKind && row.kind !== filterKind) return false;
+      if (filterPlatform && row.platform !== filterPlatform) return false;
+      if (filterDates) {
+        const created = new Date(row.created_at).getTime();
+        const from = filterDates[0].startOf('day').valueOf();
+        const to = filterDates[1].endOf('day').valueOf();
+        if (created < from || created > to) return false;
+      }
+      return true;
+    });
+  }, [rows, filterStatus, filterKind, filterPlatform, filterDates]);
+
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
         <h1 style={{ margin: 0 }}>Moderation</h1>
-        <Button onClick={load} size="small">Refresh</Button>
       </div>
+
+      <Space wrap style={{ marginBottom: 16 }}>
+        <Select
+          placeholder="Status"
+          mode="multiple"
+          allowClear
+          style={{ minWidth: 220 }}
+          options={STATUS_OPTIONS}
+          onChange={(v) => setFilterStatus(v)}
+        />
+        <Select
+          placeholder="Kind"
+          allowClear
+          style={{ minWidth: 190 }}
+          options={KIND_OPTIONS}
+          onChange={(v) => setFilterKind(v ?? null)}
+        />
+        <Select
+          placeholder="Platform"
+          allowClear
+          style={{ minWidth: 140 }}
+          options={platformOptions}
+          onChange={(v) => setFilterPlatform(v ?? null)}
+        />
+        <DatePicker.RangePicker
+          onChange={(dates) => setFilterDates(dates as [Dayjs, Dayjs] | null)}
+        />
+        <Button onClick={load}>Refresh</Button>
+      </Space>
+
       <Table
         rowKey="id"
         loading={loading}
-        dataSource={rows}
+        dataSource={filtered}
         onRow={(row) => ({ onClick: () => router.push(`/moderation/${row.id}`), style: { cursor: 'pointer' } })}
         columns={[
           {
