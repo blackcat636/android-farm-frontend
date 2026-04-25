@@ -1319,6 +1319,22 @@ export function createBackendClient(token: string) {
         const response = await api.post<BlacklistEntry>(`/api/queue/blacklist/from-task/${taskId}`, { reason });
         return response.data;
       },
+
+      // App Config
+      async getAppConfig(): Promise<AppConfigEntry[]> {
+        const response = await api.get<AppConfigEntry[]>('/api/admin/config');
+        return response.data;
+      },
+
+      async setAppConfig(key: string, value: string): Promise<{ success: boolean; key: string; value: string }> {
+        const response = await api.put(`/api/admin/config/${key}`, { value });
+        return response.data;
+      },
+
+      async deleteAppConfig(key: string): Promise<{ success: boolean; key: string }> {
+        const response = await api.delete(`/api/admin/config/${key}`);
+        return response.data;
+      },
     };
   }
 
@@ -1586,6 +1602,15 @@ export interface UpdateBlacklistEntryDto {
   reason?: string;
   is_active?: boolean;
   match_params_exactly?: boolean;
+}
+
+export interface AppConfigEntry {
+  key: string;
+  value: unknown;
+  rawValue: string;
+  source: 'db' | 'env' | 'default';
+  description: string;
+  type: 'boolean' | 'number' | 'string';
 }
 
 // Зберігання токенів

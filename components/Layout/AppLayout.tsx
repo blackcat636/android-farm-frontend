@@ -2,7 +2,7 @@
 
 import { Layout, Menu, Drawer } from 'antd';
 import { usePathname, useRouter } from 'next/navigation';
-import { DashboardOutlined, AppstoreOutlined, MobileOutlined, HistoryOutlined, UnorderedListOutlined, UserOutlined, HeartOutlined, KeyOutlined, SafetyOutlined, StopOutlined, ApiOutlined, TeamOutlined, FileTextOutlined, CopyOutlined } from '@ant-design/icons';
+import { DashboardOutlined, AppstoreOutlined, MobileOutlined, HistoryOutlined, UnorderedListOutlined, UserOutlined, HeartOutlined, KeyOutlined, SafetyOutlined, StopOutlined, ApiOutlined, TeamOutlined, FileTextOutlined, CopyOutlined, SettingOutlined } from '@ant-design/icons';
 import AppHeader from './AppHeader';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
@@ -120,6 +120,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
       key: '/blacklist',
       icon: <StopOutlined />,
       label: 'Blacklist',
+    },
+    {
+      key: '/config',
+      icon: <SettingOutlined />,
+      label: 'Config',
     },
   ];
 
