@@ -1040,6 +1040,11 @@ export function createBackendClient(token: string) {
         return response.data;
       },
 
+      async getAllBindings(): Promise<AccountEmulatorBinding[]> {
+        const response = await api.get<AccountEmulatorBinding[]>('/api/account-bindings/all');
+        return response.data;
+      },
+
       async getOccupiedEmulatorsByPlatform(platform: string): Promise<OccupiedEmulatorsResponse> {
         const response = await api.get<OccupiedEmulatorsResponse>('/api/account-bindings/occupied', {
           params: { platform },

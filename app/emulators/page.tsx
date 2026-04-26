@@ -7,11 +7,67 @@ import { CopyOutlined, DeleteOutlined, CheckOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { type Emulator } from '@/lib/api/agent';
 import { useAllEmulators } from '@/hooks/useAllEmulators';
-import { createBackendClient, tokenStorage, type BackendEmulator } from '@/lib/api/backend';
+import { createBackendClient, tokenStorage, type BackendEmulator, type AccountEmulatorBinding } from '@/lib/api/backend';
 import { formatEmulatorLabel } from '@/utils/emulatorDisplay';
 import { useAuth } from '@/contexts/AuthContext';
 import Loading from '@/components/common/Loading';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
+
+const PLATFORM_COLORS: Record<string, string> = {
+  instagram: '#E1306C',
+  youtube: '#FF0000',
+  tiktok: '#010101',
+  facebook: '#1877F2',
+  twitter: '#1DA1F2',
+};
+
+const PLATFORM_ABBR: Record<string, string> = {
+  instagram: 'IG',
+  youtube: 'YT',
+  tiktok: 'TT',
+  facebook: 'FB',
+  twitter: 'TW',
+};
+
+function BoundAccountsBadges({ bindings }: { bindings: (AccountEmulatorBinding & { account?: any })[] }) {
+  if (!bindings.length) return <span style={{ color: '#bbb', fontSize: 12 }}>—</span>;
+  return (
+    <Space size={4} wrap>
+      {bindings.map((b) => {
+        const platform = b.account?.platform || 'unknown';
+        const isActive = b.status === 'active';
+        const color = isActive ? (PLATFORM_COLORS[platform] || '#999') : '#bbb';
+        const label = PLATFORM_ABBR[platform] || platform.slice(0, 2).toUpperCase();
+        const tooltipText = b.account
+          ? `${b.account.username} (${platform}) — binding: ${b.status}, account: ${b.account.status}`
+          : `binding: ${b.status}`;
+        return (
+          <Tooltip key={b.id} title={tooltipText}>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 28,
+                height: 20,
+                borderRadius: 4,
+                background: color,
+                color: '#fff',
+                fontSize: 10,
+                fontWeight: 700,
+                opacity: isActive ? 1 : 0.45,
+                cursor: 'default',
+                letterSpacing: 0.5,
+              }}
+            >
+              {label}
+            </span>
+          </Tooltip>
+        );
+      })}
+    </Space>
+  );
+}
 
 export default function EmulatorsPage() {
   const router = useRouter();
@@ -22,6 +78,7 @@ export default function EmulatorsPage() {
   const { emulators, loading, error, agentErrors } = useAllEmulators(false, includeHiddenLive);
   const [backendEmulators, setBackendEmulators] = useState<BackendEmulator[]>([]);
   const [loadingBackend, setLoadingBackend] = useState(false);
+  const [bindingsByEmulator, setBindingsByEmulator] = useState<Map<string, (AccountEmulatorBinding & { account?: any })[]>>(new Map());
   const [visibilityUpdating, setVisibilityUpdating] = useState<Record<string, boolean>>({});
   const [isTemplateUpdating, setIsTemplateUpdating] = useState<Record<string, boolean>>({});
   const [readinessUpdating, setReadinessUpdating] = useState<Record<string, boolean>>({});
@@ -70,8 +127,19 @@ export default function EmulatorsPage() {
     setLoadingBackend(true);
     try {
       const client = createBackendClient(token);
-      const list = await client.getBackendEmulators({ include_hidden: true });
+      const [list, allBindings] = await Promise.all([
+        client.getBackendEmulators({ include_hidden: true }),
+        client.getAllBindings().catch(() => [] as (AccountEmulatorBinding & { account?: any })[]),
+      ]);
       setBackendEmulators(list);
+
+      const map = new Map<string, (AccountEmulatorBinding & { account?: any })[]>();
+      for (const b of allBindings) {
+        const arr = map.get(b.emulator_id) || [];
+        arr.push(b);
+        map.set(b.emulator_id, arr);
+      }
+      setBindingsByEmulator(map);
     } catch (e: any) {
       message.error(e?.response?.data?.message || 'Не вдалося завантажити список емуляторів');
     } finally {
@@ -227,6 +295,13 @@ export default function EmulatorsPage() {
       key: 'deviceName',
     },
     {
+      title: 'Акаунти',
+      key: 'accounts',
+      render: (_: unknown, record: Emulator) => (
+        <BoundAccountsBadges bindings={bindingsByEmulator.get(record.id) || []} />
+      ),
+    },
+    {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
@@ -264,6 +339,13 @@ export default function EmulatorsPage() {
       title: 'Пристрій',
       dataIndex: 'device_name',
       key: 'device_name',
+    },
+    {
+      title: 'Акаунти',
+      key: 'accounts',
+      render: (_: unknown, record: BackendEmulator) => (
+        <BoundAccountsBadges bindings={bindingsByEmulator.get(record.id) || []} />
+      ),
     },
     {
       title: 'Статус',
