@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Table,
   Tag,
@@ -10,26 +11,16 @@ import {
   Space,
   message,
   Popconfirm,
-  Modal,
-  Form,
-  Input,
-  Switch,
   Typography,
   Row,
   Col,
   Statistic,
-  Drawer,
-  Descriptions,
-  Divider,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
   createBackendClient,
   tokenStorage,
   type SocialAccount,
-  type AccountProxy,
-  type AccountEmulatorBinding,
-  type CreateSocialAccountDto,
 } from '@/lib/api/backend';
 import { useAuth } from '@/contexts/AuthContext';
 import Loading from '@/components/common/Loading';
@@ -41,12 +32,9 @@ import {
   ReloadOutlined,
   UserOutlined,
   SafetyOutlined,
-  LinkOutlined,
   UnlockOutlined,
 } from '@ant-design/icons';
 import { CreateAccountModal } from '@/components/accounts/CreateAccountModal';
-import { EditAccountModal } from '@/components/accounts/EditAccountModal';
-import { AccountDetailsDrawer } from '@/components/accounts/AccountDetailsDrawer';
 import { maskEmail } from '@/utils/maskEmail';
 
 const { Option } = Select;
@@ -54,6 +42,7 @@ const { Title } = Typography;
 
 export default function AccountsPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -69,10 +58,6 @@ export default function AccountsPage() {
   });
   const [stats, setStats] = useState<any>(null);
   const [createModalVisible, setCreateModalVisible] = useState(false);
-  const [editModalVisible, setEditModalVisible] = useState(false);
-  const [selectedAccount, setSelectedAccount] = useState<SocialAccount | null>(null);
-  const [detailsDrawerVisible, setDetailsDrawerVisible] = useState(false);
-  const [detailsAccount, setDetailsAccount] = useState<SocialAccount | null>(null);
 
   const fetchAccounts = async (page = 1) => {
     if (!user) {
@@ -149,16 +134,9 @@ export default function AccountsPage() {
         throw new Error('Authorization required');
       }
 
-      const backendClient = createBackendClient(token);
-      await backendClient.unblockSocialAccount(accountId);
+      await createBackendClient(token).unblockSocialAccount(accountId);
       message.success('Account unblocked');
       fetchAccounts(pagination.current);
-      
-      // Update details if opened
-      if (detailsAccount && detailsAccount.id === accountId) {
-        const updatedAccount = await backendClient.getSocialAccount(accountId);
-        setDetailsAccount(updatedAccount);
-      }
     } catch (err: any) {
       message.error(err.message || 'Error unblocking account');
     }
@@ -179,11 +157,6 @@ export default function AccountsPage() {
       view_only: 'blue',
     };
     return colors[status] || 'default';
-  };
-
-  const handleViewDetails = async (account: SocialAccount) => {
-    setDetailsAccount(account);
-    setDetailsDrawerVisible(true);
   };
 
   const columns: ColumnsType<SocialAccount> = [
@@ -210,7 +183,7 @@ export default function AccountsPage() {
       dataIndex: 'username',
       key: 'username',
       render: (username: string, record) => (
-        <Button type="link" onClick={() => handleViewDetails(record)}>
+        <Button type="link" onClick={() => router.push(`/accounts/${record.id}`)}>
           {username}
         </Button>
       ),
@@ -307,10 +280,7 @@ export default function AccountsPage() {
             )}
           <Button
             icon={<EditOutlined />}
-            onClick={() => {
-              setSelectedAccount(record);
-              setEditModalVisible(true);
-            }}
+            onClick={() => router.push(`/accounts/${record.id}?tab=edit`)}
           >
             Edit
           </Button>
@@ -449,7 +419,11 @@ export default function AccountsPage() {
         pagination={pagination}
         onChange={handleTableChange}
         onRow={(record) => ({
-          onClick: () => handleViewDetails(record),
+          onClick: (e) => {
+            const target = e.target as HTMLElement;
+            if (target.closest('button') || target.closest('.ant-btn')) return;
+            router.push(`/accounts/${record.id}`);
+          },
           style: { cursor: 'pointer' },
         })}
       />
@@ -462,46 +436,6 @@ export default function AccountsPage() {
           fetchAccounts(pagination.current);
         }}
       />
-
-      {selectedAccount && (
-        <EditAccountModal
-          visible={editModalVisible}
-          account={selectedAccount}
-          onCancel={() => {
-            setEditModalVisible(false);
-            setSelectedAccount(null);
-          }}
-          onSuccess={() => {
-            setEditModalVisible(false);
-            setSelectedAccount(null);
-            fetchAccounts(pagination.current);
-          }}
-        />
-      )}
-
-      {detailsAccount && (
-        <AccountDetailsDrawer
-          visible={detailsDrawerVisible}
-          account={detailsAccount}
-          onClose={() => {
-            setDetailsDrawerVisible(false);
-            setDetailsAccount(null);
-          }}
-          onRefresh={() => {
-            fetchAccounts(pagination.current);
-            if (detailsAccount) {
-              // Update account details
-              const token = tokenStorage.get();
-              if (token) {
-                const backendClient = createBackendClient(token);
-                backendClient.getSocialAccount(detailsAccount.id).then((account) => {
-                  setDetailsAccount(account);
-                });
-              }
-            }
-          }}
-        />
-      )}
     </div>
   );
 }
