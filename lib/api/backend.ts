@@ -963,6 +963,7 @@ export function createBackendClient(token: string) {
       async getSocialAccounts(query?: {
         platform?: string;
         status?: string;
+        exclude_status?: string;
         requires_proxy?: boolean;
         page?: number;
         limit?: number;

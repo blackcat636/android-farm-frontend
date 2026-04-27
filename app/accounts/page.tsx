@@ -15,6 +15,7 @@ import {
   Row,
   Col,
   Statistic,
+  Tabs,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -43,62 +44,39 @@ const { Title } = Typography;
 export default function AccountsPage() {
   const { user } = useAuth();
   const router = useRouter();
+
+  const [activeTab, setActiveTab] = useState<'active' | 'banned'>('active');
+
+  // Active tab state
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<{
-    platform?: string;
-    status?: string;
-    requires_proxy?: boolean;
-  }>({});
-  const [pagination, setPagination] = useState({
-    current: 1,
-    pageSize: 20,
-    total: 0,
-  });
-  const [stats, setStats] = useState<any>(null);
+  const [filters, setFilters] = useState<{ platform?: string; requires_proxy?: boolean }>({});
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
+
+  // Banned tab state
+  const [bannedAccounts, setBannedAccounts] = useState<SocialAccount[]>([]);
+  const [bannedLoading, setBannedLoading] = useState(false);
+  const [bannedFilters, setBannedFilters] = useState<{ platform?: string }>({});
+  const [bannedPagination, setBannedPagination] = useState({ current: 1, pageSize: 20, total: 0 });
+
   const [createModalVisible, setCreateModalVisible] = useState(false);
 
   const fetchAccounts = async (page = 1) => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
+    if (!user) { setLoading(false); return; }
     try {
       setLoading(true);
       setError(null);
       const token = tokenStorage.get();
-      if (!token) {
-        throw new Error('Authorization required');
-      }
-
-      const backendClient = createBackendClient(token);
-      const response = await backendClient.getSocialAccounts({
+      if (!token) throw new Error('Authorization required');
+      const response = await createBackendClient(token).getSocialAccounts({
         ...filters,
+        exclude_status: 'banned',
         page,
         limit: pagination.pageSize,
       });
-
       setAccounts(response.data || []);
-      setPagination({
-        current: response.page || page,
-        pageSize: response.limit || pagination.pageSize,
-        total: response.total || 0,
-      });
-
-      // Calculate statistics
-      const total = response.total || 0;
-      const active = response.data.filter((a) => a.status === 'active').length;
-      const banned = response.data.filter((a) => a.status === 'banned').length;
-      const withProxy = response.data.filter((a) => a.requires_proxy).length;
-
-      setStats({
-        total,
-        active,
-        banned,
-        withProxy,
-      });
+      setPagination({ current: response.page || page, pageSize: response.limit || 20, total: response.total || 0 });
     } catch (err: any) {
       setError(err.message || 'Error loading accounts');
       message.error(err.message || 'Error loading accounts');
@@ -107,43 +85,58 @@ export default function AccountsPage() {
     }
   };
 
+  const fetchBannedAccounts = async (page = 1) => {
+    if (!user) return;
+    const token = tokenStorage.get();
+    if (!token) return;
+    setBannedLoading(true);
+    try {
+      const response = await createBackendClient(token).getSocialAccounts({
+        ...bannedFilters,
+        status: 'banned',
+        page,
+        limit: bannedPagination.pageSize,
+      });
+      setBannedAccounts(response.data || []);
+      setBannedPagination({ current: response.page || page, pageSize: response.limit || 20, total: response.total || 0 });
+    } catch {
+      setBannedAccounts([]);
+    } finally {
+      setBannedLoading(false);
+    }
+  };
+
   useEffect(() => {
-    fetchAccounts(pagination.current);
-  }, [user, filters.platform, filters.status, filters.requires_proxy]);
+    fetchAccounts(1);
+  }, [user, filters.platform, filters.requires_proxy]);
+
+  useEffect(() => {
+    fetchBannedAccounts(1);
+  }, [user, bannedFilters.platform]);
 
   const handleDelete = async (accountId: string) => {
+    const token = tokenStorage.get();
+    if (!token) return;
     try {
-      const token = tokenStorage.get();
-      if (!token) {
-        throw new Error('Authorization required');
-      }
-
-      const backendClient = createBackendClient(token);
-      await backendClient.deleteSocialAccount(accountId);
+      await createBackendClient(token).deleteSocialAccount(accountId);
       message.success('Account deleted');
       fetchAccounts(pagination.current);
+      fetchBannedAccounts(bannedPagination.current);
     } catch (err: any) {
       message.error(err.message || 'Error deleting account');
     }
   };
 
   const handleUnblock = async (accountId: string) => {
+    const token = tokenStorage.get();
+    if (!token) return;
     try {
-      const token = tokenStorage.get();
-      if (!token) {
-        throw new Error('Authorization required');
-      }
-
       await createBackendClient(token).unblockSocialAccount(accountId);
       message.success('Account unblocked');
       fetchAccounts(pagination.current);
     } catch (err: any) {
       message.error(err.message || 'Error unblocking account');
     }
-  };
-
-  const handleTableChange = (newPagination: any) => {
-    fetchAccounts(newPagination.current);
   };
 
   const getStatusColor = (status: string) => {
@@ -155,28 +148,19 @@ export default function AccountsPage() {
       inactive: 'default',
       testing: 'cyan',
       view_only: 'blue',
+      warming_up: 'purple',
     };
     return colors[status] || 'default';
   };
 
-  const columns: ColumnsType<SocialAccount> = [
+  const baseColumns: ColumnsType<SocialAccount> = [
     {
       title: 'Platform',
       dataIndex: 'platform',
       key: 'platform',
       render: (platform: string) => (
-        <Tag color="blue" style={{ textTransform: 'capitalize' }}>
-          {platform}
-        </Tag>
+        <Tag color="blue" style={{ textTransform: 'capitalize' }}>{platform}</Tag>
       ),
-      filters: [
-        { text: 'Instagram', value: 'instagram' },
-        { text: 'YouTube', value: 'youtube' },
-        { text: 'TikTok', value: 'tiktok' },
-        { text: 'Facebook', value: 'facebook' },
-        { text: 'Twitter', value: 'twitter' },
-      ],
-      onFilter: (value, record) => record.platform === value,
     },
     {
       title: 'Username',
@@ -196,53 +180,15 @@ export default function AccountsPage() {
     },
     {
       title: 'Country',
-      dataIndex: ['country_name', 'country_code'],
       key: 'country',
       render: (_: unknown, record: SocialAccount) => record.country_name || record.country_code || '-',
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status: string, record: SocialAccount) => {
-        const isBlocked = record.blocked_until && new Date(record.blocked_until) > new Date();
-        const blockedUntil = record.blocked_until ? new Date(record.blocked_until) : null;
-        
-        return (
-          <Space orientation="vertical" size="small">
-        <Tag color={getStatusColor(status)} style={{ textTransform: 'capitalize' }}>
-          {status}
-        </Tag>
-            {isBlocked && (
-              <Tag color="red">
-                Blocked until {blockedUntil?.toLocaleString('en-US')}
-              </Tag>
-            )}
-          </Space>
-        );
-      },
-      filters: [
-        { text: 'Active', value: 'active' },
-        { text: 'Banned', value: 'banned' },
-        { text: 'Restricted', value: 'restricted' },
-        { text: 'Suspended', value: 'suspended' },
-        { text: 'Inactive', value: 'inactive' },
-        { text: 'View Only', value: 'view_only' },
-      ],
-      onFilter: (value, record) => record.status === value,
     },
     {
       title: 'Proxy',
       key: 'proxy',
       render: (_, record) => (
         <Tag color={record.requires_proxy ? 'orange' : 'default'}>
-          {record.requires_proxy ? (
-            <>
-              <SafetyOutlined /> Required
-            </>
-          ) : (
-            'Not required'
-          )}
+          {record.requires_proxy ? <><SafetyOutlined /> Required</> : 'Not required'}
         </Tag>
       ),
     },
@@ -257,175 +203,242 @@ export default function AccountsPage() {
         </Space>
       ),
     },
+  ];
+
+  const activeColumns: ColumnsType<SocialAccount> = [
+    ...baseColumns,
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status: string, record: SocialAccount) => {
+        const isBlocked = record.blocked_until && new Date(record.blocked_until) > new Date();
+        return (
+          <Space size="small">
+            <Tag color={getStatusColor(status)} style={{ textTransform: 'capitalize' }}>{status}</Tag>
+            {isBlocked && (
+              <Tag color="red">Blocked until {new Date(record.blocked_until!).toLocaleString('en-US')}</Tag>
+            )}
+          </Space>
+        );
+      },
+    },
     {
       title: 'Actions',
       key: 'actions',
       render: (_, record) => {
         const isBlocked = record.blocked_until && new Date(record.blocked_until) > new Date();
-        
         return (
-        <Space size="middle">
+          <Space size="middle">
             {isBlocked && (
               <Popconfirm
                 title="Unblock account?"
-                description="Are you sure you want to unblock this account?"
                 onConfirm={() => handleUnblock(record.id)}
                 okText="Yes"
                 cancelText="No"
               >
-                <Button type="primary" icon={<UnlockOutlined />}>
-                  Unblock
-                </Button>
+                <Button type="primary" icon={<UnlockOutlined />}>Unblock</Button>
               </Popconfirm>
             )}
-          <Button
-            icon={<EditOutlined />}
-            onClick={() => router.push(`/accounts/${record.id}?tab=edit`)}
-          >
-            Edit
-          </Button>
-          <Popconfirm
-            title="Delete account?"
-            description="Are you sure you want to delete this account?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Yes"
-            cancelText="No"
-          >
-            <Button danger icon={<DeleteOutlined />}>
-              Delete
+            <Button icon={<EditOutlined />} onClick={() => router.push(`/accounts/${record.id}?tab=edit`)}>
+              Edit
             </Button>
-          </Popconfirm>
-        </Space>
+            <Popconfirm
+              title="Delete account?"
+              onConfirm={() => handleDelete(record.id)}
+              okText="Yes"
+              cancelText="No"
+            >
+              <Button danger icon={<DeleteOutlined />}>Delete</Button>
+            </Popconfirm>
+          </Space>
         );
       },
     },
   ];
 
-  if (loading && !accounts.length) {
-    return <Loading />;
-  }
+  const bannedColumns: ColumnsType<SocialAccount> = [
+    ...baseColumns,
+    {
+      title: 'Status Reason',
+      dataIndex: 'account_status_reason',
+      key: 'account_status_reason',
+      render: (r: string) => r || '-',
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_, record) => (
+        <Space size="middle">
+          <Button icon={<EditOutlined />} onClick={() => router.push(`/accounts/${record.id}?tab=edit`)}>
+            Edit
+          </Button>
+          <Popconfirm
+            title="Delete account?"
+            onConfirm={() => handleDelete(record.id)}
+            okText="Yes"
+            cancelText="No"
+          >
+            <Button danger icon={<DeleteOutlined />}>Delete</Button>
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
 
-  if (error && !accounts.length) {
-    return <ErrorDisplay message={error} />;
-  }
+  const onRow = (record: SocialAccount) => ({
+    onClick: (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('button') || target.closest('.ant-btn')) return;
+      router.push(`/accounts/${record.id}`);
+    },
+    style: { cursor: 'pointer' },
+  });
+
+  if (loading && !accounts.length && !bannedAccounts.length) return <Loading />;
+  if (error && !accounts.length) return <ErrorDisplay message={error} />;
+
+  const totalAll = pagination.total + bannedPagination.total;
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <Title level={2}>Social Accounts</Title>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => setCreateModalVisible(true)}
-          size="large"
-        >
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModalVisible(true)} size="large">
           Add Account
         </Button>
       </div>
 
-      {stats && (
-        <Row gutter={16} style={{ marginBottom: 24 }}>
-          <Col span={6}>
-            <Card>
-              <Statistic title="Total Accounts" value={stats.total} prefix={<UserOutlined />} />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="Active"
-                value={stats.active}
-                styles={{ content: { color: '#3f8600' } }}
-                prefix={<UserOutlined />}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="Banned"
-                value={stats.banned}
-                styles={{ content: { color: '#cf1322' } }}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="With Proxy"
-                value={stats.withProxy}
-                styles={{ content: { color: '#fa8c16' } }}
-                prefix={<SafetyOutlined />}
-              />
-            </Card>
-          </Col>
-        </Row>
-      )}
+      <Row gutter={16} style={{ marginBottom: 24 }}>
+        <Col span={6}>
+          <Card>
+            <Statistic title="Total Accounts" value={totalAll} prefix={<UserOutlined />} />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <Statistic
+              title="Active"
+              value={accounts.filter((a) => a.status === 'active').length}
+              styles={{ content: { color: '#3f8600' } }}
+              prefix={<UserOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <Statistic
+              title="Banned"
+              value={bannedPagination.total}
+              styles={{ content: { color: '#cf1322' } }}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <Statistic
+              title="With Proxy"
+              value={accounts.filter((a) => a.requires_proxy).length}
+              styles={{ content: { color: '#fa8c16' } }}
+              prefix={<SafetyOutlined />}
+            />
+          </Card>
+        </Col>
+      </Row>
 
-      <Card style={{ marginBottom: 16 }}>
-        <Space>
-          <Select
-            placeholder="Filter by platform"
-            style={{ width: 200 }}
-            allowClear
-            value={filters.platform}
-            onChange={(value) => setFilters({ ...filters, platform: value })}
-          >
-            <Option value="instagram">Instagram</Option>
-            <Option value="youtube">YouTube</Option>
-            <Option value="tiktok">TikTok</Option>
-            <Option value="facebook">Facebook</Option>
-            <Option value="twitter">Twitter</Option>
-          </Select>
-
-          <Select
-            placeholder="Filter by status"
-            style={{ width: 200 }}
-            allowClear
-            value={filters.status}
-            onChange={(value) => setFilters({ ...filters, status: value })}
-          >
-            <Option value="active">Active</Option>
-            <Option value="banned">Banned</Option>
-            <Option value="restricted">Restricted</Option>
-            <Option value="suspended">Suspended</Option>
-            <Option value="inactive">Inactive</Option>
-            <Option value="view_only">View Only</Option>
-            <Option value="testing">Testing</Option>
-          </Select>
-
-          <Select
-            placeholder="Proxy"
-            style={{ width: 200 }}
-            allowClear
-            value={filters.requires_proxy}
-            onChange={(value) => setFilters({ ...filters, requires_proxy: value })}
-          >
-            <Option value={true}>Required</Option>
-            <Option value={false}>Not required</Option>
-          </Select>
-
-          <Button icon={<ReloadOutlined />} onClick={() => fetchAccounts(pagination.current)}>
-            Refresh
-          </Button>
-        </Space>
-      </Card>
-
-      <Table
-        columns={columns}
-        dataSource={accounts}
-        rowKey="id"
-        loading={loading}
-        pagination={pagination}
-        onChange={handleTableChange}
-        onRow={(record) => ({
-          onClick: (e) => {
-            const target = e.target as HTMLElement;
-            if (target.closest('button') || target.closest('.ant-btn')) return;
-            router.push(`/accounts/${record.id}`);
+      <Tabs
+        activeKey={activeTab}
+        onChange={(key) => setActiveTab(key as 'active' | 'banned')}
+        items={[
+          {
+            key: 'active',
+            label: `Accounts (${pagination.total})`,
+            children: (
+              <>
+                <Card style={{ marginBottom: 16 }}>
+                  <Space>
+                    <Select
+                      placeholder="Filter by platform"
+                      style={{ width: 200 }}
+                      allowClear
+                      value={filters.platform}
+                      onChange={(value) => setFilters({ ...filters, platform: value })}
+                    >
+                      <Option value="instagram">Instagram</Option>
+                      <Option value="youtube">YouTube</Option>
+                      <Option value="tiktok">TikTok</Option>
+                      <Option value="facebook">Facebook</Option>
+                      <Option value="twitter">Twitter</Option>
+                    </Select>
+                    <Select
+                      placeholder="Proxy"
+                      style={{ width: 160 }}
+                      allowClear
+                      value={filters.requires_proxy}
+                      onChange={(value) => setFilters({ ...filters, requires_proxy: value })}
+                    >
+                      <Option value={true}>Required</Option>
+                      <Option value={false}>Not required</Option>
+                    </Select>
+                    <Button icon={<ReloadOutlined />} onClick={() => fetchAccounts(pagination.current)}>
+                      Refresh
+                    </Button>
+                  </Space>
+                </Card>
+                <Table
+                  columns={activeColumns}
+                  dataSource={accounts}
+                  rowKey="id"
+                  loading={loading}
+                  pagination={pagination}
+                  onChange={(p) => fetchAccounts(p.current || 1)}
+                  onRow={onRow}
+                />
+              </>
+            ),
           },
-          style: { cursor: 'pointer' },
-        })}
+          {
+            key: 'banned',
+            label: (
+              <span style={{ color: bannedPagination.total > 0 ? '#cf1322' : undefined }}>
+                Banned ({bannedPagination.total})
+              </span>
+            ),
+            children: (
+              <>
+                <Card style={{ marginBottom: 16 }}>
+                  <Space>
+                    <Select
+                      placeholder="Filter by platform"
+                      style={{ width: 200 }}
+                      allowClear
+                      value={bannedFilters.platform}
+                      onChange={(value) => setBannedFilters({ platform: value })}
+                    >
+                      <Option value="instagram">Instagram</Option>
+                      <Option value="youtube">YouTube</Option>
+                      <Option value="tiktok">TikTok</Option>
+                      <Option value="facebook">Facebook</Option>
+                      <Option value="twitter">Twitter</Option>
+                    </Select>
+                    <Button icon={<ReloadOutlined />} onClick={() => fetchBannedAccounts(bannedPagination.current)}>
+                      Refresh
+                    </Button>
+                  </Space>
+                </Card>
+                <Table
+                  columns={bannedColumns}
+                  dataSource={bannedAccounts}
+                  rowKey="id"
+                  loading={bannedLoading}
+                  pagination={bannedPagination}
+                  onChange={(p) => fetchBannedAccounts(p.current || 1)}
+                  onRow={onRow}
+                />
+              </>
+            ),
+          },
+        ]}
       />
 
       <CreateAccountModal
@@ -433,10 +446,9 @@ export default function AccountsPage() {
         onCancel={() => setCreateModalVisible(false)}
         onSuccess={() => {
           setCreateModalVisible(false);
-          fetchAccounts(pagination.current);
+          fetchAccounts(1);
         }}
       />
     </div>
   );
 }
-
