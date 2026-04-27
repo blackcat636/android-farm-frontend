@@ -13,8 +13,9 @@ import {
   Select,
   message,
   Empty,
+  Popconfirm,
 } from 'antd';
-import { ArrowLeftOutlined, UserOutlined, UnorderedListOutlined, HistoryOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, UserOutlined, UnorderedListOutlined, HistoryOutlined, DisconnectOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import Link from 'next/link';
 import { createBackendClient, tokenStorage, type BackendEmulator, type Task, type ExecutionHistory } from '@/lib/api/backend';
@@ -158,6 +159,18 @@ export default function EmulatorDetailPage() {
     }
   }, [emulator?.id]);
 
+  const handleUnbind = async (bindingId: string) => {
+    const token = tokenStorage.get();
+    if (!token) return;
+    try {
+      await createBackendClient(token).deleteBinding(bindingId);
+      message.success('Акаунт відв\'язано від емулятора');
+      fetchBindings();
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || err?.message || 'Помилка відв\'язки');
+    }
+  };
+
   useEffect(() => {
     setTasksPagination((p) => ({ ...p, current: 1 }));
   }, [tasksFilters.status, tasksFilters.platform]);
@@ -177,12 +190,65 @@ export default function EmulatorDetailPage() {
   if (loading) return <Loading />;
   if (error || !emulator) return <ErrorDisplay message={error || 'Емулятор не знайдено'} />;
 
+  const ACCOUNT_STATUS_COLOR: Record<string, string> = {
+    active: 'green',
+    restricted: 'orange',
+    suspended: 'orange',
+    warming_up: 'blue',
+    testing: 'blue',
+    view_only: 'default',
+    inactive: 'default',
+    banned: 'red',
+  };
+
   const bindingColumns: ColumnsType<BindingWithAccount> = [
-    { title: 'Account', key: 'account', render: (_, r) => r.account ? <Link href="/accounts">{r.account.username}</Link> : r.account_id },
-    { title: 'Platform', key: 'platform', render: (_, r) => r.account?.platform && <Tag color="blue">{r.account.platform}</Tag> },
-    { title: 'Status', dataIndex: 'status', key: 'status', render: (s: string) => <Tag color={s === 'active' ? 'green' : 'default'}>{s}</Tag> },
-    { title: 'Binding Type', dataIndex: 'binding_type', key: 'binding_type' },
-    { title: 'Bound At', dataIndex: 'bound_at', key: 'bound_at', render: (t: string) => t && new Date(t).toLocaleString() },
+    {
+      title: 'Account',
+      key: 'account',
+      render: (_, r) => r.account
+        ? <Link href={`/accounts/${r.account_id}`}>{r.account.username}</Link>
+        : r.account_id,
+    },
+    {
+      title: 'Platform',
+      key: 'platform',
+      render: (_, r) => r.account?.platform && <Tag color="blue">{r.account.platform}</Tag>,
+    },
+    {
+      title: 'Account Status',
+      key: 'account_status',
+      render: (_, r) => {
+        const s = r.account?.status;
+        return s ? <Tag color={ACCOUNT_STATUS_COLOR[s] || 'default'}>{s}</Tag> : '—';
+      },
+    },
+    {
+      title: 'Binding Type',
+      dataIndex: 'binding_type',
+      key: 'binding_type',
+    },
+    {
+      title: 'Bound At',
+      dataIndex: 'bound_at',
+      key: 'bound_at',
+      render: (t: string) => t && new Date(t).toLocaleString(),
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_, r) => (
+        <Popconfirm
+          title="Відв'язати акаунт?"
+          description="Ви впевнені? Дія незворотна."
+          onConfirm={() => handleUnbind(r.id)}
+          okText="Так"
+          cancelText="Ні"
+          okButtonProps={{ danger: true }}
+        >
+          <Button danger size="small" icon={<DisconnectOutlined />}>Unbind</Button>
+        </Popconfirm>
+      ),
+    },
   ];
 
   const taskColumns: ColumnsType<Task> = [
