@@ -29,57 +29,52 @@ const PLATFORM_ABBR: Record<string, string> = {
   twitter: 'TW',
 };
 
-const ACCOUNT_STATUS_OPACITY: Record<string, number> = {
-  active: 1,
-  restricted: 0.7,
-  suspended: 0.7,
-  warming_up: 0.6,
-  testing: 0.6,
-  view_only: 0.5,
-  inactive: 0.35,
-  banned: 0.35,
-};
-
-const ACCOUNT_STATUS_BG: Record<string, string | null> = {
+const ACCOUNT_STATUS_COLOR: Record<string, string> = {
+  active: '#3f8600',
+  restricted: '#d46b08',
+  suspended: '#d46b08',
+  warming_up: '#1677ff',
+  testing: '#1677ff',
+  view_only: '#8c8c8c',
+  inactive: '#8c8c8c',
   banned: '#cf1322',
-  inactive: '#999',
 };
 
 function BoundAccountsBadges({ bindings }: { bindings: (AccountEmulatorBinding & { account?: any })[] }) {
   if (!bindings.length) return <span style={{ color: '#bbb', fontSize: 12 }}>—</span>;
   return (
-    <Space size={4} wrap>
+    <Space size={8} wrap>
       {bindings.map((b) => {
         const platform = b.account?.platform || 'unknown';
         const accountStatus: string = b.account?.status || 'unknown';
         const platformColor = PLATFORM_COLORS[platform] || '#999';
-        const bg = ACCOUNT_STATUS_BG[accountStatus] ?? platformColor;
-        const opacity = ACCOUNT_STATUS_OPACITY[accountStatus] ?? 0.5;
+        const statusColor = ACCOUNT_STATUS_COLOR[accountStatus] || '#8c8c8c';
         const label = PLATFORM_ABBR[platform] || platform.slice(0, 2).toUpperCase();
-        const tooltipText = b.account
-          ? `${b.account.username} — ${accountStatus}`
-          : `binding: ${b.status}`;
+        const tooltipText = b.account ? b.account.username : b.id;
         return (
           <Tooltip key={b.id} title={tooltipText}>
-            <span
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 28,
-                height: 20,
-                borderRadius: 4,
-                background: bg,
-                color: '#fff',
-                fontSize: 10,
-                fontWeight: 700,
-                opacity,
-                cursor: 'default',
-                letterSpacing: 0.5,
-              }}
-            >
-              {label}
-            </span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, cursor: 'default' }}>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 28,
+                  height: 18,
+                  borderRadius: 3,
+                  background: platformColor,
+                  color: '#fff',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: 0.5,
+                }}
+              >
+                {label}
+              </span>
+              <span style={{ fontSize: 9, color: statusColor, fontWeight: 600, lineHeight: 1, whiteSpace: 'nowrap' }}>
+                {accountStatus}
+              </span>
+            </div>
           </Tooltip>
         );
       })}
