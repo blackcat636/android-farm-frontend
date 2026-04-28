@@ -19,6 +19,8 @@ import {
   Select,
   Switch,
   Popconfirm,
+  List,
+  Badge,
 } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -28,6 +30,8 @@ import {
   UnlockOutlined,
   DisconnectOutlined,
   ExportOutlined,
+  CommentOutlined,
+  SendOutlined,
 } from '@ant-design/icons';
 import Link from 'next/link';
 import {
@@ -39,6 +43,7 @@ import {
   type CreateProxyDto,
   type UpdateSocialAccountDto,
   type ProxyProvider,
+  type AccountComment,
 } from '@/lib/api/backend';
 import type { BackendEmulator } from '@/lib/api/backend';
 import { CountrySelect } from '@/components/common/CountrySelect';
@@ -74,6 +79,12 @@ export default function AccountDetailPage() {
   const [proxyProviders, setProxyProviders] = useState<ProxyProvider[]>([]);
   const [editLoading, setEditLoading] = useState(false);
 
+  const [comments, setComments] = useState<AccountComment[]>([]);
+  const [commentsTotal, setCommentsTotal] = useState(0);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentText, setCommentText] = useState('');
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
+
   const [proxyForm] = Form.useForm();
   const [bindForm] = Form.useForm();
   const [editForm] = Form.useForm();
@@ -95,6 +106,10 @@ export default function AccountDetailPage() {
       .then(setEmulatorDetails)
       .catch(() => setEmulatorDetails(null));
   }, [binding?.emulator_id, binding?.emulator]);
+
+  useEffect(() => {
+    if (activeTab === 'comments') fetchComments();
+  }, [activeTab, id]);
 
   useEffect(() => {
     if (!bindModalVisible || !account) return;
@@ -154,6 +169,37 @@ export default function AccountDetailPage() {
       message.error(err.message || 'Error loading account');
     } finally {
       setPageLoading(false);
+    }
+  };
+
+  const fetchComments = async (page = 1) => {
+    const token = tokenStorage.get();
+    if (!token) return;
+    setCommentsLoading(true);
+    try {
+      const res = await createBackendClient(token).getComments(id, { page, limit: 50 });
+      setComments(res.data);
+      setCommentsTotal(res.total);
+    } catch {
+      message.error('Failed to load comments');
+    } finally {
+      setCommentsLoading(false);
+    }
+  };
+
+  const submitComment = async () => {
+    if (!commentText.trim()) return;
+    const token = tokenStorage.get();
+    if (!token) return;
+    setCommentSubmitting(true);
+    try {
+      await createBackendClient(token).addComment(id, { source: 'admin', text: commentText.trim() });
+      setCommentText('');
+      fetchComments();
+    } catch {
+      message.error('Failed to add comment');
+    } finally {
+      setCommentSubmitting(false);
     }
   };
 
@@ -722,6 +768,59 @@ export default function AccountDetailPage() {
     </div>
   );
 
+  const SOURCE_COLORS: Record<string, string> = { agent: 'blue', admin: 'green', system: 'orange' };
+
+  const commentsTab = (
+    <div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <Input.TextArea
+          value={commentText}
+          onChange={(e) => setCommentText(e.target.value)}
+          placeholder="Add a comment..."
+          autoSize={{ minRows: 2, maxRows: 5 }}
+          style={{ flex: 1 }}
+        />
+        <Button
+          type="primary"
+          icon={<SendOutlined />}
+          loading={commentSubmitting}
+          onClick={submitComment}
+          disabled={!commentText.trim()}
+          style={{ alignSelf: 'flex-end' }}
+        >
+          Add
+        </Button>
+      </div>
+      <List
+        loading={commentsLoading}
+        dataSource={comments}
+        locale={{ emptyText: 'No comments yet' }}
+        footer={commentsTotal > comments.length ? (
+          <div style={{ textAlign: 'center' }}>
+            <Button size="small" onClick={() => fetchComments()}>Load more</Button>
+          </div>
+        ) : null}
+        renderItem={(c) => (
+          <List.Item key={c.id} style={{ alignItems: 'flex-start', flexDirection: 'column', padding: '8px 0' }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+              <Tag color={SOURCE_COLORS[c.source] ?? 'default'}>{c.source}</Tag>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {new Date(c.created_at).toLocaleString()}
+              </Text>
+            </div>
+            <Text style={{ whiteSpace: 'pre-wrap' }}>{c.text}</Text>
+            {c.metadata && (
+              <details style={{ marginTop: 4 }}>
+                <summary style={{ fontSize: 11, color: '#888', cursor: 'pointer' }}>metadata</summary>
+                <pre style={{ fontSize: 11, margin: 0, color: '#666' }}>{JSON.stringify(c.metadata, null, 2)}</pre>
+              </details>
+            )}
+          </List.Item>
+        )}
+      />
+    </div>
+  );
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
@@ -754,6 +853,17 @@ export default function AccountDetailPage() {
             { key: 'edit', label: 'Edit', children: editTab },
             { key: 'proxy', label: 'Proxy', children: proxyTab },
             { key: 'emulator', label: 'Emulator', children: emulatorTab },
+            {
+              key: 'comments',
+              label: (
+                <span>
+                  <CommentOutlined />
+                  {' Comments'}
+                  {commentsTotal > 0 && <Badge count={commentsTotal} style={{ marginLeft: 6 }} />}
+                </span>
+              ),
+              children: commentsTab,
+            },
           ]}
         />
       </Card>

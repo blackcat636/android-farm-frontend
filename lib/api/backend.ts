@@ -1000,6 +1000,21 @@ export function createBackendClient(token: string) {
         return response.data;
       },
 
+      async addComment(accountId: string, data: { source: string; text: string; metadata?: Record<string, any> }): Promise<AccountComment> {
+        const response = await api.post<AccountComment>(`/api/social-accounts/${accountId}/comments`, data);
+        return response.data;
+      },
+
+      async getComments(accountId: string, params?: { page?: number; limit?: number }): Promise<{ data: AccountComment[]; total: number }> {
+        const response = await api.get<{ data: AccountComment[]; total: number }>(`/api/social-accounts/${accountId}/comments`, { params });
+        return response.data;
+      },
+
+      async getAllComments(params?: { account_id?: string; source?: string; platform?: string; date_from?: string; date_to?: string; page?: number; limit?: number }): Promise<{ data: AccountCommentWithAccount[]; total: number }> {
+        const response = await api.get<{ data: AccountCommentWithAccount[]; total: number }>('/api/social-accounts/comments', { params });
+        return response.data;
+      },
+
       // Проксі аккаунтів
       async createProxy(data: CreateProxyDto): Promise<AccountProxy> {
         const response = await api.post<AccountProxy>('/api/account-proxies', data);
@@ -1617,6 +1632,19 @@ export interface AppConfigEntry {
   source: 'db' | 'env' | 'default';
   description: string;
   type: 'boolean' | 'number' | 'string';
+}
+
+export interface AccountComment {
+  id: string;
+  account_id: string;
+  source: 'agent' | 'admin' | 'system';
+  text: string;
+  metadata?: Record<string, any>;
+  created_at: string;
+}
+
+export interface AccountCommentWithAccount extends AccountComment {
+  social_accounts?: { id: string; username: string; platform: string } | null;
 }
 
 // Зберігання токенів
