@@ -171,7 +171,7 @@ frontend/
 ### 3. API клієнт (lib/api/backend.ts)
 
 - **createBackendApi(token)** — базовий axios з токеном
-- **createBackendClient(token)** — повний клієнт: auth, agents, emulators, execute, history, queue, posts, social-accounts, account-proxies, account-bindings, sync
+- **createBackendClient(token)** — повний клієнт: auth, agents, emulators, execute, history, queue, posts, social-accounts (`startSocialAccountWarmup` → `POST /api/social-accounts/:id/start-warmup`), account-proxies, account-bindings, sync
 - **authApi** — signIn, signUp, signOut, getMe, refresh, api-keys, getUsers, setUserRole, permissions API (`/api/permissions/*`)
 - **tokenStorage** — get, set, remove, getRefresh
 

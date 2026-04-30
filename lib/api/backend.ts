@@ -988,6 +988,16 @@ export function createBackendClient(token: string) {
         return response.data;
       },
 
+      async startSocialAccountWarmup(
+        id: string,
+      ): Promise<{ message: string; account: SocialAccount }> {
+        const response = await api.post<{ message: string; account: SocialAccount }>(
+          `/api/social-accounts/${id}/start-warmup`,
+          {},
+        );
+        return response.data;
+      },
+
       async deleteSocialAccount(id: string): Promise<{ message: string }> {
         const response = await api.delete<{ message: string }>(`/api/social-accounts/${id}`);
         return response.data;
@@ -1419,6 +1429,8 @@ export interface SocialAccount {
   country_name?: string | null;
   created_at: string;
   updated_at: string;
+  warmup_started_at?: string | null;
+  last_warmup_at?: string | null;
 }
 
 export interface CreateSocialAccountDto {

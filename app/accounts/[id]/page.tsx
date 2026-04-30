@@ -32,6 +32,7 @@ import {
   ExportOutlined,
   CommentOutlined,
   SendOutlined,
+  FireOutlined,
 } from '@ant-design/icons';
 import Link from 'next/link';
 import {
@@ -78,6 +79,7 @@ export default function AccountDetailPage() {
 
   const [proxyProviders, setProxyProviders] = useState<ProxyProvider[]>([]);
   const [editLoading, setEditLoading] = useState(false);
+  const [warmupLoading, setWarmupLoading] = useState(false);
 
   const [comments, setComments] = useState<AccountComment[]>([]);
   const [commentsTotal, setCommentsTotal] = useState(0);
@@ -333,6 +335,21 @@ export default function AccountDetailPage() {
     }
   };
 
+  const handleStartWarmup = async () => {
+    try {
+      setWarmupLoading(true);
+      const token = tokenStorage.get();
+      if (!token) throw new Error('Authorization required');
+      const { message: msg } = await createBackendClient(token).startSocialAccountWarmup(id);
+      message.success(msg || 'Warmup started');
+      await fetchAll();
+    } catch (err: any) {
+      message.error(err.message || 'Failed to start warmup');
+    } finally {
+      setWarmupLoading(false);
+    }
+  };
+
   const handleUnbind = async () => {
     if (!binding) return;
     try {
@@ -391,13 +408,33 @@ export default function AccountDetailPage() {
         <Descriptions.Item label="Phone">{account.phone || '-'}</Descriptions.Item>
         <Descriptions.Item label="Country">{account.country_name || account.country_code || '-'}</Descriptions.Item>
         <Descriptions.Item label="Status">
-          <Space size="small">
+          <Space size="small" wrap>
             <Tag color={getStatusColor(account.status)} style={{ textTransform: 'capitalize' }}>
               {account.status}
             </Tag>
             {isBlocked && (
               <Tag color="red">Blocked until {new Date(account.blocked_until!).toLocaleString('en-US')}</Tag>
             )}
+            {account.platform === 'instagram' &&
+              !['banned', 'suspended'].includes(account.status) &&
+              !(isBlocked) && (
+                <Popconfirm
+                  title="Start warmup?"
+                  description="Sets status to warming_up and restarts the warmup timeline from now. Queue tasks depend on WARMUP_ENABLED."
+                  onConfirm={handleStartWarmup}
+                  okText="Yes"
+                  cancelText="No"
+                >
+                  <Button
+                    size="small"
+                    type="default"
+                    icon={<FireOutlined />}
+                    loading={warmupLoading}
+                  >
+                    Start warmup
+                  </Button>
+                </Popconfirm>
+              )}
           </Space>
         </Descriptions.Item>
         <Descriptions.Item label="Proxy Required">
