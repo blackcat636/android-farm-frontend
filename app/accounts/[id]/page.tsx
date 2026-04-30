@@ -415,8 +415,7 @@ export default function AccountDetailPage() {
             {isBlocked && (
               <Tag color="red">Blocked until {new Date(account.blocked_until!).toLocaleString('en-US')}</Tag>
             )}
-            {account.platform === 'instagram' &&
-              !['banned', 'suspended'].includes(account.status) &&
+            {!['banned', 'suspended'].includes(account.status) &&
               !(isBlocked) && (
                 <Popconfirm
                   title="Start warmup?"
