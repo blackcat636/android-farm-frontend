@@ -436,6 +436,16 @@ export default function AccountDetailPage() {
               )}
           </Space>
         </Descriptions.Item>
+        <Descriptions.Item label="Warmup started at">
+          {account.warmup_started_at
+            ? new Date(account.warmup_started_at).toLocaleString('en-US')
+            : '-'}
+        </Descriptions.Item>
+        <Descriptions.Item label="Last warmup at">
+          {account.last_warmup_at
+            ? new Date(account.last_warmup_at).toLocaleString('en-US')
+            : '-'}
+        </Descriptions.Item>
         <Descriptions.Item label="Proxy Required">
           <Tag color={account.requires_proxy ? 'orange' : 'default'}>
             {account.requires_proxy ? <><SafetyOutlined /> Yes</> : 'No'}
