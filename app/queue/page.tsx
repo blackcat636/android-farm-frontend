@@ -21,9 +21,11 @@ export default function QueuePage() {
   const [filters, setFilters] = useState<{
     status: string[];
     platform: string | undefined;
+    action: string | undefined;
   }>({
     status: [],
     platform: undefined,
+    action: undefined,
   });
   const [pagination, setPagination] = useState({
     current: 1,
@@ -40,7 +42,7 @@ export default function QueuePage() {
 
   const fetchTasks = async (
     page = 1,
-    overrides?: { status?: string[]; platform?: string; limit?: number },
+    overrides?: { status?: string[]; platform?: string; action?: string; limit?: number },
   ) => {
     if (!user) {
       setLoading(false);
@@ -48,7 +50,11 @@ export default function QueuePage() {
     }
 
     const effFilters = overrides
-      ? { status: overrides.status ?? filters.status, platform: overrides.platform ?? filters.platform }
+      ? {
+          status: overrides.status ?? filters.status,
+          platform: overrides.platform ?? filters.platform,
+          action: overrides.action !== undefined ? overrides.action : filters.action,
+        }
       : filters;
     const effStatus = effFilters.status?.length ? effFilters.status.join(',') : undefined;
     const effLimit = overrides?.limit ?? pagination.pageSize;
@@ -65,6 +71,7 @@ export default function QueuePage() {
       const response = await backendClient.getQueue({
         status: effStatus,
         platform: effFilters.platform,
+        action: effFilters.action,
         page,
         limit: effLimit,
       });
@@ -92,7 +99,7 @@ export default function QueuePage() {
       fetchTasks(pagination.current);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, JSON.stringify(filters.status), filters.platform]);
+  }, [user, JSON.stringify(filters.status), filters.platform, filters.action]);
 
   const handleCancel = async (taskId: string) => {
     try {
@@ -463,10 +470,30 @@ export default function QueuePage() {
               setPagination({ ...pagination, current: 1 });
             }}
           >
-            {/* Опції можна заповнити динамічно, отримуючи список платформ */}
             <Select.Option value="youtube">YouTube</Select.Option>
             <Select.Option value="instagram">Instagram</Select.Option>
             <Select.Option value="tiktok">TikTok</Select.Option>
+          </Select>
+
+          <Select
+            placeholder="Filter by action"
+            style={{ width: 180 }}
+            allowClear
+            value={filters.action}
+            onChange={(value) => {
+              setFilters({ ...filters, action: value });
+              setPagination({ ...pagination, current: 1 });
+            }}
+          >
+            <Select.Option value="warmup">warmup</Select.Option>
+            <Select.Option value="view">view</Select.Option>
+            <Select.Option value="like">like</Select.Option>
+            <Select.Option value="viewAndLike">viewAndLike</Select.Option>
+            <Select.Option value="post">post</Select.Option>
+            <Select.Option value="delete">delete</Select.Option>
+            <Select.Option value="login">login</Select.Option>
+            <Select.Option value="auth">auth</Select.Option>
+            <Select.Option value="search">search</Select.Option>
           </Select>
         </Space>
       </Card>

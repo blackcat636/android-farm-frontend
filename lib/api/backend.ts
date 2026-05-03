@@ -813,6 +813,7 @@ export function createBackendClient(token: string) {
     async getQueue(query: {
       status?: string;
       platform?: string;
+      action?: string;
       agent_id?: string;
       emulator_id?: string;
       page?: number;
@@ -834,6 +835,7 @@ export function createBackendClient(token: string) {
       const cleanQuery: any = {};
       if (query.status !== undefined) cleanQuery.status = query.status;
       if (query.platform !== undefined) cleanQuery.platform = query.platform;
+      if (query.action !== undefined) cleanQuery.action = query.action;
       if (query.agent_id !== undefined) cleanQuery.agent_id = query.agent_id;
       if (query.emulator_id !== undefined) cleanQuery.emulator_id = query.emulator_id;
       if (query.page !== undefined) cleanQuery.page = query.page;
