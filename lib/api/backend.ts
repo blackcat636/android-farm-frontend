@@ -861,6 +861,7 @@ export function createBackendClient(token: string) {
       priority?: number;
       requireSession?: boolean;
       country_code?: string | null;
+      batchable?: boolean;
     }): Promise<Task | { status: 'moderation_pending'; request_id: string }> {
       const response = await api.post<Task | { status: 'moderation_pending'; request_id: string }>('/api/queue/add', data);
       return response.data;
@@ -1403,6 +1404,8 @@ export interface Task {
   duration_ms?: number;
   country_code?: string | null;
   country_name?: string | null;
+  batchable?: boolean;
+  batch_id?: string | null;
 }
 
 export interface SocialAccount {

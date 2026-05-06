@@ -251,6 +251,16 @@ export default function QueuePage() {
       ),
     },
     {
+      title: 'Batch',
+      dataIndex: 'batchable',
+      key: 'batchable',
+      render: (batchable, record) => {
+        if (record.batch_id) return <Tag color="geekblue">batch</Tag>;
+        if (batchable) return <Tag color="cyan">batchable</Tag>;
+        return null;
+      },
+    },
+    {
       title: 'Priority',
       dataIndex: 'priority',
       key: 'priority',
@@ -515,6 +525,9 @@ export default function QueuePage() {
           expandedRowRender: (record) => (
             <div style={{ margin: 0 }}>
               <p><strong>Task ID:</strong> {record.id}</p>
+              {record.batch_id && (
+                <p><strong>Batch ID:</strong> <Tag color="geekblue">{record.batch_id}</Tag></p>
+              )}
               {record.account_id && (
                 <p><strong>Account ID:</strong> {record.account_id}</p>
               )}

@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode, useState } from 'react';
-import { Form, Button, Card, Alert, Result, Space } from 'antd';
+import { Form, Button, Card, Alert, Result, Space, Switch, Tooltip } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import { type Emulator } from '@/lib/api/agent';
@@ -148,6 +148,17 @@ export function ActionFormWrapper({
             tooltip="Only accounts from this country will receive the task when account is not specified"
           >
             <CountrySelect placeholder="Any country" />
+          </Form.Item>
+
+          <Form.Item
+            name="batchable"
+            label="Batch"
+            valuePropName="checked"
+            tooltip="Group this task with others on the same emulator — one start/stop cycle for multiple tasks"
+          >
+            <Tooltip title="Start emulator once, execute all grouped tasks, then stop">
+              <Switch checkedChildren="Batch" unCheckedChildren="Single" />
+            </Tooltip>
           </Form.Item>
 
           {children({

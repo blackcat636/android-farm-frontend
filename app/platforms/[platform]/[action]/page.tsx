@@ -70,6 +70,7 @@ export default function ExecuteActionPage() {
           agent_id: agentId,
           requireSession: formValues.requireSession || false,
           country_code: formValues.country_code || null,
+          batchable: formValues.batchable || false,
         });
 
         if ('request_id' in task) {
