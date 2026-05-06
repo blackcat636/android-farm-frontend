@@ -1369,6 +1369,43 @@ export function createBackendClient(token: string) {
         const response = await api.delete(`/api/admin/config/${key}`);
         return response.data;
       },
+
+      // Browser Sessions
+      async getAdminBrowserSessions(): Promise<BrowserSession[]> {
+        const response = await api.get<BrowserSession[]>('/api/admin/browser-sessions');
+        return response.data;
+      },
+
+      async stopBrowserSession(id: string): Promise<{ message: string }> {
+        const response = await api.post(`/api/browser-sessions/${id}/stop`);
+        return response.data;
+      },
+
+      async authBrowserSessionCookies(
+        id: string,
+        data: { service: string; cookies: any[]; userAgent?: string; verifyUrl?: string }
+      ): Promise<{ message: string; taskId: string }> {
+        const response = await api.post(`/api/browser-sessions/${id}/auth/cookies`, data);
+        return response.data;
+      },
+
+      async authBrowserSessionScript(
+        id: string,
+        data: { service: string; username: string; password: string; twoFactorSecret?: string }
+      ): Promise<{ message: string; taskId: string }> {
+        const response = await api.post(`/api/browser-sessions/${id}/auth/script`, data);
+        return response.data;
+      },
+
+      async submitBrowserSession2fa(id: string, code: string): Promise<{ message: string }> {
+        const response = await api.post(`/api/browser-sessions/${id}/auth/2fa`, { code });
+        return response.data;
+      },
+
+      async getAdminBrowserSession(id: string): Promise<BrowserSession> {
+        const response = await api.get<BrowserSession>(`/api/admin/browser-sessions/${id}`);
+        return response.data;
+      },
     };
   }
 
@@ -1662,6 +1699,31 @@ export interface AccountComment {
 
 export interface AccountCommentWithAccount extends AccountComment {
   social_accounts?: { id: string; username: string; platform: string } | null;
+}
+
+export interface BrowserSession {
+  id: string;
+  user_id?: string;
+  task_id?: string;
+  agent_id?: string;
+  container_id?: string;
+  vnc_port?: number;
+  debug_port?: number;
+  status: 'pending' | 'starting' | 'running' | 'stopping' | 'stopped' | 'error';
+  vnc_url?: string;
+  debug_url?: string;
+  profile_path?: string;
+  proxy?: any;
+  region?: string;
+  error?: string;
+  created_at: string;
+  updated_at?: string;
+  stopped_at?: string;
+  auth_status?: 'none' | 'in_progress' | 'waiting_2fa' | 'authenticated' | 'auth_failed';
+  auth_service?: string;
+  auth_username?: string;
+  two_fa_pending?: boolean;
+  two_fa_hint?: string;
 }
 
 // Зберігання токенів
