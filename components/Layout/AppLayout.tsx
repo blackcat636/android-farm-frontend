@@ -132,6 +132,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
       label: 'Browser Sessions',
     },
     {
+      key: '/browser-accounts',
+      icon: <UserOutlined />,
+      label: 'Browser Accounts',
+    },
+    {
       key: '/config',
       icon: <SettingOutlined />,
       label: 'Config',

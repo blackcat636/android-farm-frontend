@@ -1406,6 +1406,32 @@ export function createBackendClient(token: string) {
         const response = await api.get<BrowserSession>(`/api/admin/browser-sessions/${id}`);
         return response.data;
       },
+
+      // Browser Accounts
+      async getAdminBrowserAccounts(params?: { platform?: string; auth_type?: string; status?: string; user_id?: string }): Promise<BrowserAccount[]> {
+        const response = await api.get<BrowserAccount[]>('/api/admin/browser-accounts', { params });
+        return response.data;
+      },
+
+      async getAdminBrowserAccount(id: string): Promise<BrowserAccount> {
+        const response = await api.get<BrowserAccount>(`/api/admin/browser-accounts/${id}`);
+        return response.data;
+      },
+
+      async createAdminBrowserAccount(data: CreateBrowserAccountDto): Promise<BrowserAccount> {
+        const response = await api.post<BrowserAccount>('/api/admin/browser-accounts', data);
+        return response.data;
+      },
+
+      async updateAdminBrowserAccount(id: string, data: Partial<CreateBrowserAccountDto> & { status?: string }): Promise<BrowserAccount> {
+        const response = await api.patch<BrowserAccount>(`/api/admin/browser-accounts/${id}`, data);
+        return response.data;
+      },
+
+      async deleteAdminBrowserAccount(id: string): Promise<{ message: string }> {
+        const response = await api.delete(`/api/admin/browser-accounts/${id}`);
+        return response.data;
+      },
     };
   }
 
@@ -1724,6 +1750,35 @@ export interface BrowserSession {
   auth_username?: string;
   two_fa_pending?: boolean;
   two_fa_hint?: string;
+}
+
+export interface BrowserAccount {
+  id: string;
+  user_id?: string;
+  platform: string;
+  username: string;
+  auth_type: 'script' | 'cookies';
+  status: 'active' | 'blocked' | 'expired';
+  password?: string;
+  two_factor_secret?: string;
+  cookies?: any[];
+  user_agent?: string;
+  verify_url?: string;
+  notes?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface CreateBrowserAccountDto {
+  platform: string;
+  username: string;
+  auth_type: 'script' | 'cookies';
+  password?: string;
+  two_factor_secret?: string;
+  cookies?: any[];
+  user_agent?: string;
+  verify_url?: string;
+  notes?: string;
 }
 
 // Зберігання токенів
