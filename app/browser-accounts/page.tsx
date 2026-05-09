@@ -71,6 +71,21 @@ export default function BrowserAccountsPage() {
   const [vncSession, setVncSession] = useState<BrowserSession | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
+  // Build noVNC URL with correct WebSocket path parameter
+  // noVNC default WS path is "websockify" relative to page root,
+  // but we need it to go through /proxy/vnc/{sessionId}/websockify
+  const buildVncUrl = (vncUrl: string): string => {
+    try {
+      const url = new URL(vncUrl);
+      const pathParam = url.pathname.replace(/^\//, '').replace(/\/$/, '') + '/websockify';
+      url.searchParams.set('path', pathParam);
+      url.searchParams.set('autoconnect', '1');
+      return url.toString();
+    } catch {
+      return vncUrl;
+    }
+  };
+
   // Run scenario modal
   const [scenarioAccount, setScenarioAccount] = useState<BrowserAccount | null>(null);
   const [scenarioForm] = Form.useForm();
@@ -489,7 +504,7 @@ export default function BrowserAccountsPage() {
         open={!!vncSession}
         onCancel={() => setVncSession(null)}
         footer={
-          <Button onClick={() => { if (vncSession?.vnc_url) window.open(vncSession.vnc_url, '_blank'); }}>
+          <Button onClick={() => { if (vncSession?.vnc_url) window.open(buildVncUrl(vncSession.vnc_url), '_blank'); }}>
             Open in new tab
           </Button>
         }
@@ -501,7 +516,7 @@ export default function BrowserAccountsPage() {
         {vncSession?.vnc_url && (
           <iframe
             ref={iframeRef}
-            src={vncSession.vnc_url}
+            src={buildVncUrl(vncSession.vnc_url)}
             style={{ width: '100%', height: '75vh', border: 'none', display: 'block' }}
             allow="clipboard-read; clipboard-write"
           />
