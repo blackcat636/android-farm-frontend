@@ -1377,6 +1377,16 @@ export function createBackendClient(token: string) {
         return response.data;
       },
 
+      async createAdminBrowserSession(data: { browser_account_id: string; proxy?: any }): Promise<BrowserSession> {
+        const response = await api.post<BrowserSession>('/api/admin/browser-sessions', data);
+        return response.data;
+      },
+
+      async stopAdminBrowserSession(id: string): Promise<{ message: string }> {
+        const response = await api.post(`/api/admin/browser-sessions/${id}/stop`);
+        return response.data;
+      },
+
       async stopBrowserSession(id: string): Promise<{ message: string }> {
         const response = await api.post(`/api/browser-sessions/${id}/stop`);
         return response.data;
@@ -1734,6 +1744,7 @@ export interface BrowserSession {
   task_id?: string;
   agent_id?: string;
   container_id?: string;
+  browser_account_id?: string;
   vnc_port?: number;
   debug_port?: number;
   status: 'pending' | 'starting' | 'running' | 'stopping' | 'stopped' | 'error';
@@ -1751,6 +1762,7 @@ export interface BrowserSession {
   auth_username?: string;
   two_fa_pending?: boolean;
   two_fa_hint?: string;
+  browser_account?: Pick<BrowserAccount, 'id' | 'platform' | 'username' | 'auth_type' | 'status'>;
 }
 
 export interface BrowserAccount {
