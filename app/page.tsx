@@ -13,6 +13,16 @@ export default function Dashboard() {
   const { emulators, loading: loadingEmulators, error: emulatorsError } = useAllEmulators(false);
   const [platforms, setPlatforms] = useState<string[]>([]);
   const [loadingPlatforms, setLoadingPlatforms] = useState(false);
+  const [agentCount, setAgentCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    const token = tokenStorage.get();
+    if (!token || !user) return;
+    createBackendClient(token)
+      .getAgents(true)
+      .then((data) => setAgentCount(data.length))
+      .catch(() => {});
+  }, [user]);
 
   // Платформи з першого доступного агента (з списку емуляторів)
   useEffect(() => {
@@ -65,7 +75,7 @@ export default function Dashboard() {
         </Col>
         <Col span={6}>
           <Card>
-            <Statistic title="Agents" value={new Set(emulators.map((e) => e.agentId ?? (e as any).agent_id)).size} />
+            <Statistic title="Agents" value={agentCount ?? new Set(emulators.map((e) => e.agentId ?? (e as any).agent_id)).size} />
           </Card>
         </Col>
       </Row>
