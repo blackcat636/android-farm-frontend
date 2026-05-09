@@ -19,8 +19,14 @@ export default function Dashboard() {
     const token = tokenStorage.get();
     if (!token || !user) return;
     createBackendClient(token)
-      .getAgents(true)
-      .then((data) => setAgentCount(data.length))
+      .getAgents(false)
+      .then((data) => {
+        const online = data.filter(a =>
+          a.status === 'online' ||
+          (a.last_seen && Date.now() - new Date(a.last_seen).getTime() < 90_000)
+        );
+        setAgentCount(online.length);
+      })
       .catch(() => {});
   }, [user]);
 
