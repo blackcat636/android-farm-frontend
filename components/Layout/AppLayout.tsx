@@ -2,7 +2,7 @@
 
 import { Layout, Menu, Drawer } from 'antd';
 import { usePathname, useRouter } from 'next/navigation';
-import { DashboardOutlined, AppstoreOutlined, MobileOutlined, HistoryOutlined, UnorderedListOutlined, UserOutlined, HeartOutlined, KeyOutlined, SafetyOutlined, StopOutlined, ApiOutlined, TeamOutlined, FileTextOutlined, CopyOutlined, SettingOutlined, CommentOutlined, ChromeOutlined } from '@ant-design/icons';
+import { DashboardOutlined, AppstoreOutlined, MobileOutlined, HistoryOutlined, UnorderedListOutlined, UserOutlined, HeartOutlined, KeyOutlined, SafetyOutlined, StopOutlined, ApiOutlined, TeamOutlined, FileTextOutlined, CopyOutlined, SettingOutlined, CommentOutlined, ChromeOutlined, ClusterOutlined } from '@ant-design/icons';
 import AppHeader from './AppHeader';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
@@ -70,6 +70,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
       key: '/emulators',
       icon: <MobileOutlined />,
       label: 'Emulators',
+    },
+    {
+      key: '/agents',
+      icon: <ClusterOutlined />,
+      label: 'Agents',
     },
     {
       key: '/accounts',

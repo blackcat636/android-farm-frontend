@@ -125,6 +125,7 @@ export interface Agent {
   last_seen?: string;
   /** 0 = прихований, 1 або null = видимий */
   visibility?: number | null;
+  type?: 'android' | 'browser';
   created_at?: string;
   updated_at?: string;
 }
