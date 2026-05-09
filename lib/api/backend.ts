@@ -1372,6 +1372,19 @@ export function createBackendClient(token: string) {
       },
 
       // Browser Sessions
+      async getAdminBrowserLogs(params?: {
+        session_id?: string;
+        account_id?: string;
+        agent_id?: string;
+        level?: string;
+        event?: string;
+        limit?: number;
+        offset?: number;
+      }): Promise<{ data: BrowserLog[]; total: number }> {
+        const response = await api.get<{ data: BrowserLog[]; total: number }>('/api/admin/browser-logs', { params });
+        return response.data;
+      },
+
       async getAdminBrowserSessions(): Promise<BrowserSession[]> {
         const response = await api.get<BrowserSession[]>('/api/admin/browser-sessions');
         return response.data;
@@ -1736,6 +1749,20 @@ export interface AccountComment {
 
 export interface AccountCommentWithAccount extends AccountComment {
   social_accounts?: { id: string; username: string; platform: string } | null;
+}
+
+export interface BrowserLog {
+  id: string;
+  agent_id: string;
+  session_id?: string | null;
+  account_id?: string | null;
+  level: 'info' | 'warn' | 'error';
+  event: string;
+  message?: string | null;
+  data?: any;
+  created_at: string;
+  session?: { id: string; status: string; auth_status?: string } | null;
+  account?: { id: string; platform: string; username: string } | null;
 }
 
 export interface BrowserSession {
