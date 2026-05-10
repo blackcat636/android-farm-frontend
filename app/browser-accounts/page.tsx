@@ -53,6 +53,7 @@ export default function BrowserAccountsPage() {
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const [startingIds, setStartingIds] = useState<Set<string>>(new Set());
   const [stoppingIds, setStoppingIds] = useState<Set<string>>(new Set());
+  const [deletingSessionIds, setDeletingSessionIds] = useState<Set<string>>(new Set());
 
   const [filterPlatform, setFilterPlatform] = useState<string | undefined>();
   const [filterAuthType, setFilterAuthType] = useState<string | undefined>();
@@ -153,6 +154,19 @@ export default function BrowserAccountsPage() {
       message.error(err.message || 'Failed to stop session');
     } finally {
       setStoppingIds(prev => { const s = new Set(prev); s.delete(account.id); return s; });
+    }
+  };
+
+  const handleDeleteSession = async (session: BrowserSession) => {
+    try {
+      setDeletingSessionIds(prev => new Set(prev).add(session.id));
+      await getClient().deleteAdminBrowserSession(session.id);
+      message.success('Session deleted');
+      fetchAll();
+    } catch (err: any) {
+      message.error(err.message || 'Failed to delete session');
+    } finally {
+      setDeletingSessionIds(prev => { const s = new Set(prev); s.delete(session.id); return s; });
     }
   };
 
@@ -321,6 +335,7 @@ export default function BrowserAccountsPage() {
         const session = getSessionForAccount(account.id);
         const isRunning = session && ['running'].includes(session.status);
         const isActive = session && ['pending', 'starting', 'running', 'stopping'].includes(session.status);
+        const isInactive = session && ['stopped', 'error'].includes(session.status);
 
         return (
           <Space size={4}>
@@ -344,6 +359,18 @@ export default function BrowserAccountsPage() {
                   onClick={() => handleStopSession(account)}
                 />
               </Tooltip>
+            )}
+            {isInactive && (
+              <Popconfirm title="Delete this session?" onConfirm={() => handleDeleteSession(session!)}>
+                <Tooltip title="Delete inactive session">
+                  <Button
+                    size="small"
+                    danger
+                    icon={<DeleteOutlined />}
+                    loading={deletingSessionIds.has(session!.id)}
+                  />
+                </Tooltip>
+              </Popconfirm>
             )}
             <Tooltip title={isRunning ? 'Open VNC' : 'VNC available when running'}>
               <Button

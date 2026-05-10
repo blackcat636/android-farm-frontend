@@ -1400,6 +1400,11 @@ export function createBackendClient(token: string) {
         return response.data;
       },
 
+      async deleteAdminBrowserSession(id: string): Promise<{ message: string }> {
+        const response = await api.delete(`/api/admin/browser-sessions/${id}`);
+        return response.data;
+      },
+
       async stopBrowserSession(id: string): Promise<{ message: string }> {
         const response = await api.post(`/api/browser-sessions/${id}/stop`);
         return response.data;
