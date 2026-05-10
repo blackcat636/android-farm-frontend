@@ -856,6 +856,7 @@ export function createBackendClient(token: string) {
       action: string;
       params?: any;
       account_id?: string;
+      browser_account_id?: string;
       emulator_id?: string;
       emulator_type?: string;
       agent_id?: string;
@@ -1472,6 +1473,7 @@ export interface Task {
   action: string;
   params?: any;
   account_id?: string;
+  browser_account_id?: string;
   account?: {
     id: string;
     username: string;

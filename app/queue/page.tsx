@@ -84,13 +84,12 @@ export default function QueuePage() {
     try {
       setAddingBrowserTask(true);
       await getClient().addTask({
-        platform: 'browser',
+        platform: values.platform,
         action: 'run_scenario',
+        browser_account_id: values.account_id,
         params: {
-          browser_account_id: values.account_id,
-          service: values.platform,
           scenario: values.scenario,
-          scenarioParams,
+          ...scenarioParams,
         },
         priority: values.priority ?? 5,
       });
