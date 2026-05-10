@@ -1,16 +1,27 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Table, Tag, Select, Card, Statistic, Row, Col, Button, Popconfirm, Space } from 'antd';
+import { useState, useEffect, useCallback } from 'react';
+import { Table, Tag, Select, Card, Statistic, Row, Col, Button, Popconfirm, Space, Modal, Form, Input } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useRouter } from 'next/navigation';
-import { DeleteOutlined, ReloadOutlined, RedoOutlined, StopOutlined } from '@ant-design/icons';
-import { createBackendClient, tokenStorage, type Task } from '@/lib/api/backend';
+import { DeleteOutlined, ReloadOutlined, RedoOutlined, StopOutlined, PlusOutlined } from '@ant-design/icons';
+import { createBackendClient, tokenStorage, type Task, type BrowserAccount } from '@/lib/api/backend';
 import { useAuth } from '@/contexts/AuthContext';
 import Loading from '@/components/common/Loading';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import { message } from 'antd';
 import { maskEmail } from '@/utils/maskEmail';
+
+const BROWSER_SCENARIOS: Record<string, { value: string; label: string }[]> = {
+  instagram: [
+    { value: 'check_auth',  label: 'Check Auth' },
+    { value: 'browse_feed', label: 'Browse Feed' },
+    { value: 'like_post',   label: 'Like Post' },
+  ],
+  youtube: [
+    { value: 'watch_and_like', label: 'Watch & Like' },
+  ],
+};
 
 export default function QueuePage() {
   const { user } = useAuth();
@@ -39,6 +50,60 @@ export default function QueuePage() {
     completed: 0,
     failed: 0,
   });
+
+  // Browser task modal
+  const [browserModalOpen, setBrowserModalOpen] = useState(false);
+  const [browserForm] = Form.useForm();
+  const [browserAccounts, setBrowserAccounts] = useState<BrowserAccount[]>([]);
+  const [addingBrowserTask, setAddingBrowserTask] = useState(false);
+  const selectedPlatform = Form.useWatch('platform', browserForm);
+
+  const getClient = useCallback(() => {
+    const token = tokenStorage.get();
+    if (!token) throw new Error('No token');
+    return createBackendClient(token);
+  }, []);
+
+  const loadBrowserAccounts = async () => {
+    try {
+      const accounts = await getClient().getAdminBrowserAccounts({ status: 'active' });
+      setBrowserAccounts(accounts);
+    } catch {}
+  };
+
+  const handleAddBrowserTask = async () => {
+    let values: any;
+    try { values = await browserForm.validateFields(); } catch { return; }
+    let scenarioParams: any = {};
+    if (values.params_json) {
+      try { scenarioParams = JSON.parse(values.params_json); } catch {
+        message.error('Invalid JSON in params');
+        return;
+      }
+    }
+    try {
+      setAddingBrowserTask(true);
+      await getClient().addTask({
+        platform: 'browser',
+        action: 'run_scenario',
+        params: {
+          browser_account_id: values.account_id,
+          service: values.platform,
+          scenario: values.scenario,
+          scenarioParams,
+        },
+        priority: values.priority ?? 5,
+      });
+      message.success('Browser task added to queue');
+      setBrowserModalOpen(false);
+      browserForm.resetFields();
+      fetchTasks();
+    } catch (err: any) {
+      message.error(err.message || 'Failed to add task');
+    } finally {
+      setAddingBrowserTask(false);
+    }
+  };
 
   const fetchTasks = async (
     page = 1,
@@ -391,13 +456,22 @@ export default function QueuePage() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <h1 style={{ margin: 0 }}>Task Queue</h1>
-        <Button
-          icon={<ReloadOutlined />}
-          onClick={() => fetchTasks(pagination.current)}
-          loading={loading}
-        >
-          Refresh
-        </Button>
+        <Space>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => { loadBrowserAccounts(); setBrowserModalOpen(true); }}
+          >
+            Browser Task
+          </Button>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={() => fetchTasks(pagination.current)}
+            loading={loading}
+          >
+            Refresh
+          </Button>
+        </Space>
       </div>
 
       <Row gutter={16} style={{ marginBottom: 24 }}>
@@ -592,6 +666,57 @@ export default function QueuePage() {
           ),
         }}
       />
+
+      {/* Browser Task Modal */}
+      <Modal
+        title={<Space><PlusOutlined /><span>Add Browser Task</span></Space>}
+        open={browserModalOpen}
+        onCancel={() => { setBrowserModalOpen(false); browserForm.resetFields(); }}
+        onOk={handleAddBrowserTask}
+        confirmLoading={addingBrowserTask}
+        okText="Add to Queue"
+        width={500}
+        destroyOnClose
+      >
+        <Form form={browserForm} layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item name="platform" label="Platform" rules={[{ required: true }]}>
+            <Select
+              placeholder="Select platform"
+              onChange={() => browserForm.setFieldValue('scenario', undefined)}
+              options={[
+                { value: 'instagram', label: 'Instagram' },
+                { value: 'youtube',   label: 'YouTube' },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item name="account_id" label="Account" rules={[{ required: true }]}>
+            <Select
+              placeholder="Select browser account"
+              showSearch
+              optionFilterProp="label"
+              options={browserAccounts
+                .filter(a => !selectedPlatform || a.platform === selectedPlatform)
+                .map(a => ({
+                  value: a.id,
+                  label: `${a.platform} / ${a.username}`,
+                }))}
+            />
+          </Form.Item>
+          <Form.Item name="scenario" label="Scenario" rules={[{ required: true }]}>
+            <Select
+              placeholder="Select scenario"
+              options={BROWSER_SCENARIOS[selectedPlatform] || []}
+              disabled={!selectedPlatform}
+            />
+          </Form.Item>
+          <Form.Item name="params_json" label="Params (JSON, optional)" extra='e.g. {"url":"https://youtu.be/...","watchSeconds":30}'>
+            <Input.TextArea rows={3} placeholder="{}" style={{ fontFamily: 'monospace', fontSize: 12 }} />
+          </Form.Item>
+          <Form.Item name="priority" label="Priority" initialValue={5}>
+            <Select options={[{ value: 10, label: '10 — High' }, { value: 5, label: '5 — Normal' }, { value: 1, label: '1 — Low' }]} />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 }

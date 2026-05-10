@@ -17,13 +17,24 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import Loading from '@/components/common/Loading';
 
+const PLATFORM_SCENARIOS: Record<string, { value: string; label: string }[]> = {
+  instagram: [
+    { value: 'check_auth',  label: 'Check Auth — перевірити авторизацію' },
+    { value: 'browse_feed', label: 'Browse Feed — прокрутити стрічку' },
+    { value: 'like_post',   label: 'Like Post — лайкнути пост (url в params)' },
+  ],
+  youtube: [
+    { value: 'watch_and_like', label: 'Watch & Like — переглянути відео і лайкнути' },
+  ],
+};
+
 const PLATFORMS = [
   { value: 'instagram', label: 'Instagram' },
-  { value: 'twitter', label: 'Twitter / X' },
-  { value: 'tiktok', label: 'TikTok' },
-  { value: 'facebook', label: 'Facebook' },
-  { value: 'youtube', label: 'YouTube' },
-  { value: 'linkedin', label: 'LinkedIn' },
+  { value: 'youtube',   label: 'YouTube' },
+  { value: 'twitter',   label: 'Twitter / X' },
+  { value: 'tiktok',    label: 'TikTok' },
+  { value: 'facebook',  label: 'Facebook' },
+  { value: 'linkedin',  label: 'LinkedIn' },
 ];
 
 const STATUS_COLORS: Record<string, string> = { active: 'success', blocked: 'error', expired: 'warning' };
@@ -506,10 +517,13 @@ export default function BrowserAccountsPage() {
       >
         <Form form={scenarioForm} layout="vertical">
           <Form.Item name="scenario" label="Scenario" rules={[{ required: true }]} extra={`Platform: ${scenarioAccount?.platform}`}>
-            <Input placeholder="e.g. post, like, follow, scrape" />
+            <Select
+              placeholder="Select scenario"
+              options={PLATFORM_SCENARIOS[scenarioAccount?.platform || ''] || []}
+            />
           </Form.Item>
-          <Form.Item name="params_json" label="Params (JSON, optional)">
-            <Input.TextArea rows={4} placeholder={'{\n  "url": "https://...",\n  "count": 10\n}'} style={{ fontFamily: 'monospace', fontSize: 12 }} />
+          <Form.Item name="params_json" label="Params (JSON, optional)" extra="Leave empty if no params needed">
+            <Input.TextArea rows={4} placeholder={'{\n  "url": "https://www.instagram.com/p/...",\n  "scrolls": 5\n}'} style={{ fontFamily: 'monospace', fontSize: 12 }} />
           </Form.Item>
           <Form.Item name="priority" label="Priority" initialValue={5}>
             <Select options={[{ value: 10, label: '10 — High' }, { value: 5, label: '5 — Normal' }, { value: 1, label: '1 — Low' }]} />
