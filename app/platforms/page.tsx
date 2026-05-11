@@ -1,17 +1,19 @@
 'use client';
 
-import { Card, Button, Space, App } from 'antd';
+import { Card, Button, Space, App, Tag, Tooltip } from 'antd';
 import { useRouter } from 'next/navigation';
-import { 
-  FileTextOutlined, 
-  LoginOutlined, 
-  HistoryOutlined, 
+import {
+  FileTextOutlined,
+  LoginOutlined,
+  HistoryOutlined,
   HeartOutlined,
   LikeOutlined,
   PlayCircleOutlined,
   CommentOutlined,
   EyeOutlined,
-  UserAddOutlined
+  UserAddOutlined,
+  AndroidOutlined,
+  GlobalOutlined,
 } from '@ant-design/icons';
 import { createBackendClient, tokenStorage } from '@/lib/api/backend';
 import { useState, useEffect } from 'react';
@@ -19,11 +21,33 @@ import { prefetchTaskFormData } from '@/lib/cache/task-form-cache';
 import { useAuth } from '@/contexts/AuthContext';
 import { canAny } from '@/lib/auth/permissions';
 
+type SupportMatrix = Record<string, Record<string, { android: boolean; browser: boolean }>>;
+
+function AgentTags({ platform, scenario, matrix }: { platform: string; scenario: string; matrix: SupportMatrix }) {
+  const support = matrix[platform]?.[scenario];
+  if (!support) return null;
+  return (
+    <span style={{ marginLeft: 6 }}>
+      {support.android && (
+        <Tooltip title="Android agent">
+          <Tag icon={<AndroidOutlined />} color="green" style={{ marginRight: 2 }}>Android</Tag>
+        </Tooltip>
+      )}
+      {support.browser && (
+        <Tooltip title="Browser agent">
+          <Tag icon={<GlobalOutlined />} color="blue" style={{ marginRight: 0 }}>Browser</Tag>
+        </Tooltip>
+      )}
+    </span>
+  );
+}
+
 export default function PlatformsPage() {
   const { message } = App.useApp();
   const router = useRouter();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [supportMatrix, setSupportMatrix] = useState<SupportMatrix>({});
   const permissions = (user as any)?.permissions ?? [];
 
   const canUsePlatform = (platform: 'instagram' | 'tiktok' | 'youtube' | 'facebook' | 'twitter') => {
@@ -56,6 +80,13 @@ export default function PlatformsPage() {
 
   useEffect(() => {
     prefetchTaskFormData('instagram');
+
+    const token = tokenStorage.get();
+    if (!token) return;
+    const client = createBackendClient(token);
+    client.getAllPlatformsSupportMatrix()
+      .then(setSupportMatrix)
+      .catch(() => {});
   }, []);
 
   const handleCheckPosts = async () => {
@@ -142,21 +173,21 @@ export default function PlatformsPage() {
             onMouseEnter={() => prefetchTaskFormData('instagram')}
             onClick={() => router.push('/platforms/instagram/post')}
           >
-            Publish Post (post)
+            Publish Post (post)<AgentTags platform="instagram" scenario="post" matrix={supportMatrix} />
           </Button>
           <Button
             size="large"
             icon={<EyeOutlined />}
             onClick={() => router.push('/platforms/instagram/view')}
           >
-            View Post
+            View Post<AgentTags platform="instagram" scenario="view" matrix={supportMatrix} />
           </Button>
           <Button
             size="large"
             icon={<HeartOutlined />}
             onClick={() => router.push('/platforms/instagram/viewAndLike')}
           >
-            View and Like Post
+            View and Like Post<AgentTags platform="instagram" scenario="viewAndLike" matrix={supportMatrix} />
           </Button>
           <Button
             size="large"
@@ -223,14 +254,14 @@ export default function PlatformsPage() {
             icon={<EyeOutlined />}
             onClick={() => router.push('/platforms/tiktok/view')}
           >
-            View Video (view)
+            View Video (view)<AgentTags platform="tiktok" scenario="view" matrix={supportMatrix} />
           </Button>
           <Button
             size="large"
             icon={<HeartOutlined />}
             onClick={() => router.push('/platforms/tiktok/viewAndLike')}
           >
-            View and Like Video (viewAndLike)
+            View and Like Video (viewAndLike)<AgentTags platform="tiktok" scenario="viewAndLike" matrix={supportMatrix} />
           </Button>
           <Button
             size="large"
@@ -296,28 +327,28 @@ export default function PlatformsPage() {
             icon={<PlayCircleOutlined />}
             onClick={() => router.push('/platforms/youtube/search')}
           >
-            Perform Search (search)
+            Perform Search (search)<AgentTags platform="youtube" scenario="search" matrix={supportMatrix} />
           </Button>
           <Button
             size="large"
             icon={<EyeOutlined />}
             onClick={() => router.push('/platforms/youtube/view')}
           >
-            Watch Video
+            Watch Video<AgentTags platform="youtube" scenario="view" matrix={supportMatrix} />
           </Button>
           <Button
             size="large"
             icon={<LikeOutlined />}
             onClick={() => router.push('/platforms/youtube/viewAndLike')}
           >
-            View and Like
+            View and Like<AgentTags platform="youtube" scenario="viewAndLike" matrix={supportMatrix} />
           </Button>
           <Button
             size="large"
             icon={<FileTextOutlined />}
             onClick={() => router.push('/platforms/youtube/post')}
           >
-            Post
+            Post<AgentTags platform="youtube" scenario="post" matrix={supportMatrix} />
           </Button>
           <Button
             size="large"

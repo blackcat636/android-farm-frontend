@@ -52,6 +52,20 @@ export default function BrowserSessionsPage() {
   const [cookiesForm] = Form.useForm();
   const [scriptForm] = Form.useForm();
 
+  const [markingAuthIds, setMarkingAuthIds] = useState<Set<string>>(new Set());
+
+  const handleSetAuthStatus = async (id: string, authStatus: 'none' | 'authenticated' | 'auth_failed') => {
+    setMarkingAuthIds(prev => new Set(prev).add(id));
+    try {
+      await getClient().setBrowserSessionAuthStatus(id, authStatus);
+      await fetchSessions();
+    } catch (err: any) {
+      message.error(err.message || 'Failed to update auth status');
+    } finally {
+      setMarkingAuthIds(prev => { const s = new Set(prev); s.delete(id); return s; });
+    }
+  };
+
   // 2FA modal state
   const [twoFaSession, setTwoFaSession] = useState<BrowserSession | null>(null);
   const [twoFaCode, setTwoFaCode] = useState('');
@@ -278,9 +292,9 @@ export default function BrowserSessionsPage() {
     {
       title: 'Actions',
       key: 'actions',
-      width: 150,
+      width: 200,
       render: (_, record) => (
-        <Space>
+        <Space wrap>
           <Button
             size="small"
             icon={<KeyOutlined />}
@@ -289,6 +303,31 @@ export default function BrowserSessionsPage() {
           >
             Auth
           </Button>
+          {record.auth_status !== 'authenticated' ? (
+            <Tooltip title="Mark as authenticated (e.g. after manual VNC login)">
+              <Button
+                size="small"
+                type="link"
+                style={{ color: '#52c41a', padding: '0 4px' }}
+                loading={markingAuthIds.has(record.id)}
+                onClick={() => handleSetAuthStatus(record.id, 'authenticated')}
+              >
+                ✓ Mark Auth
+              </Button>
+            </Tooltip>
+          ) : (
+            <Tooltip title="Reset auth status to none">
+              <Button
+                size="small"
+                type="link"
+                style={{ color: '#8c8c8c', padding: '0 4px' }}
+                loading={markingAuthIds.has(record.id)}
+                onClick={() => handleSetAuthStatus(record.id, 'none')}
+              >
+                Reset Auth
+              </Button>
+            </Tooltip>
+          )}
           <Popconfirm
             title="Stop this session?"
             onConfirm={() => handleStop(record.id)}

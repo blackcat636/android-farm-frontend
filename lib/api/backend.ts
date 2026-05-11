@@ -704,6 +704,13 @@ export function createBackendClient(token: string) {
       return response.data;
     },
 
+    async getAllPlatformsSupportMatrix(): Promise<
+      Record<string, Record<string, { android: boolean; browser: boolean }>>
+    > {
+      const response = await api.get('/api/proxy/platforms/all');
+      return response.data;
+    },
+
     async getPlatformActions(agentId: string, platform: string): Promise<any> {
       const response = await api.get(`/api/proxy/${agentId}/platforms/${platform}`);
       return response.data;
@@ -1429,6 +1436,17 @@ export function createBackendClient(token: string) {
 
       async submitBrowserSession2fa(id: string, code: string): Promise<{ message: string }> {
         const response = await api.post(`/api/browser-sessions/${id}/auth/2fa`, { code });
+        return response.data;
+      },
+
+      async setBrowserSessionAuthStatus(
+        id: string,
+        authStatus: 'none' | 'authenticated' | 'auth_failed',
+      ): Promise<BrowserSession> {
+        const response = await api.patch<BrowserSession>(
+          `/api/browser-sessions/${id}/auth-status`,
+          { auth_status: authStatus },
+        );
         return response.data;
       },
 
