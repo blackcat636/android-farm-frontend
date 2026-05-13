@@ -56,6 +56,10 @@ const AUTH_BADGE: Record<string, { color: string; text: string }> = {
   auth_failed:  { color: 'red',     text: 'auth fail' },
 };
 
+function normalizeBrowserType(v: unknown): 'chrome' | 'camoufox' {
+  return v === 'camoufox' ? 'camoufox' : 'chrome';
+}
+
 export default function BrowserAccountsPage() {
   const { user } = useAuth();
   const [accounts, setAccounts] = useState<BrowserAccount[]>([]);
@@ -76,7 +80,7 @@ export default function BrowserAccountsPage() {
   const [modalTab, setModalTab] = useState<'script' | 'cookies'>('script');
   const [saving, setSaving] = useState(false);
   const [showSecrets, setShowSecrets] = useState(false);
-  const [formBrowserType, setFormBrowserType] = useState<string>('chrome');
+  const [formBrowserType, setFormBrowserType] = useState<'chrome' | 'camoufox'>('chrome');
   const [scriptForm] = Form.useForm();
   const [cookiesForm] = Form.useForm();
 
@@ -205,7 +209,7 @@ export default function BrowserAccountsPage() {
     setEditingAccount(account);
     setModalTab(account.auth_type);
     setShowSecrets(false);
-    const bt = (account as any).browser_type || 'chrome';
+    const bt = normalizeBrowserType((account as any).browser_type);
     setFormBrowserType(bt);
     const sharedVals = {
       platform: account.platform,
@@ -232,7 +236,7 @@ export default function BrowserAccountsPage() {
     try { values = await form.validateFields(); } catch { return; }
 
     let dto: CreateBrowserAccountDto = { ...values, auth_type: modalTab };
-    dto.browser_type = (values.browser_type as string) || formBrowserType || 'chrome';
+    dto.browser_type = normalizeBrowserType(values.browser_type ?? formBrowserType);
     if (modalTab === 'cookies') {
       try {
         dto.cookies = JSON.parse(values.cookies);
@@ -549,7 +553,7 @@ export default function BrowserAccountsPage() {
             ];
             const partial = fromForm.getFieldsValue(syncFields as any);
             toForm.setFieldsValue(partial);
-            setFormBrowserType((partial.browser_type as string) || 'chrome');
+            setFormBrowserType(normalizeBrowserType(partial.browser_type));
             setModalTab(next);
           }}
           items={[
