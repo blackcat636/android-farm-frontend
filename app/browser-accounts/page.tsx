@@ -530,7 +530,23 @@ export default function BrowserAccountsPage() {
       >
         <Tabs
           activeKey={modalTab}
-          onChange={key => { if (!editingAccount) setModalTab(key as 'script' | 'cookies'); }}
+          onChange={(key) => {
+            if (editingAccount) return;
+            const next = key as 'script' | 'cookies';
+            // Два окремі Form: при перемиканні вкладки синхронізуємо спільні поля,
+            // інакше browser_type залишиться chrome у неактивній формі → сесія завжди Chromium.
+            const fromForm = modalTab === 'script' ? scriptForm : cookiesForm;
+            const toForm = next === 'script' ? scriptForm : cookiesForm;
+            const syncFields = [
+              'platform', 'username', 'notes',
+              'browser_type', 'camoufox_os', 'camoufox_locale',
+              'camoufox_fingerprint_preset', 'camoufox_humanize',
+            ];
+            const partial = fromForm.getFieldsValue(syncFields as any);
+            toForm.setFieldsValue(partial);
+            setFormBrowserType((partial.browser_type as string) || 'chrome');
+            setModalTab(next);
+          }}
           items={[
             {
               key: 'script',
