@@ -198,7 +198,7 @@ export default function BrowserSessionsPage() {
   const stats = {
     total: sessions.length,
     running: sessions.filter(s => s.status === 'running').length,
-    pending: sessions.filter(s => s.status === 'pending' || s.status === 'starting').length,
+    pending: sessions.filter(s => ['pending', 'starting', 'stopping'].includes(s.status)).length,
     error: sessions.filter(s => s.status === 'error').length,
   };
 
@@ -216,7 +216,7 @@ export default function BrowserSessionsPage() {
       key: 'status',
       width: 110,
       render: (status: string) => <Tag color={STATUS_COLORS[status] || 'default'}>{status}</Tag>,
-      filters: ['pending', 'running', 'stopped', 'error'].map(s => ({ text: s, value: s })),
+      filters: ['pending', 'starting', 'running', 'stopping', 'stopped', 'error'].map(s => ({ text: s, value: s })),
       onFilter: (value, record) => record.status === value,
     },
     {
@@ -369,7 +369,7 @@ export default function BrowserSessionsPage() {
           <Card><Statistic title="Running" value={stats.running} valueStyle={{ color: '#52c41a' }} /></Card>
         </Col>
         <Col span={6}>
-          <Card><Statistic title="Pending / Starting" value={stats.pending} valueStyle={{ color: '#faad14' }} /></Card>
+          <Card><Statistic title="Pending / Starting / Stopping" value={stats.pending} valueStyle={{ color: '#faad14' }} /></Card>
         </Col>
         <Col span={6}>
           <Card><Statistic title="Error" value={stats.error} valueStyle={{ color: '#ff4d4f' }} /></Card>

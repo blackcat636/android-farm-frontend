@@ -129,11 +129,12 @@ export default function BrowserAccountsPage() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  // Auto-refresh every 10s if any session is in active state
+  // Auto-refresh поки є незавершена сесія (включно з running + authenticated і stopping)
   useEffect(() => {
-    const hasActive = sessions.some(s => ['pending', 'starting', 'running'].includes(s.status) &&
-      s.auth_status !== 'authenticated');
-    if (!hasActive) return;
+    const needsPoll = sessions.some(s =>
+      ['pending', 'starting', 'running', 'stopping'].includes(s.status),
+    );
+    if (!needsPoll) return;
     const timer = setInterval(fetchAll, 10000);
     return () => clearInterval(timer);
   }, [sessions, fetchAll]);
@@ -231,7 +232,7 @@ export default function BrowserAccountsPage() {
     try { values = await form.validateFields(); } catch { return; }
 
     let dto: CreateBrowserAccountDto = { ...values, auth_type: modalTab };
-    if (!dto.browser_type) dto.browser_type = 'chrome';
+    dto.browser_type = (values.browser_type as string) || formBrowserType || 'chrome';
     if (modalTab === 'cookies') {
       try {
         dto.cookies = JSON.parse(values.cookies);
@@ -240,6 +241,10 @@ export default function BrowserAccountsPage() {
         message.error('Invalid JSON — cookies must be an array');
         return;
       }
+    }
+    if (editingAccount && modalTab === 'script') {
+      if (!values.password?.trim?.()) delete (dto as any).password;
+      if (!values.two_factor_secret?.trim?.()) delete (dto as any).two_factor_secret;
     }
     try {
       setSaving(true);
