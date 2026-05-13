@@ -649,9 +649,10 @@ export default function BrowserAccountsPage() {
         {vncSession?.vnc_url && (
           <iframe
             ref={iframeRef}
+            title="noVNC"
             src={buildVncUrl(vncSession.vnc_url)}
             style={{ width: '100%', height: '75vh', border: 'none', display: 'block' }}
-            allow="clipboard-read; clipboard-write"
+            allow="fullscreen; clipboard-read; clipboard-write"
           />
         )}
       </Modal>
