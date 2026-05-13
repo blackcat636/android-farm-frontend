@@ -53,7 +53,7 @@ function MediaValue({ value }: { value: unknown }) {
 
   if (IMAGE_EXT.test(value)) {
     return (
-      <Space direction="vertical" size={4}>
+      <Space vertical size={4}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={value} alt="preview" style={{ maxWidth: '100%', maxHeight: 320, borderRadius: 4, objectFit: 'contain' }} />
         <a href={value} target="_blank" rel="noreferrer" style={{ fontSize: 11 }}>{value}</a>
@@ -63,7 +63,7 @@ function MediaValue({ value }: { value: unknown }) {
 
   if (VIDEO_EXT.test(value)) {
     return (
-      <Space direction="vertical" size={4}>
+      <Space vertical size={4}>
         <video src={value} controls style={{ maxWidth: '100%', maxHeight: 320, borderRadius: 4 }} />
         <a href={value} target="_blank" rel="noreferrer" style={{ fontSize: 11 }}>{value}</a>
       </Space>
@@ -78,7 +78,7 @@ function PayloadBlock({ kind, payload }: { kind: string; payload: Record<string,
     const params = (payload.params as Record<string, unknown>) ?? {};
     const entries = Object.entries(params);
     return (
-      <Space direction="vertical" style={{ width: '100%' }}>
+      <Space vertical style={{ width: '100%' }}>
         <Descriptions bordered size="small" column={1}>
           {payload.platform != null && (
             <Descriptions.Item label="Platform">{String(payload.platform)}</Descriptions.Item>
@@ -216,7 +216,7 @@ export default function ModerationDetailPage() {
         </Button>
       </Space>
 
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
+      <Space vertical size="large" style={{ width: '100%' }}>
         {/* Main info */}
         <Card>
           <Descriptions bordered size="small" column={2}>
@@ -273,7 +273,7 @@ export default function ModerationDetailPage() {
         {/* Actions */}
         {canReview && (
           <Card title="Actions">
-            <Space direction="vertical" style={{ width: '100%' }}>
+            <Space vertical style={{ width: '100%' }}>
               <Input.TextArea
                 placeholder="Review note (optional)"
                 value={note}

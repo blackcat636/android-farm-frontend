@@ -1830,6 +1830,11 @@ export interface BrowserAccount {
   user_agent?: string;
   verify_url?: string;
   notes?: string;
+  browser_type?: 'chrome' | 'camoufox';
+  camoufox_os?: 'windows' | 'macos' | 'linux';
+  camoufox_locale?: string;
+  camoufox_fingerprint_preset?: boolean;
+  camoufox_humanize?: boolean;
   created_at: string;
   updated_at?: string;
 }
@@ -1844,6 +1849,11 @@ export interface CreateBrowserAccountDto {
   user_agent?: string;
   verify_url?: string;
   notes?: string;
+  browser_type?: 'chrome' | 'camoufox';
+  camoufox_os?: 'windows' | 'macos' | 'linux';
+  camoufox_locale?: string;
+  camoufox_fingerprint_preset?: boolean;
+  camoufox_humanize?: boolean;
 }
 
 // Зберігання токенів

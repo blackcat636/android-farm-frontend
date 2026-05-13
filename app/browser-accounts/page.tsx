@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Table, Tag, Button, Space, Popconfirm, Tooltip, Card, message,
-  Modal, Form, Input, Select, Tabs, Badge,
+  Modal, Form, Input, Select, Tabs, Badge, Switch, Divider,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -76,6 +76,7 @@ export default function BrowserAccountsPage() {
   const [modalTab, setModalTab] = useState<'script' | 'cookies'>('script');
   const [saving, setSaving] = useState(false);
   const [showSecrets, setShowSecrets] = useState(false);
+  const [formBrowserType, setFormBrowserType] = useState<string>('chrome');
   const [scriptForm] = Form.useForm();
   const [cookiesForm] = Form.useForm();
 
@@ -185,19 +186,41 @@ export default function BrowserAccountsPage() {
     setEditingAccount(null);
     setModalTab('script');
     setShowSecrets(false);
+    setFormBrowserType('chrome');
     scriptForm.resetFields();
     cookiesForm.resetFields();
     setModalOpen(true);
+  };
+
+  const camoufoxDefaults = {
+    browser_type: 'chrome',
+    camoufox_os: 'windows',
+    camoufox_locale: '',
+    camoufox_fingerprint_preset: false,
+    camoufox_humanize: true,
   };
 
   const openEdit = (account: BrowserAccount) => {
     setEditingAccount(account);
     setModalTab(account.auth_type);
     setShowSecrets(false);
+    const bt = (account as any).browser_type || 'chrome';
+    setFormBrowserType(bt);
+    const sharedVals = {
+      platform: account.platform,
+      username: account.username,
+      status: account.status,
+      notes: account.notes || '',
+      browser_type: bt,
+      camoufox_os: (account as any).camoufox_os || 'windows',
+      camoufox_locale: (account as any).camoufox_locale || '',
+      camoufox_fingerprint_preset: (account as any).camoufox_fingerprint_preset ?? false,
+      camoufox_humanize: (account as any).camoufox_humanize ?? true,
+    };
     if (account.auth_type === 'script') {
-      scriptForm.setFieldsValue({ platform: account.platform, username: account.username, status: account.status, password: account.password || '', two_factor_secret: account.two_factor_secret || '', notes: account.notes || '' });
+      scriptForm.setFieldsValue({ ...sharedVals, password: account.password || '', two_factor_secret: account.two_factor_secret || '' });
     } else {
-      cookiesForm.setFieldsValue({ platform: account.platform, username: account.username, status: account.status, cookies: account.cookies ? JSON.stringify(account.cookies, null, 2) : '', user_agent: account.user_agent || '', verify_url: account.verify_url || '', notes: account.notes || '' });
+      cookiesForm.setFieldsValue({ ...sharedVals, cookies: account.cookies ? JSON.stringify(account.cookies, null, 2) : '', user_agent: account.user_agent || '', verify_url: account.verify_url || '' });
     }
     setModalOpen(true);
   };
@@ -208,6 +231,7 @@ export default function BrowserAccountsPage() {
     try { values = await form.validateFields(); } catch { return; }
 
     let dto: CreateBrowserAccountDto = { ...values, auth_type: modalTab };
+    if (!dto.browser_type) dto.browser_type = 'chrome';
     if (modalTab === 'cookies') {
       try {
         dto.cookies = JSON.parse(values.cookies);
@@ -306,6 +330,16 @@ export default function BrowserAccountsPage() {
       render: (v: string) => <Tag color={AUTH_TYPE_COLORS[v]}>{v}</Tag>,
     },
     {
+      title: 'Browser',
+      dataIndex: 'browser_type',
+      key: 'browser_type',
+      width: 100,
+      render: (v: string) => {
+        const bt = v || 'chrome';
+        return <Tag color={bt === 'camoufox' ? 'green' : 'blue'}>{bt}</Tag>;
+      },
+    },
+    {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
@@ -331,7 +365,7 @@ export default function BrowserAccountsPage() {
         const ab = session.auth_status ? AUTH_BADGE[session.auth_status] : null;
 
         return (
-          <Space direction="vertical" size={2}>
+          <Space vertical size={2}>
             <Badge status={sb.status} text={<span style={{ fontSize: 12 }}>{sb.text}</span>} />
             {ab && <Tag color={ab.color} style={{ fontSize: 11, margin: 0 }}>{ab.text}</Tag>}
           </Space>
@@ -427,6 +461,39 @@ export default function BrowserAccountsPage() {
       <Form.Item name="notes" label="Notes">
         <Input.TextArea rows={2} placeholder="Optional notes" />
       </Form.Item>
+
+      <Divider style={{ margin: '12px 0' }} />
+
+      <Form.Item name="browser_type" label="Browser" initialValue="chrome">
+        <Select
+          options={[
+            { value: 'chrome', label: 'Chrome (CDP)' },
+            { value: 'camoufox', label: 'Camoufox (Anti-detect Firefox)' },
+          ]}
+          onChange={(v) => setFormBrowserType(v)}
+        />
+      </Form.Item>
+
+      {formBrowserType === 'camoufox' && (
+        <>
+          <Form.Item name="camoufox_os" label="OS" initialValue="windows" extra="Determines UA, fonts, and platform-specific fingerprint">
+            <Select options={[
+              { value: 'windows', label: 'Windows' },
+              { value: 'macos',   label: 'macOS' },
+              { value: 'linux',   label: 'Linux' },
+            ]} />
+          </Form.Item>
+          <Form.Item name="camoufox_locale" label="Locale (optional)" extra="e.g. en-US, uk-UA — auto-detected from proxy IP if left empty">
+            <Input placeholder="en-US" />
+          </Form.Item>
+          <Form.Item name="camoufox_fingerprint_preset" label="Fingerprint Preset" valuePropName="checked" initialValue={false} extra="Use a real Firefox fingerprint from traffic dataset (312 presets)">
+            <Switch />
+          </Form.Item>
+          <Form.Item name="camoufox_humanize" label="Human Mouse" valuePropName="checked" initialValue={true} extra="Natural curved mouse movement at C++ level">
+            <Switch />
+          </Form.Item>
+        </>
+      )}
     </>
   );
 
@@ -459,7 +526,7 @@ export default function BrowserAccountsPage() {
         confirmLoading={saving}
         okText={editingAccount ? 'Save' : 'Create'}
         width={560}
-        destroyOnClose
+        destroyOnHidden
       >
         <Tabs
           activeKey={modalTab}
@@ -513,7 +580,7 @@ export default function BrowserAccountsPage() {
         confirmLoading={runningSc}
         okText="Run"
         width={480}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={scenarioForm} layout="vertical">
           <Form.Item name="scenario" label="Scenario" rules={[{ required: true }]} extra={`Platform: ${scenarioAccount?.platform}`}>
@@ -552,7 +619,7 @@ export default function BrowserAccountsPage() {
         width="90vw"
         style={{ top: 20 }}
         styles={{ body: { padding: 0 } }}
-        destroyOnClose
+        destroyOnHidden
       >
         {vncSession?.vnc_url && (
           <iframe

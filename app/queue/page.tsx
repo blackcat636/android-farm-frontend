@@ -675,7 +675,7 @@ export default function QueuePage() {
         confirmLoading={addingBrowserTask}
         okText="Add to Queue"
         width={500}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={browserForm} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item name="platform" label="Platform" rules={[{ required: true }]}>

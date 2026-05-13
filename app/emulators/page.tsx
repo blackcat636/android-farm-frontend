@@ -494,7 +494,7 @@ export default function EmulatorsPage() {
                   </Tooltip>
                 </div>
                 {Object.keys(agentErrors).length > 0 && (
-                  <Space direction="vertical" style={{ width: '100%', marginBottom: 16 }}>
+                  <Space vertical style={{ width: '100%', marginBottom: 16 }}>
                     {Object.entries(agentErrors).map(([agentId, errorMsg]) => (
                       <Alert
                         key={agentId}
@@ -583,7 +583,7 @@ export default function EmulatorsPage() {
         confirmLoading={cloneLoading}
         okText="Клонувати"
       >
-        <Space direction="vertical" style={{ width: '100%' }}>
+        <Space vertical style={{ width: '100%' }}>
           <div>
             <span style={{ marginRight: 8 }}>Шаблон:</span>
             <Select
@@ -621,7 +621,7 @@ export default function EmulatorsPage() {
         okButtonProps={{ danger: true }}
       >
         {deleteTarget && (
-          <Space direction="vertical" style={{ width: '100%' }} size="middle">
+          <Space vertical style={{ width: '100%' }} size="middle">
             <p>
               Видалити емулятор <strong>{deleteTarget.emulator_name || deleteTarget.emulator_id}</strong>?
               ВМ буде видалено з MEmu. Спочатку видаліть прив&apos;язки, якщо є.

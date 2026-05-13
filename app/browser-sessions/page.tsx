@@ -225,7 +225,7 @@ export default function BrowserSessionsPage() {
       key: 'auth_status',
       width: 130,
       render: (authStatus: string, record: BrowserSession) => (
-        <Space direction="vertical" size={2}>
+        <Space vertical size={2}>
           <Tag color={AUTH_STATUS_COLORS[authStatus] || 'default'}>{authStatus || 'none'}</Tag>
           {record.auth_service && (
             <span style={{ fontSize: 11, color: '#888' }}>{record.auth_service}</span>
@@ -392,7 +392,7 @@ export default function BrowserSessionsPage() {
         onCancel={() => { setAuthSession(null); cookiesForm.resetFields(); scriptForm.resetFields(); }}
         footer={null}
         width={560}
-        destroyOnClose
+        destroyOnHidden
       >
         <Tabs
           activeKey={authTab}

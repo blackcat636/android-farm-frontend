@@ -373,7 +373,7 @@ export default function AccessControlPage() {
               key: 'users',
               label: 'Users & Roles',
               children: (
-                <Space direction="vertical" style={{ width: '100%' }} size={16}>
+                <Space vertical style={{ width: '100%' }} size={16}>
                   <Row gutter={16}>
                     <Col span={6}>
                       <Card>
@@ -412,7 +412,7 @@ export default function AccessControlPage() {
               key: 'role-permissions',
               label: 'Role Permissions',
               children: (
-                <Space direction="vertical" style={{ width: '100%' }} size={16}>
+                <Space vertical style={{ width: '100%' }} size={16}>
                   <Card title="Додати / оновити право ролі">
                     <Form
                       form={roleForm}
@@ -458,9 +458,9 @@ export default function AccessControlPage() {
               key: 'user-overrides',
               label: 'User Overrides',
               children: (
-                <Space direction="vertical" style={{ width: '100%' }} size={16}>
+                <Space vertical style={{ width: '100%' }} size={16}>
                   <Card>
-                    <Space direction="vertical" style={{ width: '100%' }}>
+                    <Space vertical style={{ width: '100%' }}>
                       <Text strong>Оберіть користувача</Text>
                       <Select
                         showSearch
@@ -544,7 +544,7 @@ export default function AccessControlPage() {
                     {!effectivePermissions ? (
                       <Text type="secondary">Оберіть користувача, щоб побачити effective permissions.</Text>
                     ) : (
-                      <Space direction="vertical" style={{ width: '100%' }}>
+                      <Space vertical style={{ width: '100%' }}>
                         <Text>
                           Роль: <Tag color={ROLE_COLORS[effectivePermissions.role] || 'default'}>{effectivePermissions.role}</Tag>
                         </Text>
