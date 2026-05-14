@@ -2,13 +2,82 @@
 
 import { Layout, Menu, Drawer } from 'antd';
 import { usePathname, useRouter } from 'next/navigation';
-import { DashboardOutlined, AppstoreOutlined, MobileOutlined, HistoryOutlined, UnorderedListOutlined, UserOutlined, HeartOutlined, KeyOutlined, SafetyOutlined, StopOutlined, ApiOutlined, TeamOutlined, FileTextOutlined, CopyOutlined, SettingOutlined, CommentOutlined, ChromeOutlined, ClusterOutlined, ProfileOutlined } from '@ant-design/icons';
+import { DashboardOutlined, AppstoreOutlined, MobileOutlined, HistoryOutlined, UnorderedListOutlined, UserOutlined, HeartOutlined, KeyOutlined, SafetyOutlined, StopOutlined, ApiOutlined, TeamOutlined, FileTextOutlined, CopyOutlined, SettingOutlined, CommentOutlined, ChromeOutlined, ClusterOutlined, ProfileOutlined, AuditOutlined, LockOutlined, GlobalOutlined } from '@ant-design/icons';
 import AppHeader from './AppHeader';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
-import { useAuth } from '@/contexts/AuthContext';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 const { Sider, Content } = Layout;
+
+/** Longest-prefix first so `/accounts/comments` wins over `/accounts`. `"/"` is matched only exactly. */
+const MENU_LEAF_KEYS = [
+  '/user-post-clones',
+  '/accounts/comments',
+  '/browser-sessions',
+  '/browser-accounts',
+  '/browser-proxies',
+  '/browser-logs',
+  '/access-control',
+  '/proxy-providers',
+  '/user-posts',
+  '/moderation',
+  '/blacklist',
+  '/platforms',
+  '/emulators',
+  '/api-keys',
+  '/accounts',
+  '/history',
+  '/queue',
+  '/agents',
+  '/captcha',
+  '/posts',
+  '/users',
+  '/config',
+  '/',
+] as const;
+
+function getSelectedMenuKey(pathname: string): string {
+  for (const key of MENU_LEAF_KEYS) {
+    if (key === '/') {
+      if (pathname === '/') return '/';
+      continue;
+    }
+    if (pathname === key || pathname.startsWith(`${key}/`)) return key;
+  }
+  return pathname;
+}
+
+const MENU_GROUP_BY_LEAF: Record<string, string> = {
+  '/': 'grp-overview',
+  '/users': 'grp-overview',
+  '/access-control': 'grp-overview',
+  '/moderation': 'grp-security',
+  '/captcha': 'grp-security',
+  '/blacklist': 'grp-security',
+  '/platforms': 'grp-ops',
+  '/emulators': 'grp-ops',
+  '/agents': 'grp-ops',
+  '/queue': 'grp-ops',
+  '/history': 'grp-ops',
+  '/accounts': 'grp-content',
+  '/accounts/comments': 'grp-content',
+  '/posts': 'grp-content',
+  '/user-posts': 'grp-content',
+  '/user-post-clones': 'grp-content',
+  '/proxy-providers': 'grp-proxy',
+  '/api-keys': 'grp-proxy',
+  '/browser-sessions': 'grp-browser',
+  '/browser-accounts': 'grp-browser',
+  '/browser-proxies': 'grp-browser',
+  '/browser-logs': 'grp-browser',
+  '/config': 'grp-system',
+};
+
+function getAutoOpenMenuKeys(pathname: string): string[] {
+  const leaf = getSelectedMenuKey(pathname);
+  const g = MENU_GROUP_BY_LEAF[leaf];
+  return g ? [g] : [];
+}
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -17,10 +86,15 @@ interface AppLayoutProps {
 export default function AppLayout({ children }: AppLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user } = useAuth();
   const [isMobile, setIsMobile] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const pathnameAutoOpenKeys = useMemo(() => getAutoOpenMenuKeys(pathname), [pathname]);
+  const [userMenuOpenKeys, setUserMenuOpenKeys] = useState<string[]>([]);
+  const mergedMenuOpenKeys = useMemo(
+    () => [...new Set([...pathnameAutoOpenKeys, ...userMenuOpenKeys])],
+    [pathnameAutoOpenKeys, userMenuOpenKeys],
+  );
 
   // Публічні роути, які не потребують авторизації
   const publicRoutes = ['/login', '/register'];
@@ -40,125 +114,84 @@ export default function AppLayout({ children }: AppLayoutProps) {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const menuItems = [
-    {
-      key: '/',
-      icon: <DashboardOutlined />,
-      label: 'Dashboard',
-    },
-    {
-      key: '/users',
-      icon: <TeamOutlined />,
-      label: 'Users',
-    },
-    {
-      key: '/access-control',
-      icon: <SafetyOutlined />,
-      label: 'Access Control',
-    },
-    {
-      key: '/moderation',
-      icon: <SafetyOutlined />,
-      label: 'Moderation',
-    },
-    {
-      key: '/platforms',
-      icon: <AppstoreOutlined />,
-      label: 'Platforms',
-    },
-    {
-      key: '/emulators',
-      icon: <MobileOutlined />,
-      label: 'Emulators',
-    },
-    {
-      key: '/agents',
-      icon: <ClusterOutlined />,
-      label: 'Agents',
-    },
-    {
-      key: '/accounts',
-      icon: <UserOutlined />,
-      label: 'Accounts',
-    },
-    {
-      key: '/accounts/comments',
-      icon: <CommentOutlined />,
-      label: 'Acc. Comments',
-    },
-    {
-      key: '/queue',
-      icon: <UnorderedListOutlined />,
-      label: 'Queue',
-    },
-    {
-      key: '/captcha',
-      icon: <SafetyOutlined />,
-      label: 'Captcha',
-    },
-    {
-      key: '/history',
-      icon: <HistoryOutlined />,
-      label: 'History',
-    },
-    {
-      key: '/posts',
-      icon: <HeartOutlined />,
-      label: 'Posts & Likes',
-    },
-    {
-      key: '/user-posts',
-      icon: <FileTextOutlined />,
-      label: 'User Posts',
-    },
-    {
-      key: '/user-post-clones',
-      icon: <CopyOutlined />,
-      label: 'Post Clones',
-    },
-    {
-      key: '/proxy-providers',
-      icon: <ApiOutlined />,
-      label: 'Proxy Providers',
-    },
-    {
-      key: '/api-keys',
-      icon: <KeyOutlined />,
-      label: 'API Keys',
-    },
-    {
-      key: '/blacklist',
-      icon: <StopOutlined />,
-      label: 'Blacklist',
-    },
-    {
-      key: '/browser-sessions',
-      icon: <ChromeOutlined />,
-      label: 'Browser Sessions',
-    },
-    {
-      key: '/browser-accounts',
-      icon: <UserOutlined />,
-      label: 'Browser Accounts',
-    },
-    {
-      key: '/browser-proxies',
-      icon: <ApiOutlined />,
-      label: 'Browser Proxies',
-    },
-    {
-      key: '/browser-logs',
-      icon: <ProfileOutlined />,
-      label: 'Browser Logs',
-    },
-    {
-      key: '/config',
-      icon: <SettingOutlined />,
-      label: 'Config',
-    },
-  ];
+  const menuItems = useMemo(
+    () => [
+      {
+        key: 'grp-overview',
+        icon: <TeamOutlined />,
+        label: 'Overview & access',
+        children: [
+          { key: '/', icon: <DashboardOutlined />, label: 'Dashboard' },
+          { key: '/users', icon: <TeamOutlined />, label: 'Users' },
+          { key: '/access-control', icon: <SafetyOutlined />, label: 'Access Control' },
+        ],
+      },
+      {
+        key: 'grp-security',
+        icon: <SafetyOutlined />,
+        label: 'Moderation & security',
+        children: [
+          { key: '/moderation', icon: <AuditOutlined />, label: 'Moderation' },
+          { key: '/captcha', icon: <LockOutlined />, label: 'Captcha' },
+          { key: '/blacklist', icon: <StopOutlined />, label: 'Blacklist' },
+        ],
+      },
+      {
+        key: 'grp-ops',
+        icon: <ClusterOutlined />,
+        label: 'Operations',
+        children: [
+          { key: '/platforms', icon: <AppstoreOutlined />, label: 'Platforms' },
+          { key: '/emulators', icon: <MobileOutlined />, label: 'Emulators' },
+          { key: '/agents', icon: <ClusterOutlined />, label: 'Agents' },
+          { key: '/queue', icon: <UnorderedListOutlined />, label: 'Queue' },
+          { key: '/history', icon: <HistoryOutlined />, label: 'History' },
+        ],
+      },
+      {
+        key: 'grp-content',
+        icon: <FileTextOutlined />,
+        label: 'Accounts & content',
+        children: [
+          { key: '/accounts', icon: <UserOutlined />, label: 'Accounts' },
+          { key: '/accounts/comments', icon: <CommentOutlined />, label: 'Acc. Comments' },
+          { key: '/posts', icon: <HeartOutlined />, label: 'Posts & Likes' },
+          { key: '/user-posts', icon: <FileTextOutlined />, label: 'User Posts' },
+          { key: '/user-post-clones', icon: <CopyOutlined />, label: 'Post Clones' },
+        ],
+      },
+      {
+        key: 'grp-proxy',
+        icon: <GlobalOutlined />,
+        label: 'Proxy & API',
+        children: [
+          { key: '/proxy-providers', icon: <ApiOutlined />, label: 'Proxy Providers' },
+          { key: '/api-keys', icon: <KeyOutlined />, label: 'API Keys' },
+        ],
+      },
+      {
+        key: 'grp-browser',
+        icon: <ChromeOutlined />,
+        label: 'Browser',
+        children: [
+          { key: '/browser-sessions', icon: <ChromeOutlined />, label: 'Browser Sessions' },
+          { key: '/browser-accounts', icon: <UserOutlined />, label: 'Browser Accounts' },
+          { key: '/browser-proxies', icon: <ApiOutlined />, label: 'Browser Proxies' },
+          { key: '/browser-logs', icon: <ProfileOutlined />, label: 'Browser Logs' },
+        ],
+      },
+      {
+        key: 'grp-system',
+        icon: <SettingOutlined />,
+        label: 'System',
+        children: [{ key: '/config', icon: <SettingOutlined />, label: 'Config' }],
+      },
+    ],
+    [],
+  );
 
   const handleMenuClick = ({ key }: { key: string }) => {
+    if (!key.startsWith('/')) return;
     router.push(key);
     if (isMobile) {
       setMobileMenuOpen(false);
@@ -184,7 +217,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
       </div>
       <Menu
         mode="inline"
-        selectedKeys={[pathname]}
+        selectedKeys={[getSelectedMenuKey(pathname)]}
+        openKeys={mergedMenuOpenKeys}
+        onOpenChange={setUserMenuOpenKeys}
         items={menuItems}
         onClick={handleMenuClick}
         style={{
