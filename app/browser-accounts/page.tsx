@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Table, Tag, Button, Space, Popconfirm, Tooltip, Card, message,
-  Modal, Form, Input, Select, Tabs, Badge, Switch, Divider,
+  Modal, Form, Input, InputNumber, Select, Tabs, Badge, Switch, Divider,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -202,7 +202,10 @@ export default function BrowserAccountsPage() {
     camoufox_os: 'windows',
     camoufox_locale: '',
     camoufox_fingerprint_preset: false,
-    camoufox_humanize: true,
+    camoufox_humanize: 1.5,
+    camoufox_geoip: false,
+    chrome_user_agent: '',
+    chrome_window_size: '1280,800',
   };
 
   const openEdit = (account: BrowserAccount) => {
@@ -220,7 +223,11 @@ export default function BrowserAccountsPage() {
       camoufox_os: (account as any).camoufox_os || 'windows',
       camoufox_locale: (account as any).camoufox_locale || '',
       camoufox_fingerprint_preset: (account as any).camoufox_fingerprint_preset ?? false,
-      camoufox_humanize: (account as any).camoufox_humanize ?? true,
+      camoufox_humanize: typeof (account as any).camoufox_humanize === 'number' ? (account as any).camoufox_humanize : 1.5,
+      camoufox_geoip: (account as any).camoufox_geoip ?? false,
+      chrome_user_agent: (account as any).chrome_user_agent || '',
+      chrome_window_size: (account as any).chrome_window_size || '1280,800',
+      default_proxy: (account as any).default_proxy || undefined,
     };
     if (account.auth_type === 'script') {
       scriptForm.setFieldsValue({ ...sharedVals, password: account.password || '', two_factor_secret: account.two_factor_secret || '' });
@@ -237,6 +244,10 @@ export default function BrowserAccountsPage() {
 
     let dto: CreateBrowserAccountDto = { ...values, auth_type: modalTab };
     dto.browser_type = normalizeBrowserType(values.browser_type ?? formBrowserType);
+    // Очищуємо default_proxy якщо host не заданий
+    if (dto.default_proxy && !(dto.default_proxy as any).host) {
+      (dto as any).default_proxy = null;
+    }
     if (modalTab === 'cookies') {
       try {
         dto.cookies = JSON.parse(values.cookies);
@@ -498,11 +509,43 @@ export default function BrowserAccountsPage() {
           <Form.Item name="camoufox_fingerprint_preset" label="Fingerprint Preset" valuePropName="checked" initialValue={false} extra="Use a real Firefox fingerprint from traffic dataset (312 presets)">
             <Switch />
           </Form.Item>
-          <Form.Item name="camoufox_humanize" label="Human Mouse" valuePropName="checked" initialValue={true} extra="Natural curved mouse movement at C++ level">
+          <Form.Item name="camoufox_humanize" label="Humanize (0 = off)" initialValue={1.5} extra="Natural mouse movement intensity (0–10). 0 disables it.">
+            <InputNumber min={0} max={10} step={0.5} style={{ width: 120 }} />
+          </Form.Item>
+          <Form.Item name="camoufox_geoip" label="GeoIP" valuePropName="checked" initialValue={false} extra="Match browser locale/timezone to proxy IP (requires proxy)">
             <Switch />
           </Form.Item>
         </>
       )}
+
+      {formBrowserType === 'chrome' && (
+        <>
+          <Form.Item name="chrome_user_agent" label="User-Agent (optional)" extra="Override Chrome User-Agent string">
+            <Input.TextArea rows={2} placeholder="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ..." />
+          </Form.Item>
+          <Form.Item name="chrome_window_size" label="Window Size" initialValue="1280,800" extra="Format: width,height (e.g. 1920,1080)">
+            <Input placeholder="1280,800" style={{ width: 140 }} />
+          </Form.Item>
+        </>
+      )}
+
+      <Divider style={{ margin: '12px 0' }}>Default Proxy</Divider>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px', gap: '0 12px' }}>
+        <Form.Item name={['default_proxy', 'host']} label="Proxy Host">
+          <Input placeholder="proxy.example.com" />
+        </Form.Item>
+        <Form.Item name={['default_proxy', 'port']} label="Port">
+          <InputNumber min={1} max={65535} style={{ width: '100%' }} placeholder="3128" />
+        </Form.Item>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
+        <Form.Item name={['default_proxy', 'username']} label="Proxy User">
+          <Input placeholder="user" />
+        </Form.Item>
+        <Form.Item name={['default_proxy', 'password']} label="Proxy Password">
+          <Input.Password placeholder="password" />
+        </Form.Item>
+      </div>
     </>
   );
 
@@ -549,7 +592,8 @@ export default function BrowserAccountsPage() {
             const syncFields = [
               'platform', 'username', 'notes',
               'browser_type', 'camoufox_os', 'camoufox_locale',
-              'camoufox_fingerprint_preset', 'camoufox_humanize',
+              'camoufox_fingerprint_preset', 'camoufox_humanize', 'camoufox_geoip',
+              'chrome_user_agent', 'chrome_window_size', 'default_proxy',
             ];
             const partial = fromForm.getFieldsValue(syncFields as any);
             toForm.setFieldsValue(partial);
