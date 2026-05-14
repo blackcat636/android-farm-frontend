@@ -142,6 +142,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
       label: 'Browser Accounts',
     },
     {
+      key: '/browser-proxies',
+      icon: <ApiOutlined />,
+      label: 'Browser Proxies',
+    },
+    {
       key: '/browser-logs',
       icon: <ProfileOutlined />,
       label: 'Browser Logs',

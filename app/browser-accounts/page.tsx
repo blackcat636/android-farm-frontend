@@ -12,7 +12,7 @@ import {
 } from '@ant-design/icons';
 import {
   createBackendClient, tokenStorage,
-  type BrowserAccount, type BrowserSession, type CreateBrowserAccountDto,
+  type BrowserAccount, type BrowserProxy, type BrowserSession, type CreateBrowserAccountDto,
 } from '@/lib/api/backend';
 import { useAuth } from '@/contexts/AuthContext';
 import Loading from '@/components/common/Loading';
@@ -64,6 +64,7 @@ export default function BrowserAccountsPage() {
   const { user } = useAuth();
   const [accounts, setAccounts] = useState<BrowserAccount[]>([]);
   const [sessions, setSessions] = useState<BrowserSession[]>([]);
+  const [proxies, setProxies] = useState<BrowserProxy[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const [startingIds, setStartingIds] = useState<Set<string>>(new Set());
@@ -118,12 +119,14 @@ export default function BrowserAccountsPage() {
     if (!user) return;
     try {
       setLoading(true);
-      const [accs, sess] = await Promise.all([
+      const [accs, sess, prxs] = await Promise.all([
         getClient().getAdminBrowserAccounts({ platform: filterPlatform, auth_type: filterAuthType, status: filterStatus }),
         getClient().getAdminBrowserSessions(),
+        getClient().getAdminBrowserProxies(),
       ]);
       setAccounts(accs);
       setSessions(sess);
+      setProxies(prxs);
     } catch (err: any) {
       message.error(err.message || 'Error loading data');
     } finally {
@@ -227,7 +230,7 @@ export default function BrowserAccountsPage() {
       camoufox_geoip: (account as any).camoufox_geoip ?? false,
       chrome_user_agent: (account as any).chrome_user_agent || '',
       chrome_window_size: (account as any).chrome_window_size || '1280,800',
-      default_proxy: (account as any).default_proxy || undefined,
+      proxy_id: (account as any).proxy_id || undefined,
     };
     if (account.auth_type === 'script') {
       scriptForm.setFieldsValue({ ...sharedVals, password: account.password || '', two_factor_secret: account.two_factor_secret || '' });
@@ -244,10 +247,7 @@ export default function BrowserAccountsPage() {
 
     let dto: CreateBrowserAccountDto = { ...values, auth_type: modalTab };
     dto.browser_type = normalizeBrowserType(values.browser_type ?? formBrowserType);
-    // Очищуємо default_proxy якщо host не заданий
-    if (dto.default_proxy && !(dto.default_proxy as any).host) {
-      (dto as any).default_proxy = null;
-    }
+    if (!dto.proxy_id) dto.proxy_id = null;
     if (modalTab === 'cookies') {
       try {
         dto.cookies = JSON.parse(values.cookies);
@@ -372,6 +372,19 @@ export default function BrowserAccountsPage() {
       key: '2fa',
       width: 55,
       render: (v: string) => v ? <Tag color="green" style={{ fontSize: 11 }}>TOTP</Tag> : '—',
+    },
+    {
+      title: 'Proxy',
+      key: 'proxy',
+      width: 130,
+      render: (_, account: any) => {
+        if (!account.proxy) return <span style={{ color: '#bbb', fontSize: 12 }}>—</span>;
+        return (
+          <Tooltip title={`${account.proxy.host}:${account.proxy.port}`}>
+            <Tag style={{ fontSize: 11 }}>{account.proxy.label || `${account.proxy.host}:${account.proxy.port}`}</Tag>
+          </Tooltip>
+        );
+      },
     },
     {
       title: 'Session',
@@ -529,23 +542,17 @@ export default function BrowserAccountsPage() {
         </>
       )}
 
-      <Divider style={{ margin: '12px 0' }}>Default Proxy</Divider>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px', gap: '0 12px' }}>
-        <Form.Item name={['default_proxy', 'host']} label="Proxy Host">
-          <Input placeholder="proxy.example.com" />
-        </Form.Item>
-        <Form.Item name={['default_proxy', 'port']} label="Port">
-          <InputNumber min={1} max={65535} style={{ width: '100%' }} placeholder="3128" />
-        </Form.Item>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
-        <Form.Item name={['default_proxy', 'username']} label="Proxy User">
-          <Input placeholder="user" />
-        </Form.Item>
-        <Form.Item name={['default_proxy', 'password']} label="Proxy Password">
-          <Input.Password placeholder="password" />
-        </Form.Item>
-      </div>
+      <Divider style={{ margin: '12px 0' }}>Proxy</Divider>
+      <Form.Item name="proxy_id" label="Proxy">
+        <Select
+          allowClear
+          placeholder="No proxy"
+          options={proxies.map(p => ({
+            value: p.id,
+            label: `${p.label} — ${p.host}:${p.port}`,
+          }))}
+        />
+      </Form.Item>
     </>
   );
 
@@ -593,7 +600,7 @@ export default function BrowserAccountsPage() {
               'platform', 'username', 'notes',
               'browser_type', 'camoufox_os', 'camoufox_locale',
               'camoufox_fingerprint_preset', 'camoufox_humanize', 'camoufox_geoip',
-              'chrome_user_agent', 'chrome_window_size', 'default_proxy',
+              'chrome_user_agent', 'chrome_window_size', 'proxy_id',
             ];
             const partial = fromForm.getFieldsValue(syncFields as any);
             toForm.setFieldsValue(partial);

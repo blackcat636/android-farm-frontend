@@ -1480,6 +1480,32 @@ export function createBackendClient(token: string) {
         const response = await api.delete(`/api/admin/browser-accounts/${id}`);
         return response.data;
       },
+
+      // Browser Proxies
+      async getAdminBrowserProxies(): Promise<BrowserProxy[]> {
+        const response = await api.get<BrowserProxy[]>('/api/admin/browser-proxies');
+        return response.data;
+      },
+
+      async getAdminBrowserProxy(id: string): Promise<BrowserProxy> {
+        const response = await api.get<BrowserProxy>(`/api/admin/browser-proxies/${id}`);
+        return response.data;
+      },
+
+      async createAdminBrowserProxy(data: CreateBrowserProxyDto): Promise<BrowserProxy> {
+        const response = await api.post<BrowserProxy>('/api/admin/browser-proxies', data);
+        return response.data;
+      },
+
+      async updateAdminBrowserProxy(id: string, data: Partial<CreateBrowserProxyDto>): Promise<BrowserProxy> {
+        const response = await api.patch<BrowserProxy>(`/api/admin/browser-proxies/${id}`, data);
+        return response.data;
+      },
+
+      async deleteAdminBrowserProxy(id: string): Promise<{ message: string }> {
+        const response = await api.delete(`/api/admin/browser-proxies/${id}`);
+        return response.data;
+      },
     };
   }
 
@@ -1817,6 +1843,28 @@ export interface BrowserSession {
   browser_account?: Pick<BrowserAccount, 'id' | 'platform' | 'username' | 'auth_type' | 'status'>;
 }
 
+export interface BrowserProxy {
+  id: string;
+  label: string;
+  type: string;
+  host: string;
+  port: number;
+  username?: string;
+  password?: string;
+  created_at: string;
+  updated_at?: string;
+  accounts?: Pick<BrowserAccount, 'id' | 'username' | 'platform' | 'status'>[];
+}
+
+export interface CreateBrowserProxyDto {
+  label: string;
+  type: string;
+  host: string;
+  port: number;
+  username?: string;
+  password?: string;
+}
+
 export interface BrowserAccount {
   id: string;
   user_id?: string;
@@ -1834,7 +1882,9 @@ export interface BrowserAccount {
   camoufox_os?: 'windows' | 'macos' | 'linux';
   camoufox_locale?: string;
   camoufox_fingerprint_preset?: boolean;
-  camoufox_humanize?: boolean;
+  camoufox_humanize?: number;
+  proxy_id?: string;
+  proxy?: Pick<BrowserProxy, 'id' | 'label' | 'type' | 'host' | 'port' | 'username'> | null;
   created_at: string;
   updated_at?: string;
 }
@@ -1853,7 +1903,8 @@ export interface CreateBrowserAccountDto {
   camoufox_os?: 'windows' | 'macos' | 'linux';
   camoufox_locale?: string;
   camoufox_fingerprint_preset?: boolean;
-  camoufox_humanize?: boolean;
+  camoufox_humanize?: number;
+  proxy_id?: string | null;
 }
 
 // Зберігання токенів
