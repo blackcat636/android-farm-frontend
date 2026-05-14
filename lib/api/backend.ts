@@ -1871,6 +1871,9 @@ export interface BrowserAccount {
   platform: string;
   username: string;
   auth_type: 'script' | 'cookies';
+  /** Last time the saved browser profile was considered logged in (manual or after successful agent auth). */
+  authenticated_at?: string | null;
+  authenticated_via?: 'manual' | 'automatic' | null;
   status: 'active' | 'blocked' | 'expired';
   password?: string;
   two_factor_secret?: string;

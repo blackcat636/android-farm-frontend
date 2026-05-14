@@ -9,6 +9,7 @@ import type { ColumnsType } from 'antd/es/table';
 import {
   PlusOutlined, ReloadOutlined, EditOutlined, DeleteOutlined,
   EyeOutlined, EyeInvisibleOutlined, PlayCircleOutlined, StopOutlined, DesktopOutlined, ThunderboltOutlined,
+  KeyOutlined,
 } from '@ant-design/icons';
 import {
   createBackendClient, tokenStorage,
@@ -70,6 +71,7 @@ export default function BrowserAccountsPage() {
   const [startingIds, setStartingIds] = useState<Set<string>>(new Set());
   const [stoppingIds, setStoppingIds] = useState<Set<string>>(new Set());
   const [deletingSessionIds, setDeletingSessionIds] = useState<Set<string>>(new Set());
+  const [markingAuthSessionIds, setMarkingAuthSessionIds] = useState<Set<string>>(new Set());
 
   const [filterPlatform, setFilterPlatform] = useState<string | undefined>();
   const [filterAuthType, setFilterAuthType] = useState<string | undefined>();
@@ -174,6 +176,19 @@ export default function BrowserAccountsPage() {
       message.error(err.message || 'Failed to stop session');
     } finally {
       setStoppingIds(prev => { const s = new Set(prev); s.delete(account.id); return s; });
+    }
+  };
+
+  const handleMarkSessionAuthenticated = async (sessionId: string) => {
+    try {
+      setMarkingAuthSessionIds(prev => new Set(prev).add(sessionId));
+      await getClient().setBrowserSessionAuthStatus(sessionId, 'authenticated');
+      message.success('Сесію позначено як авторизовану; профіль акаунта оновлено');
+      await fetchAll();
+    } catch (err: any) {
+      message.error(err.message || 'Не вдалося оновити auth');
+    } finally {
+      setMarkingAuthSessionIds(prev => { const s = new Set(prev); s.delete(sessionId); return s; });
     }
   };
 
@@ -367,6 +382,27 @@ export default function BrowserAccountsPage() {
       render: (v: string) => <Badge status={STATUS_COLORS[v] as any} text={v} />,
     },
     {
+      title: 'Profile auth',
+      key: 'profile_auth',
+      width: 130,
+      render: (_: unknown, account: BrowserAccount) => {
+        if (!account.authenticated_at) {
+          return <span style={{ color: '#bbb', fontSize: 12 }}>—</span>;
+        }
+        const via = account.authenticated_via || 'manual';
+        return (
+          <Space vertical size={2}>
+            <Tag color={via === 'automatic' ? 'blue' : 'green'} style={{ fontSize: 11, margin: 0 }}>
+              {via === 'automatic' ? 'auto' : 'manual'}
+            </Tag>
+            <Tooltip title={new Date(account.authenticated_at).toLocaleString()}>
+              <span style={{ fontSize: 11, color: '#888' }}>{new Date(account.authenticated_at).toLocaleDateString()}</span>
+            </Tooltip>
+          </Space>
+        );
+      },
+    },
+    {
       title: '2FA',
       dataIndex: 'two_factor_secret',
       key: '2fa',
@@ -408,7 +444,7 @@ export default function BrowserAccountsPage() {
     {
       title: 'Actions',
       key: 'actions',
-      width: 160,
+      width: 200,
       render: (_, account) => {
         const session = getSessionForAccount(account.id);
         const isRunning = session && ['running'].includes(session.status);
@@ -458,6 +494,16 @@ export default function BrowserAccountsPage() {
                 onClick={() => session && setVncSession(session)}
               />
             </Tooltip>
+            {isRunning && session && session.auth_status !== 'authenticated' && (
+              <Tooltip title="Позначити авторизованим після ручного входу у VNC">
+                <Button
+                  size="small"
+                  icon={<KeyOutlined />}
+                  loading={markingAuthSessionIds.has(session.id)}
+                  onClick={() => handleMarkSessionAuthenticated(session.id)}
+                />
+              </Tooltip>
+            )}
             <Tooltip title="Run Scenario">
               <Button
                 size="small"
