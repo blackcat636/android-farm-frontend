@@ -81,6 +81,7 @@ export default function BrowserAccountsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<BrowserAccount | null>(null);
   const [modalTab, setModalTab] = useState<'script' | 'cookies'>('script');
+  const [requiresAuth, setRequiresAuth] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showSecrets, setShowSecrets] = useState(false);
   const [formBrowserType, setFormBrowserType] = useState<'chrome' | 'camoufox'>('chrome');
@@ -208,6 +209,7 @@ export default function BrowserAccountsPage() {
   const openCreate = () => {
     setEditingAccount(null);
     setModalTab('script');
+    setRequiresAuth(true);
     setShowSecrets(false);
     setFormBrowserType('chrome');
     scriptForm.resetFields();
@@ -229,6 +231,7 @@ export default function BrowserAccountsPage() {
   const openEdit = (account: BrowserAccount) => {
     setEditingAccount(account);
     setModalTab(account.auth_type);
+    setRequiresAuth(account.requires_auth !== false);
     setShowSecrets(false);
     const bt = normalizeBrowserType((account as any).browser_type);
     setFormBrowserType(bt);
@@ -256,14 +259,14 @@ export default function BrowserAccountsPage() {
   };
 
   const handleSave = async () => {
-    const form = modalTab === 'script' ? scriptForm : cookiesForm;
+    const form = requiresAuth ? (modalTab === 'script' ? scriptForm : cookiesForm) : scriptForm;
     let values: any;
     try { values = await form.validateFields(); } catch { return; }
 
-    let dto: CreateBrowserAccountDto = { ...values, auth_type: modalTab };
+    let dto: CreateBrowserAccountDto = { ...values, requires_auth: requiresAuth, auth_type: requiresAuth ? modalTab : 'script' };
     dto.browser_type = normalizeBrowserType(values.browser_type ?? formBrowserType);
     if (!dto.proxy_id) dto.proxy_id = null;
-    if (modalTab === 'cookies') {
+    if (requiresAuth && modalTab === 'cookies') {
       try {
         dto.cookies = JSON.parse(values.cookies);
         if (!Array.isArray(dto.cookies)) throw new Error();
@@ -272,7 +275,7 @@ export default function BrowserAccountsPage() {
         return;
       }
     }
-    if (editingAccount && modalTab === 'script') {
+    if (editingAccount && requiresAuth && modalTab === 'script') {
       if (!values.password?.trim?.()) delete (dto as any).password;
       if (!values.two_factor_secret?.trim?.()) delete (dto as any).two_factor_secret;
     }
@@ -359,10 +362,12 @@ export default function BrowserAccountsPage() {
     },
     {
       title: 'Auth',
-      dataIndex: 'auth_type',
       key: 'auth_type',
-      width: 90,
-      render: (v: string) => <Tag color={AUTH_TYPE_COLORS[v]}>{v}</Tag>,
+      width: 100,
+      render: (_: unknown, account: BrowserAccount) => {
+        if (!account.requires_auth) return <Tag color="default">no auth</Tag>;
+        return <Tag color={AUTH_TYPE_COLORS[account.auth_type]}>{account.auth_type}</Tag>;
+      },
     },
     {
       title: 'Browser',
@@ -508,7 +513,7 @@ export default function BrowserAccountsPage() {
               <Button
                 size="small"
                 icon={<ThunderboltOutlined />}
-                disabled={!session || session.auth_status !== 'authenticated'}
+                disabled={!session || (account.requires_auth && session.auth_status !== 'authenticated')}
                 onClick={() => { setScenarioAccount(account); scenarioForm.resetFields(); }}
               />
             </Tooltip>
@@ -633,64 +638,88 @@ export default function BrowserAccountsPage() {
         width={560}
         destroyOnHidden
       >
-        <Tabs
-          activeKey={modalTab}
-          onChange={(key) => {
-            if (editingAccount) return;
-            const next = key as 'script' | 'cookies';
-            // Два окремі Form: при перемиканні вкладки синхронізуємо спільні поля,
-            // інакше browser_type залишиться chrome у неактивній формі → сесія завжди Chromium.
-            const fromForm = modalTab === 'script' ? scriptForm : cookiesForm;
-            const toForm = next === 'script' ? scriptForm : cookiesForm;
-            const syncFields = [
-              'platform', 'username', 'notes',
-              'browser_type', 'camoufox_os', 'camoufox_locale',
-              'camoufox_fingerprint_preset', 'camoufox_humanize', 'camoufox_geoip',
-              'chrome_user_agent', 'chrome_window_size', 'proxy_id',
-            ];
-            const partial = fromForm.getFieldsValue(syncFields as any);
-            toForm.setFieldsValue(partial);
-            setFormBrowserType(normalizeBrowserType(partial.browser_type));
-            setModalTab(next);
-          }}
-          items={[
-            {
-              key: 'script',
-              label: 'Login / Password',
-              disabled: !!editingAccount && editingAccount.auth_type !== 'script',
-              children: (
-                <Form form={scriptForm} layout="vertical">
-                  {commonFields}
-                  <Form.Item name="password" label="Password" rules={[{ required: !editingAccount }]}>
-                    <Input.Password placeholder={editingAccount ? '(leave empty to keep current)' : 'password'} visibilityToggle={{ visible: showSecrets, onVisibleChange: setShowSecrets }} />
-                  </Form.Item>
-                  <Form.Item name="two_factor_secret" label="TOTP Secret (optional)" extra="Base32 secret from Google Authenticator / Authy">
-                    <Input placeholder="JBSWY3DPEHPK3PXP" suffix={<Button type="text" size="small" icon={showSecrets ? <EyeInvisibleOutlined /> : <EyeOutlined />} onClick={() => setShowSecrets(p => !p)} />} />
-                  </Form.Item>
-                </Form>
-              ),
-            },
-            {
-              key: 'cookies',
-              label: 'Cookies + User-Agent',
-              disabled: !!editingAccount && editingAccount.auth_type !== 'cookies',
-              children: (
-                <Form form={cookiesForm} layout="vertical">
-                  {commonFields}
-                  <Form.Item name="cookies" label="Cookies (JSON array)" rules={[{ required: !editingAccount }]} extra="Export from Cookie Editor / EditThisCookie">
-                    <Input.TextArea rows={6} placeholder={'[{"name":"sessionid","value":"...","domain":".instagram.com","path":"/"}]'} style={{ fontFamily: 'monospace', fontSize: 12 }} />
-                  </Form.Item>
-                  <Form.Item name="user_agent" label="User-Agent (optional)">
-                    <Input placeholder="Mozilla/5.0 (Windows NT 10.0; Win64; x64) ..." />
-                  </Form.Item>
-                  <Form.Item name="verify_url" label="Verify URL (optional)">
-                    <Input placeholder="https://www.instagram.com" />
-                  </Form.Item>
-                </Form>
-              ),
-            },
-          ]}
-        />
+        <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Switch
+            checked={requiresAuth}
+            onChange={(v) => {
+              setRequiresAuth(v);
+              if (!v) {
+                // Sync common fields from current active form into scriptForm when switching to no-auth
+                const fromForm = modalTab === 'script' ? scriptForm : cookiesForm;
+                const syncFields = ['platform', 'username', 'notes', 'browser_type', 'camoufox_os', 'camoufox_locale', 'camoufox_fingerprint_preset', 'camoufox_humanize', 'camoufox_geoip', 'chrome_user_agent', 'chrome_window_size', 'proxy_id'];
+                scriptForm.setFieldsValue(fromForm.getFieldsValue(syncFields as any));
+              }
+            }}
+            disabled={!!editingAccount}
+          />
+          <span style={{ fontWeight: 500 }}>Requires authorization</span>
+          {!requiresAuth && <Tag color="default" style={{ marginLeft: 4 }}>No auth — profile only</Tag>}
+        </div>
+
+        {requiresAuth ? (
+          <Tabs
+            activeKey={modalTab}
+            onChange={(key) => {
+              if (editingAccount) return;
+              const next = key as 'script' | 'cookies';
+              // Два окремі Form: при перемиканні вкладки синхронізуємо спільні поля,
+              // інакше browser_type залишиться chrome у неактивній формі → сесія завжди Chromium.
+              const fromForm = modalTab === 'script' ? scriptForm : cookiesForm;
+              const toForm = next === 'script' ? scriptForm : cookiesForm;
+              const syncFields = [
+                'platform', 'username', 'notes',
+                'browser_type', 'camoufox_os', 'camoufox_locale',
+                'camoufox_fingerprint_preset', 'camoufox_humanize', 'camoufox_geoip',
+                'chrome_user_agent', 'chrome_window_size', 'proxy_id',
+              ];
+              const partial = fromForm.getFieldsValue(syncFields as any);
+              toForm.setFieldsValue(partial);
+              setFormBrowserType(normalizeBrowserType(partial.browser_type));
+              setModalTab(next);
+            }}
+            items={[
+              {
+                key: 'script',
+                label: 'Login / Password',
+                disabled: !!editingAccount && editingAccount.auth_type !== 'script',
+                children: (
+                  <Form form={scriptForm} layout="vertical">
+                    {commonFields}
+                    <Form.Item name="password" label="Password" rules={[{ required: !editingAccount }]}>
+                      <Input.Password placeholder={editingAccount ? '(leave empty to keep current)' : 'password'} visibilityToggle={{ visible: showSecrets, onVisibleChange: setShowSecrets }} />
+                    </Form.Item>
+                    <Form.Item name="two_factor_secret" label="TOTP Secret (optional)" extra="Base32 secret from Google Authenticator / Authy">
+                      <Input placeholder="JBSWY3DPEHPK3PXP" suffix={<Button type="text" size="small" icon={showSecrets ? <EyeInvisibleOutlined /> : <EyeOutlined />} onClick={() => setShowSecrets(p => !p)} />} />
+                    </Form.Item>
+                  </Form>
+                ),
+              },
+              {
+                key: 'cookies',
+                label: 'Cookies + User-Agent',
+                disabled: !!editingAccount && editingAccount.auth_type !== 'cookies',
+                children: (
+                  <Form form={cookiesForm} layout="vertical">
+                    {commonFields}
+                    <Form.Item name="cookies" label="Cookies (JSON array)" rules={[{ required: !editingAccount }]} extra="Export from Cookie Editor / EditThisCookie">
+                      <Input.TextArea rows={6} placeholder={'[{"name":"sessionid","value":"...","domain":".instagram.com","path":"/"}]'} style={{ fontFamily: 'monospace', fontSize: 12 }} />
+                    </Form.Item>
+                    <Form.Item name="user_agent" label="User-Agent (optional)">
+                      <Input placeholder="Mozilla/5.0 (Windows NT 10.0; Win64; x64) ..." />
+                    </Form.Item>
+                    <Form.Item name="verify_url" label="Verify URL (optional)">
+                      <Input placeholder="https://www.instagram.com" />
+                    </Form.Item>
+                  </Form>
+                ),
+              },
+            ]}
+          />
+        ) : (
+          <Form form={scriptForm} layout="vertical">
+            {commonFields}
+          </Form>
+        )}
       </Modal>
 
       {/* Run Scenario modal */}
