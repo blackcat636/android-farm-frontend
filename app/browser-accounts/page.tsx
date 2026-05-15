@@ -313,13 +313,12 @@ export default function BrowserAccountsPage() {
     try {
       setRunningSc(true);
       await getClient().addTask({
-        platform: 'browser',
+        platform: scenarioAccount.platform,
         action: 'run_scenario',
+        browser_account_id: scenarioAccount.id,
         params: {
-          browser_account_id: scenarioAccount.id,
-          service: scenarioAccount.platform,
           scenario: values.scenario,
-          scenarioParams,
+          ...scenarioParams,
         },
         priority: values.priority ?? 5,
       });
