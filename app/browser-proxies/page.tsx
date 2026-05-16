@@ -18,6 +18,17 @@ const PROXY_TYPES = [
   { value: 'manual', label: 'Manual' },
 ];
 
+const PROXY_PROTOCOLS = [
+  { value: 'http',   label: 'HTTP' },
+  { value: 'https',  label: 'HTTPS' },
+  { value: 'socks4', label: 'SOCKS4' },
+  { value: 'socks5', label: 'SOCKS5' },
+];
+
+const PROTOCOL_COLORS: Record<string, string> = {
+  http: 'blue', https: 'cyan', socks4: 'purple', socks5: 'geekblue',
+};
+
 export default function BrowserProxiesPage() {
   const { user } = useAuth();
   const [proxies, setProxies] = useState<BrowserProxy[]>([]);
@@ -64,6 +75,7 @@ export default function BrowserProxiesPage() {
     form.setFieldsValue({
       label: proxy.label,
       type: proxy.type,
+      protocol: proxy.protocol || 'http',
       host: proxy.host,
       port: proxy.port,
       username: proxy.username || '',
@@ -79,6 +91,7 @@ export default function BrowserProxiesPage() {
     const dto: CreateBrowserProxyDto = {
       label: values.label,
       type: values.type,
+      protocol: values.protocol || 'http',
       host: values.host,
       port: values.port,
       username: values.username || undefined,
@@ -127,8 +140,15 @@ export default function BrowserProxiesPage() {
       title: 'Type',
       dataIndex: 'type',
       key: 'type',
-      width: 90,
+      width: 80,
       render: (v: string) => <Tag color="blue">{v}</Tag>,
+    },
+    {
+      title: 'Protocol',
+      dataIndex: 'protocol',
+      key: 'protocol',
+      width: 90,
+      render: (v: string) => <Tag color={PROTOCOL_COLORS[v] || 'default'}>{(v || 'http').toUpperCase()}</Tag>,
     },
     {
       title: 'Host : Port',
@@ -206,12 +226,14 @@ export default function BrowserProxiesPage() {
         destroyOnClose
       >
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
-          <Form.Item name="type" label="Type" rules={[{ required: true }]} initialValue="manual">
-            <Select
-              options={PROXY_TYPES}
-              onChange={(v) => setFormType(v)}
-            />
-          </Form.Item>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
+            <Form.Item name="type" label="Type" rules={[{ required: true }]} initialValue="manual">
+              <Select options={PROXY_TYPES} onChange={(v) => setFormType(v)} />
+            </Form.Item>
+            <Form.Item name="protocol" label="Protocol" initialValue="http">
+              <Select options={PROXY_PROTOCOLS} />
+            </Form.Item>
+          </div>
 
           <Form.Item name="label" label="Label" rules={[{ required: true, message: 'Label is required' }]}>
             <Input placeholder="My residential proxy" />

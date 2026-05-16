@@ -1847,6 +1847,7 @@ export interface BrowserProxy {
   id: string;
   label: string;
   type: string;
+  protocol: 'http' | 'https' | 'socks4' | 'socks5';
   host: string;
   port: number;
   username?: string;
@@ -1859,6 +1860,7 @@ export interface BrowserProxy {
 export interface CreateBrowserProxyDto {
   label: string;
   type: string;
+  protocol?: 'http' | 'https' | 'socks4' | 'socks5';
   host: string;
   port: number;
   username?: string;
