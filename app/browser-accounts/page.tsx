@@ -18,14 +18,54 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import Loading from '@/components/common/Loading';
 
-const PLATFORM_SCENARIOS: Record<string, { value: string; label: string }[]> = {
+interface ScenarioParam {
+  key: string;
+  label: string;
+  type: 'string' | 'number' | 'select';
+  required?: boolean;
+  defaultValue?: any;
+  options?: string[];
+  placeholder?: string;
+}
+
+interface ScenarioDef {
+  value: string;
+  label: string;
+  requiresAuth: boolean;
+  params: ScenarioParam[];
+}
+
+const PLATFORM_SCENARIOS: Record<string, ScenarioDef[]> = {
   instagram: [
-    { value: 'check_auth',  label: 'Check Auth — перевірити авторизацію' },
-    { value: 'browse_feed', label: 'Browse Feed — прокрутити стрічку' },
-    { value: 'like_post',   label: 'Like Post — лайкнути пост (url в params)' },
+    { value: 'check_auth', label: 'Check Auth', requiresAuth: false, params: [] },
+    { value: 'browse_feed', label: 'Browse Feed', requiresAuth: true, params: [
+      { key: 'scrolls',     label: 'Scrolls',          type: 'number', defaultValue: 5 },
+      { key: 'scrollDelay', label: 'Scroll delay (ms)', type: 'number', defaultValue: 2000 },
+    ]},
+    { value: 'like_post', label: 'Like Post', requiresAuth: true, params: [
+      { key: 'url', label: 'Post URL', type: 'string', required: true, placeholder: 'https://www.instagram.com/p/...' },
+    ]},
+    { value: 'warmup', label: 'Warmup', requiresAuth: false, params: [
+      { key: 'scrolls',         label: 'Scroll steps',            type: 'number',  defaultValue: 15 },
+      { key: 'minPauseMs',      label: 'Min pause (ms)',           type: 'number',  defaultValue: 1200 },
+      { key: 'maxPauseMs',      label: 'Max pause (ms)',           type: 'number',  defaultValue: 4500 },
+      { key: 'longPauseChance', label: 'Long pause probability',   type: 'number',  defaultValue: 0.25 },
+      { key: 'startPage',       label: 'Start page',               type: 'select',  defaultValue: 'feed', options: ['feed', 'explore'] },
+    ]},
   ],
   youtube: [
-    { value: 'watch_and_like', label: 'Watch & Like — переглянути відео і лайкнути' },
+    { value: 'watch_and_like', label: 'Watch & Like', requiresAuth: false, params: [
+      { key: 'url',          label: 'Video URL',      type: 'string', required: true, placeholder: 'https://youtu.be/...' },
+      { key: 'watchSeconds', label: 'Watch (sec)',    type: 'number', defaultValue: 30 },
+    ]},
+    { value: 'warmup', label: 'Warmup', requiresAuth: false, params: [
+      { key: 'scrolls',       label: 'Scroll steps',             type: 'number', defaultValue: 12 },
+      { key: 'minPauseMs',    label: 'Min pause (ms)',            type: 'number', defaultValue: 1500 },
+      { key: 'maxPauseMs',    label: 'Max pause (ms)',            type: 'number', defaultValue: 5000 },
+      { key: 'watchChance',   label: 'Video open probability',    type: 'number', defaultValue: 0.3 },
+      { key: 'watchMinSec',   label: 'Min watch time (sec)',      type: 'number', defaultValue: 8 },
+      { key: 'watchMaxSec',   label: 'Max watch time (sec)',      type: 'number', defaultValue: 45 },
+    ]},
   ],
 };
 
@@ -44,7 +84,7 @@ const AUTH_TYPE_COLORS: Record<string, string> = { script: 'blue', cookies: 'pur
 const SESSION_BADGE: Record<string, { status: any; text: string }> = {
   pending:   { status: 'processing', text: 'starting' },
   starting:  { status: 'processing', text: 'starting' },
-  running:   { status: 'warning',    text: 'running' },
+  running:   { status: 'success',    text: 'running' },
   stopping:  { status: 'default',    text: 'stopping' },
   stopped:   { status: 'default',    text: 'stopped' },
   error:     { status: 'error',      text: 'error' },
@@ -76,6 +116,10 @@ export default function BrowserAccountsPage() {
   const [filterPlatform, setFilterPlatform] = useState<string | undefined>();
   const [filterAuthType, setFilterAuthType] = useState<string | undefined>();
   const [filterStatus, setFilterStatus] = useState<string | undefined>();
+  const [filterUserId, setFilterUserId] = useState('');
+
+  // Run scenario: selected def for dynamic params
+  const [selectedScenarioDef, setSelectedScenarioDef] = useState<ScenarioDef | null>(null);
 
   // Account modal
   const [modalOpen, setModalOpen] = useState(false);
@@ -87,6 +131,80 @@ export default function BrowserAccountsPage() {
   const [formBrowserType, setFormBrowserType] = useState<'chrome' | 'camoufox'>('chrome');
   const [scriptForm] = Form.useForm();
   const [cookiesForm] = Form.useForm();
+
+  // Auth modal (cookies/script from accounts list)
+  const [authTargetSession, setAuthTargetSession] = useState<BrowserSession | null>(null);
+  const [authTab, setAuthTab] = useState<'cookies' | 'script'>('cookies');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authCookiesForm] = Form.useForm();
+  const [authScriptForm] = Form.useForm();
+
+  const SERVICES_FOR_AUTH = [
+    { value: 'instagram', label: 'Instagram' },
+    { value: 'youtube',   label: 'YouTube' },
+    { value: 'twitter',   label: 'Twitter / X' },
+    { value: 'tiktok',    label: 'TikTok' },
+    { value: 'facebook',  label: 'Facebook' },
+  ];
+
+  const handleOpenAuth = (account: BrowserAccount) => {
+    const session = getSessionForAccount(account.id);
+    if (!session) return;
+    authCookiesForm.resetFields();
+    authScriptForm.resetFields();
+    authCookiesForm.setFieldsValue({ service: account.platform });
+    authScriptForm.setFieldsValue({ service: account.platform, username: account.username });
+    setAuthTab(account.auth_type === 'script' ? 'script' : 'cookies');
+    setAuthTargetSession(session);
+  };
+
+  const handleAuthCookies = async (values: any) => {
+    if (!authTargetSession) return;
+    try {
+      setAuthLoading(true);
+      let cookies: any[];
+      try {
+        cookies = JSON.parse(values.cookies);
+        if (!Array.isArray(cookies)) throw new Error();
+      } catch {
+        message.error('Invalid JSON — cookies must be an array');
+        return;
+      }
+      await getClient().authBrowserSessionCookies(authTargetSession.id, {
+        service: values.service,
+        cookies,
+        userAgent: values.userAgent || undefined,
+        verifyUrl: values.verifyUrl || undefined,
+      });
+      message.success('Cookie auth started');
+      setAuthTargetSession(null);
+      setTimeout(fetchAll, 2000);
+    } catch (err: any) {
+      message.error(err.message || 'Error starting auth');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleAuthScript = async (values: any) => {
+    if (!authTargetSession) return;
+    try {
+      setAuthLoading(true);
+      await getClient().authBrowserSessionScript(authTargetSession.id, {
+        service: values.service,
+        username: values.username,
+        password: values.password,
+        twoFactorSecret: values.twoFactorSecret || undefined,
+      });
+      message.success('Script auth started');
+      setAuthTargetSession(null);
+      setTimeout(fetchAll, 2000);
+    } catch (err: any) {
+      message.error(err.message || 'Error starting auth');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
 
   // VNC modal
   const [vncSession, setVncSession] = useState<BrowserSession | null>(null);
@@ -123,7 +241,12 @@ export default function BrowserAccountsPage() {
     try {
       setLoading(true);
       const [accs, sess, prxs] = await Promise.all([
-        getClient().getAdminBrowserAccounts({ platform: filterPlatform, auth_type: filterAuthType, status: filterStatus }),
+        getClient().getAdminBrowserAccounts({
+          platform: filterPlatform,
+          auth_type: filterAuthType,
+          status: filterStatus,
+          user_id: filterUserId.trim() || undefined,
+        }),
         getClient().getAdminBrowserSessions(),
         getClient().getAdminBrowserProxies(),
       ]);
@@ -135,7 +258,7 @@ export default function BrowserAccountsPage() {
     } finally {
       setLoading(false);
     }
-  }, [user, getClient, filterPlatform, filterAuthType, filterStatus]);
+  }, [user, getClient, filterPlatform, filterAuthType, filterStatus, filterUserId]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -302,11 +425,13 @@ export default function BrowserAccountsPage() {
     let values: any;
     try { values = await scenarioForm.validateFields(); } catch { return; }
 
-    let scenarioParams: any = {};
-    if (values.params_json) {
-      try { scenarioParams = JSON.parse(values.params_json); } catch {
-        message.error('Invalid JSON in params');
-        return;
+    const scenarioParams: any = {};
+    if (selectedScenarioDef) {
+      for (const p of selectedScenarioDef.params) {
+        const v = values[`param_${p.key}`];
+        if (v !== undefined && v !== '' && v !== null) {
+          scenarioParams[p.key] = v;
+        }
       }
     }
 
@@ -324,6 +449,7 @@ export default function BrowserAccountsPage() {
       });
       message.success('Task queued');
       setScenarioAccount(null);
+      setSelectedScenarioDef(null);
       scenarioForm.resetFields();
     } catch (err: any) {
       message.error(err.message || 'Failed to queue task');
@@ -498,14 +624,24 @@ export default function BrowserAccountsPage() {
                 onClick={() => session && setVncSession(session)}
               />
             </Tooltip>
-            {isRunning && session && session.auth_status !== 'authenticated' && (
-              <Tooltip title="Позначити авторизованим після ручного входу у VNC">
+            {isRunning && session && (
+              <Tooltip title={session.auth_status !== 'authenticated' ? 'Authorize (cookies / login)' : 'Re-authorize'}>
                 <Button
                   size="small"
                   icon={<KeyOutlined />}
+                  onClick={() => handleOpenAuth(account)}
+                />
+              </Tooltip>
+            )}
+            {isRunning && session && session.auth_status !== 'authenticated' && (
+              <Tooltip title="Mark as authenticated (after manual VNC login)">
+                <Button
+                  size="small"
+                  type="text"
+                  style={{ color: '#52c41a', padding: '0 4px' }}
                   loading={markingAuthSessionIds.has(session.id)}
                   onClick={() => handleMarkSessionAuthenticated(session.id)}
-                />
+                >✓</Button>
               </Tooltip>
             )}
             <Tooltip title="Run Scenario">
@@ -621,6 +757,7 @@ export default function BrowserAccountsPage() {
           <Select allowClear placeholder="Platform" style={{ width: 140 }} options={PLATFORMS} value={filterPlatform} onChange={setFilterPlatform} />
           <Select allowClear placeholder="Auth type" style={{ width: 130 }} options={[{ value: 'script', label: 'Script' }, { value: 'cookies', label: 'Cookies' }]} value={filterAuthType} onChange={setFilterAuthType} />
           <Select allowClear placeholder="Status" style={{ width: 120 }} options={[{ value: 'active', label: 'Active' }, { value: 'blocked', label: 'Blocked' }, { value: 'expired', label: 'Expired' }]} value={filterStatus} onChange={setFilterStatus} />
+          <Input allowClear placeholder="User ID" style={{ width: 280, fontFamily: 'monospace', fontSize: 12 }} value={filterUserId} onChange={e => setFilterUserId(e.target.value)} />
         </Space>
       </Card>
 
@@ -725,27 +862,125 @@ export default function BrowserAccountsPage() {
       <Modal
         title={<Space><ThunderboltOutlined /><span>Run Scenario — {scenarioAccount?.username}</span></Space>}
         open={!!scenarioAccount}
-        onCancel={() => setScenarioAccount(null)}
+        onCancel={() => { setScenarioAccount(null); setSelectedScenarioDef(null); }}
         onOk={handleRunScenario}
         confirmLoading={runningSc}
         okText="Run"
-        width={480}
+        width={500}
         destroyOnHidden
       >
         <Form form={scenarioForm} layout="vertical">
           <Form.Item name="scenario" label="Scenario" rules={[{ required: true }]} extra={`Platform: ${scenarioAccount?.platform}`}>
             <Select
               placeholder="Select scenario"
-              options={PLATFORM_SCENARIOS[scenarioAccount?.platform || ''] || []}
+              options={(PLATFORM_SCENARIOS[scenarioAccount?.platform || ''] || []).map(s => ({ value: s.value, label: s.label }))}
+              onChange={(val) => {
+                const def = (PLATFORM_SCENARIOS[scenarioAccount?.platform || ''] || []).find(s => s.value === val) || null;
+                setSelectedScenarioDef(def);
+                // Clear previous param fields
+                if (def) {
+                  const reset: any = {};
+                  def.params.forEach(p => { reset[`param_${p.key}`] = p.defaultValue ?? undefined; });
+                  scenarioForm.setFieldsValue(reset);
+                }
+              }}
             />
           </Form.Item>
-          <Form.Item name="params_json" label="Params (JSON, optional)" extra="Leave empty if no params needed">
-            <Input.TextArea rows={4} placeholder={'{\n  "url": "https://www.instagram.com/p/...",\n  "scrolls": 5\n}'} style={{ fontFamily: 'monospace', fontSize: 12 }} />
-          </Form.Item>
+
+          {selectedScenarioDef && selectedScenarioDef.params.length > 0 && (
+            <>
+              <Divider style={{ margin: '8px 0' }}>Parameters</Divider>
+              {selectedScenarioDef.params.map(p => (
+                <Form.Item
+                  key={p.key}
+                  name={`param_${p.key}`}
+                  label={p.label}
+                  initialValue={p.defaultValue}
+                  rules={p.required ? [{ required: true, message: `${p.label} is required` }] : []}
+                >
+                  {p.type === 'number' ? (
+                    <InputNumber style={{ width: '100%' }} placeholder={String(p.defaultValue ?? '')} />
+                  ) : p.type === 'select' ? (
+                    <Select options={(p.options || []).map(o => ({ value: o, label: o }))} />
+                  ) : (
+                    <Input placeholder={p.placeholder || ''} />
+                  )}
+                </Form.Item>
+              ))}
+            </>
+          )}
+
+          {selectedScenarioDef && selectedScenarioDef.params.length === 0 && (
+            <div style={{ color: '#8c8c8c', fontSize: 12, marginBottom: 12 }}>No parameters for this scenario.</div>
+          )}
+
           <Form.Item name="priority" label="Priority" initialValue={5}>
             <Select options={[{ value: 10, label: '10 — High' }, { value: 5, label: '5 — Normal' }, { value: 1, label: '1 — Low' }]} />
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* Auth Modal (from accounts list) */}
+      <Modal
+        title={`Authorize Session — ${(authTargetSession?.auth_username || authTargetSession?.id?.slice(0, 8)) ?? ''}`}
+        open={!!authTargetSession}
+        onCancel={() => { setAuthTargetSession(null); authCookiesForm.resetFields(); authScriptForm.resetFields(); }}
+        footer={null}
+        width={560}
+        destroyOnHidden
+      >
+        <Tabs
+          activeKey={authTab}
+          onChange={key => setAuthTab(key as 'cookies' | 'script')}
+          items={[
+            {
+              key: 'cookies',
+              label: 'Cookies + User-Agent',
+              children: (
+                <Form form={authCookiesForm} layout="vertical" onFinish={handleAuthCookies}>
+                  <Form.Item name="service" label="Service" rules={[{ required: true }]}>
+                    <Select options={SERVICES_FOR_AUTH} placeholder="Select service" />
+                  </Form.Item>
+                  <Form.Item name="cookies" label="Cookies (JSON array)" rules={[{ required: true }]}>
+                    <Input.TextArea rows={6} placeholder={'[{"name":"sessionid","value":"...","domain":".instagram.com","path":"/"}]'} style={{ fontFamily: 'monospace', fontSize: 12 }} />
+                  </Form.Item>
+                  <Form.Item name="userAgent" label="User-Agent (optional)">
+                    <Input placeholder="Mozilla/5.0 (Windows NT 10.0; Win64; x64) ..." />
+                  </Form.Item>
+                  <Form.Item name="verifyUrl" label="Verify URL (optional)">
+                    <Input placeholder="https://www.instagram.com" />
+                  </Form.Item>
+                  <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+                    <Button type="primary" htmlType="submit" loading={authLoading}>Inject Cookies</Button>
+                  </Form.Item>
+                </Form>
+              ),
+            },
+            {
+              key: 'script',
+              label: 'Login / Password',
+              children: (
+                <Form form={authScriptForm} layout="vertical" onFinish={handleAuthScript}>
+                  <Form.Item name="service" label="Service" rules={[{ required: true }]}>
+                    <Select options={SERVICES_FOR_AUTH} placeholder="Select service" />
+                  </Form.Item>
+                  <Form.Item name="username" label="Username / Email" rules={[{ required: true }]}>
+                    <Input placeholder="user@example.com" />
+                  </Form.Item>
+                  <Form.Item name="password" label="Password" rules={[{ required: true }]}>
+                    <Input.Password placeholder="password" />
+                  </Form.Item>
+                  <Form.Item name="twoFactorSecret" label="TOTP Secret (optional)">
+                    <Input placeholder="JBSWY3DPEHPK3PXP" />
+                  </Form.Item>
+                  <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+                    <Button type="primary" htmlType="submit" loading={authLoading}>Start Login</Button>
+                  </Form.Item>
+                </Form>
+              ),
+            },
+          ]}
+        />
       </Modal>
 
       {/* VNC viewer modal */}

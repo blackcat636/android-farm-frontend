@@ -17,6 +17,7 @@ const MENU_LEAF_KEYS = [
   '/browser-accounts',
   '/browser-proxies',
   '/browser-logs',
+  '/browser-profiles',
   '/access-control',
   '/proxy-providers',
   '/user-posts',
@@ -70,6 +71,7 @@ const MENU_GROUP_BY_LEAF: Record<string, string> = {
   '/browser-accounts': 'grp-browser',
   '/browser-proxies': 'grp-browser',
   '/browser-logs': 'grp-browser',
+  '/browser-profiles': 'grp-browser',
   '/config': 'grp-system',
 };
 
@@ -178,6 +180,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
           { key: '/browser-accounts', icon: <UserOutlined />, label: 'Browser Accounts' },
           { key: '/browser-proxies', icon: <ApiOutlined />, label: 'Browser Proxies' },
           { key: '/browser-logs', icon: <ProfileOutlined />, label: 'Browser Logs' },
+          { key: '/browser-profiles', icon: <FileTextOutlined />, label: 'Browser Profiles' },
         ],
       },
       {

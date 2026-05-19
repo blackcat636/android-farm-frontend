@@ -1506,6 +1506,16 @@ export function createBackendClient(token: string) {
         const response = await api.delete(`/api/admin/browser-proxies/${id}`);
         return response.data;
       },
+
+      async getAdminBrowserProfiles(): Promise<{ agentId: string; agentName: string; profiles: BrowserProfile[] }[]> {
+        const response = await api.get('/api/admin/browser-profiles');
+        return response.data;
+      },
+
+      async deleteAdminBrowserProfile(agentId: string, profileId: string): Promise<{ ok: boolean }> {
+        const response = await api.delete(`/api/admin/browser-profiles/${agentId}/${profileId}`);
+        return response.data;
+      },
     };
   }
 
@@ -1802,6 +1812,12 @@ export interface AccountCommentWithAccount extends AccountComment {
   social_accounts?: { id: string; username: string; platform: string } | null;
 }
 
+export interface BrowserProfile {
+  id: string;
+  sizeBytes: number;
+  updatedAt: string;
+}
+
 export interface BrowserLog {
   id: string;
   agent_id: string;
@@ -1889,6 +1905,7 @@ export interface BrowserAccount {
   camoufox_locale?: string;
   camoufox_fingerprint_preset?: boolean;
   camoufox_humanize?: number;
+  camoufox_geoip?: boolean;
   proxy_id?: string;
   proxy?: Pick<BrowserProxy, 'id' | 'label' | 'type' | 'host' | 'port' | 'username'> | null;
   created_at: string;

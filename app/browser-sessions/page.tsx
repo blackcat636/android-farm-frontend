@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Table, Tag, Button, Space, Popconfirm, Tooltip, Card, Row, Col, Statistic, message,
   Modal, Tabs, Form, Input, Select,
@@ -8,6 +9,7 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import {
   ReloadOutlined, StopOutlined, LinkOutlined, BugOutlined, KeyOutlined,
+  DeleteOutlined, FileTextOutlined,
 } from '@ant-design/icons';
 import { createBackendClient, tokenStorage, type BrowserSession } from '@/lib/api/backend';
 import { useAuth } from '@/contexts/AuthContext';
@@ -40,10 +42,14 @@ const SERVICES = [
 
 export default function BrowserSessionsPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [sessions, setSessions] = useState<BrowserSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stoppingIds, setStoppingIds] = useState<Set<string>>(new Set());
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [bulkStopping, setBulkStopping] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   // Auth modal state
   const [authSession, setAuthSession] = useState<BrowserSession | null>(null);
@@ -96,6 +102,14 @@ export default function BrowserSessionsPage() {
     fetchSessions();
   }, [fetchSessions]);
 
+  // Auto-refresh while any session is active or transitioning
+  useEffect(() => {
+    const needsPoll = sessions.some(s => ['pending', 'starting', 'running', 'stopping'].includes(s.status));
+    if (!needsPoll) return;
+    const timer = setInterval(fetchSessions, 8000);
+    return () => clearInterval(timer);
+  }, [sessions, fetchSessions]);
+
   // Poll for 2FA pending sessions
   useEffect(() => {
     const waiting = sessions.find(s => s.auth_status === 'waiting_2fa');
@@ -120,7 +134,7 @@ export default function BrowserSessionsPage() {
   const handleStop = async (id: string) => {
     try {
       setStoppingIds(prev => new Set(prev).add(id));
-      await getClient().stopBrowserSession(id);
+      await getClient().stopAdminBrowserSession(id);
       message.success('Stop requested');
       setTimeout(fetchSessions, 1500);
     } catch (err: any) {
@@ -195,11 +209,51 @@ export default function BrowserSessionsPage() {
     }
   };
 
+  const handleDeleteSession = async (id: string) => {
+    try {
+      setDeletingIds(prev => new Set(prev).add(id));
+      await getClient().deleteAdminBrowserSession(id);
+      message.success('Session deleted');
+      setSessions(prev => prev.filter(s => s.id !== id));
+    } catch (err: any) {
+      message.error(err.message || 'Error deleting session');
+    } finally {
+      setDeletingIds(prev => { const s = new Set(prev); s.delete(id); return s; });
+    }
+  };
+
+  const handleBulkStopErrored = async () => {
+    const errored = sessions.filter(s => s.status === 'error');
+    if (!errored.length) { message.info('No errored sessions'); return; }
+    setBulkStopping(true);
+    let ok = 0;
+    for (const s of errored) {
+      try { await getClient().stopAdminBrowserSession(s.id); ok++; } catch { /* skip */ }
+    }
+    message.success(`Stop requested for ${ok} sessions`);
+    setBulkStopping(false);
+    setTimeout(fetchSessions, 1500);
+  };
+
+  const handleBulkDeleteStopped = async () => {
+    const stopped = sessions.filter(s => ['stopped', 'error'].includes(s.status));
+    if (!stopped.length) { message.info('No stopped/errored sessions to delete'); return; }
+    setBulkDeleting(true);
+    let ok = 0;
+    for (const s of stopped) {
+      try { await getClient().deleteAdminBrowserSession(s.id); ok++; } catch { /* skip */ }
+    }
+    message.success(`Deleted ${ok} sessions`);
+    setBulkDeleting(false);
+    fetchSessions();
+  };
+
   const stats = {
     total: sessions.length,
     running: sessions.filter(s => s.status === 'running').length,
     pending: sessions.filter(s => ['pending', 'starting', 'stopping'].includes(s.status)).length,
     error: sessions.filter(s => s.status === 'error').length,
+    stopped: sessions.filter(s => s.status === 'stopped').length,
   };
 
   const columns: ColumnsType<BrowserSession> = [
@@ -218,6 +272,21 @@ export default function BrowserSessionsPage() {
       render: (status: string) => <Tag color={STATUS_COLORS[status] || 'default'}>{status}</Tag>,
       filters: ['pending', 'starting', 'running', 'stopping', 'stopped', 'error'].map(s => ({ text: s, value: s })),
       onFilter: (value, record) => record.status === value,
+    },
+    {
+      title: 'Account',
+      key: 'account',
+      width: 150,
+      render: (_: unknown, record: BrowserSession) => {
+        const acc = record.browser_account;
+        if (!acc) return <span style={{ color: '#bbb' }}>—</span>;
+        return (
+          <div>
+            <Tag style={{ fontSize: 11, margin: 0 }}>{acc.platform}</Tag>
+            <div style={{ fontSize: 12, marginTop: 2 }}>{acc.username}</div>
+          </div>
+        );
+      },
     },
     {
       title: 'Auth',
@@ -292,59 +361,78 @@ export default function BrowserSessionsPage() {
     {
       title: 'Actions',
       key: 'actions',
-      width: 200,
-      render: (_, record) => (
-        <Space wrap>
-          <Button
-            size="small"
-            icon={<KeyOutlined />}
-            disabled={record.status !== 'running'}
-            onClick={() => { setAuthSession(record); setAuthTab('cookies'); }}
-          >
-            Auth
-          </Button>
-          {record.auth_status !== 'authenticated' ? (
-            <Tooltip title="Mark as authenticated (e.g. after manual VNC login)">
+      width: 240,
+      render: (_, record) => {
+        const isActive = !['stopped', 'stopping', 'error'].includes(record.status);
+        const isInactive = ['stopped', 'error'].includes(record.status);
+        return (
+          <Space wrap size={4}>
+            <Tooltip title="Auth (cookies / login)">
               <Button
                 size="small"
-                type="link"
-                style={{ color: '#52c41a', padding: '0 4px' }}
-                loading={markingAuthIds.has(record.id)}
-                onClick={() => handleSetAuthStatus(record.id, 'authenticated')}
-              >
-                ✓ Mark Auth
-              </Button>
+                icon={<KeyOutlined />}
+                disabled={record.status !== 'running'}
+                onClick={() => { setAuthSession(record); setAuthTab('cookies'); }}
+              />
             </Tooltip>
-          ) : (
-            <Tooltip title="Reset auth status to none">
+            {record.auth_status !== 'authenticated' ? (
+              <Tooltip title="Mark as authenticated (after manual VNC login)">
+                <Button
+                  size="small"
+                  type="link"
+                  style={{ color: '#52c41a', padding: '0 4px' }}
+                  loading={markingAuthIds.has(record.id)}
+                  onClick={() => handleSetAuthStatus(record.id, 'authenticated')}
+                >✓</Button>
+              </Tooltip>
+            ) : (
+              <Tooltip title="Reset auth status to none">
+                <Button
+                  size="small"
+                  type="link"
+                  style={{ color: '#8c8c8c', padding: '0 4px' }}
+                  loading={markingAuthIds.has(record.id)}
+                  onClick={() => handleSetAuthStatus(record.id, 'none')}
+                >↺</Button>
+              </Tooltip>
+            )}
+            <Tooltip title="View Logs">
               <Button
                 size="small"
-                type="link"
-                style={{ color: '#8c8c8c', padding: '0 4px' }}
-                loading={markingAuthIds.has(record.id)}
-                onClick={() => handleSetAuthStatus(record.id, 'none')}
-              >
-                Reset Auth
-              </Button>
+                icon={<FileTextOutlined />}
+                onClick={() => router.push(`/browser-logs?session_id=${record.id}`)}
+              />
             </Tooltip>
-          )}
-          <Popconfirm
-            title="Stop this session?"
-            onConfirm={() => handleStop(record.id)}
-            disabled={['stopped', 'stopping', 'error'].includes(record.status)}
-          >
-            <Button
-              size="small"
-              danger
-              icon={<StopOutlined />}
-              loading={stoppingIds.has(record.id)}
-              disabled={['stopped', 'stopping', 'error'].includes(record.status)}
+            <Popconfirm
+              title="Stop this session?"
+              onConfirm={() => handleStop(record.id)}
+              disabled={!isActive}
             >
-              Stop
-            </Button>
-          </Popconfirm>
-        </Space>
-      ),
+              <Tooltip title="Stop">
+                <Button
+                  size="small"
+                  danger
+                  icon={<StopOutlined />}
+                  loading={stoppingIds.has(record.id)}
+                  disabled={!isActive}
+                />
+              </Tooltip>
+            </Popconfirm>
+            {isInactive && (
+              <Popconfirm title="Delete this session?" onConfirm={() => handleDeleteSession(record.id)}>
+                <Tooltip title="Delete">
+                  <Button
+                    size="small"
+                    danger
+                    icon={<DeleteOutlined />}
+                    loading={deletingIds.has(record.id)}
+                  />
+                </Tooltip>
+              </Popconfirm>
+            )}
+          </Space>
+        );
+      },
     },
   ];
 
@@ -356,22 +444,52 @@ export default function BrowserSessionsPage() {
     <div style={{ padding: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <h2 style={{ margin: 0 }}>Browser Sessions</h2>
-        <Button icon={<ReloadOutlined />} onClick={fetchSessions} loading={loading}>
-          Refresh
-        </Button>
+        <Space wrap>
+          <Popconfirm
+            title={`Stop all ${sessions.filter(s => s.status === 'error').length} errored sessions?`}
+            onConfirm={handleBulkStopErrored}
+            disabled={!sessions.some(s => s.status === 'error')}
+          >
+            <Button
+              icon={<StopOutlined />}
+              danger
+              loading={bulkStopping}
+              disabled={!sessions.some(s => s.status === 'error')}
+            >
+              Stop Errored ({stats.error})
+            </Button>
+          </Popconfirm>
+          <Popconfirm
+            title={`Delete all ${sessions.filter(s => ['stopped', 'error'].includes(s.status)).length} stopped/errored sessions?`}
+            onConfirm={handleBulkDeleteStopped}
+            disabled={!sessions.some(s => ['stopped', 'error'].includes(s.status))}
+          >
+            <Button
+              icon={<DeleteOutlined />}
+              loading={bulkDeleting}
+              disabled={!sessions.some(s => ['stopped', 'error'].includes(s.status))}
+            >
+              Delete Stopped ({stats.stopped + stats.error})
+            </Button>
+          </Popconfirm>
+          <Button icon={<ReloadOutlined />} onClick={fetchSessions} loading={loading}>Refresh</Button>
+        </Space>
       </div>
 
       <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col span={6}>
+        <Col span={5}>
           <Card><Statistic title="Total" value={stats.total} /></Card>
         </Col>
-        <Col span={6}>
+        <Col span={5}>
           <Card><Statistic title="Running" value={stats.running} valueStyle={{ color: '#52c41a' }} /></Card>
         </Col>
-        <Col span={6}>
-          <Card><Statistic title="Pending / Starting / Stopping" value={stats.pending} valueStyle={{ color: '#faad14' }} /></Card>
+        <Col span={5}>
+          <Card><Statistic title="In Progress" value={stats.pending} valueStyle={{ color: '#faad14' }} /></Card>
         </Col>
-        <Col span={6}>
+        <Col span={4}>
+          <Card><Statistic title="Stopped" value={stats.stopped} valueStyle={{ color: '#8c8c8c' }} /></Card>
+        </Col>
+        <Col span={5}>
           <Card><Statistic title="Error" value={stats.error} valueStyle={{ color: '#ff4d4f' }} /></Card>
         </Col>
       </Row>

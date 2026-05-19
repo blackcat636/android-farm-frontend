@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Table, Tag, Select, Input, Space, Button, Tooltip, Typography, Badge } from 'antd';
 import { ReloadOutlined, ClearOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
@@ -39,6 +40,7 @@ const PAGE_SIZE = 100;
 
 export default function BrowserLogsPage() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
   const [logs, setLogs] = useState<BrowserLog[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -46,7 +48,7 @@ export default function BrowserLogsPage() {
 
   const [filterLevel, setFilterLevel] = useState<string | undefined>();
   const [filterEvent, setFilterEvent] = useState<string | undefined>();
-  const [filterSession, setFilterSession] = useState('');
+  const [filterSession, setFilterSession] = useState(searchParams.get('session_id') || '');
   const [filterAccount, setFilterAccount] = useState('');
 
   const getClient = useCallback(() => {
