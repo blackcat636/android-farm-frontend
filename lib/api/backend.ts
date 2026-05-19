@@ -1413,6 +1413,16 @@ export function createBackendClient(token: string) {
         return response.data;
       },
 
+      async stopAllAdminBrowserSessions(): Promise<{ stopped: number; skipped: number }> {
+        const response = await api.post('/api/admin/browser-sessions/stop-all');
+        return response.data;
+      },
+
+      async deleteOrphanAdminBrowserSessions(): Promise<{ deleted: number }> {
+        const response = await api.delete('/api/admin/browser-sessions/orphans');
+        return response.data;
+      },
+
       async stopBrowserSession(id: string): Promise<{ message: string }> {
         const response = await api.post(`/api/browser-sessions/${id}/stop`);
         return response.data;

@@ -50,6 +50,8 @@ export default function BrowserSessionsPage() {
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const [bulkStopping, setBulkStopping] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [stoppingAll, setStoppingAll] = useState(false);
+  const [deletingOrphans, setDeletingOrphans] = useState(false);
 
   // Auth modal state
   const [authSession, setAuthSession] = useState<BrowserSession | null>(null);
@@ -248,12 +250,40 @@ export default function BrowserSessionsPage() {
     fetchSessions();
   };
 
+  const handleStopAll = async () => {
+    setStoppingAll(true);
+    try {
+      const result = await getClient().stopAllAdminBrowserSessions();
+      message.success(`Stop requested for ${result.stopped} sessions`);
+      setTimeout(fetchSessions, 1500);
+    } catch (err: any) {
+      message.error(err.message || 'Error stopping all sessions');
+    } finally {
+      setStoppingAll(false);
+    }
+  };
+
+  const handleDeleteOrphans = async () => {
+    setDeletingOrphans(true);
+    try {
+      const result = await getClient().deleteOrphanAdminBrowserSessions();
+      message.success(`Deleted ${result.deleted} orphan sessions`);
+      fetchSessions();
+    } catch (err: any) {
+      message.error(err.message || 'Error deleting orphan sessions');
+    } finally {
+      setDeletingOrphans(false);
+    }
+  };
+
   const stats = {
     total: sessions.length,
     running: sessions.filter(s => s.status === 'running').length,
     pending: sessions.filter(s => ['pending', 'starting', 'stopping'].includes(s.status)).length,
     error: sessions.filter(s => s.status === 'error').length,
     stopped: sessions.filter(s => s.status === 'stopped').length,
+    orphans: sessions.filter(s => !s.browser_account_id && ['stopped', 'error'].includes(s.status)).length,
+    active: sessions.filter(s => ['pending', 'starting', 'running'].includes(s.status)).length,
   };
 
   const columns: ColumnsType<BrowserSession> = [
@@ -446,17 +476,45 @@ export default function BrowserSessionsPage() {
         <h2 style={{ margin: 0 }}>Browser Sessions</h2>
         <Space wrap>
           <Popconfirm
-            title={`Stop all ${sessions.filter(s => s.status === 'error').length} errored sessions?`}
+            title={`Stop all ${stats.active} active sessions?`}
+            description="This will send a stop command to all running/starting/pending sessions."
+            onConfirm={handleStopAll}
+            disabled={stats.active === 0}
+          >
+            <Button
+              icon={<StopOutlined />}
+              danger
+              loading={stoppingAll}
+              disabled={stats.active === 0}
+            >
+              Stop All ({stats.active})
+            </Button>
+          </Popconfirm>
+          <Popconfirm
+            title={`Stop all ${stats.error} errored sessions?`}
             onConfirm={handleBulkStopErrored}
             disabled={!sessions.some(s => s.status === 'error')}
           >
             <Button
               icon={<StopOutlined />}
-              danger
               loading={bulkStopping}
               disabled={!sessions.some(s => s.status === 'error')}
             >
               Stop Errored ({stats.error})
+            </Button>
+          </Popconfirm>
+          <Popconfirm
+            title={`Delete ${stats.orphans} orphan sessions (no linked account)?`}
+            description="Deletes stopped/errored sessions that are not linked to any browser account."
+            onConfirm={handleDeleteOrphans}
+            disabled={stats.orphans === 0}
+          >
+            <Button
+              icon={<DeleteOutlined />}
+              loading={deletingOrphans}
+              disabled={stats.orphans === 0}
+            >
+              Delete Unlinked ({stats.orphans})
             </Button>
           </Popconfirm>
           <Popconfirm
