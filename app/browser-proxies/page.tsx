@@ -165,15 +165,15 @@ export default function BrowserProxiesPage() {
         : <span style={{ color: '#bbb' }}>—</span>,
     },
     {
-      title: 'Accounts',
-      key: 'accounts',
+      title: 'Profiles',
+      key: 'profiles',
       render: (_, p) => {
-        if (!p.accounts?.length) return <span style={{ color: '#bbb', fontSize: 12 }}>none</span>;
+        if (!p.profiles?.length) return <span style={{ color: '#bbb', fontSize: 12 }}>none</span>;
         return (
           <Space size={4} wrap>
-            {p.accounts.map(a => (
-              <Tag key={a.id} style={{ fontSize: 11, margin: 0 }}>
-                {a.platform}/{a.username}
+            {p.profiles.map(pr => (
+              <Tag key={pr.id} style={{ fontSize: 11, margin: 0 }}>
+                {pr.name}
               </Tag>
             ))}
           </Space>

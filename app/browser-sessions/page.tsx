@@ -15,6 +15,7 @@ import { createBackendClient, tokenStorage, type BrowserSession } from '@/lib/ap
 import { useAuth } from '@/contexts/AuthContext';
 import Loading from '@/components/common/Loading';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
+import Link from 'next/link';
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'orange',
@@ -25,20 +26,11 @@ const STATUS_COLORS: Record<string, string> = {
   error: 'error',
 };
 
-const AUTH_STATUS_COLORS: Record<string, string> = {
-  none: 'default',
-  in_progress: 'processing',
-  waiting_2fa: 'warning',
-  authenticated: 'success',
-  auth_failed: 'error',
+const PLATFORM_COLORS: Record<string, string> = {
+  instagram: 'pink', youtube: 'red', facebook: 'blue',
+  tiktok: 'purple', twitter: 'cyan', linkedin: 'geekblue',
+  reddit: 'orange', threads: 'default',
 };
-
-const SERVICES = [
-  { value: 'instagram', label: 'Instagram' },
-  { value: 'twitter', label: 'Twitter / X' },
-  { value: 'tiktok', label: 'TikTok' },
-  { value: 'facebook', label: 'Facebook' },
-];
 
 export default function BrowserSessionsPage() {
   const { user } = useAuth();
@@ -59,20 +51,6 @@ export default function BrowserSessionsPage() {
   const [authLoading, setAuthLoading] = useState(false);
   const [cookiesForm] = Form.useForm();
   const [scriptForm] = Form.useForm();
-
-  const [markingAuthIds, setMarkingAuthIds] = useState<Set<string>>(new Set());
-
-  const handleSetAuthStatus = async (id: string, authStatus: 'none' | 'authenticated' | 'auth_failed') => {
-    setMarkingAuthIds(prev => new Set(prev).add(id));
-    try {
-      await getClient().setBrowserSessionAuthStatus(id, authStatus);
-      await fetchSessions();
-    } catch (err: any) {
-      message.error(err.message || 'Failed to update auth status');
-    } finally {
-      setMarkingAuthIds(prev => { const s = new Set(prev); s.delete(id); return s; });
-    }
-  };
 
   // 2FA modal state
   const [twoFaSession, setTwoFaSession] = useState<BrowserSession | null>(null);
@@ -100,9 +78,7 @@ export default function BrowserSessionsPage() {
     }
   }, [user, getClient]);
 
-  useEffect(() => {
-    fetchSessions();
-  }, [fetchSessions]);
+  useEffect(() => { fetchSessions(); }, [fetchSessions]);
 
   // Auto-refresh while any session is active or transitioning
   useEffect(() => {
@@ -112,9 +88,9 @@ export default function BrowserSessionsPage() {
     return () => clearInterval(timer);
   }, [sessions, fetchSessions]);
 
-  // Poll for 2FA pending sessions
+  // Detect sessions waiting for 2FA
   useEffect(() => {
-    const waiting = sessions.find(s => s.auth_status === 'waiting_2fa');
+    const waiting = sessions.find(s => s.two_fa_pending);
     if (waiting && !twoFaSession) {
       setTwoFaSession(waiting);
       setTwoFaCode('');
@@ -159,7 +135,7 @@ export default function BrowserSessionsPage() {
         return;
       }
       await getClient().authBrowserSessionCookies(authSession.id, {
-        service: values.service,
+        service: values.platform,
         cookies,
         userAgent: values.userAgent || undefined,
         verifyUrl: values.verifyUrl || undefined,
@@ -180,7 +156,7 @@ export default function BrowserSessionsPage() {
     try {
       setAuthLoading(true);
       await getClient().authBrowserSessionScript(authSession.id, {
-        service: values.service,
+        service: values.platform,
         username: values.username,
         password: values.password,
         twoFactorSecret: values.twoFactorSecret || undefined,
@@ -282,9 +258,14 @@ export default function BrowserSessionsPage() {
     pending: sessions.filter(s => ['pending', 'starting', 'stopping'].includes(s.status)).length,
     error: sessions.filter(s => s.status === 'error').length,
     stopped: sessions.filter(s => s.status === 'stopped').length,
-    orphans: sessions.filter(s => !s.browser_account_id && ['stopped', 'error'].includes(s.status)).length,
+    orphans: sessions.filter(s => !s.browser_profile_id && ['stopped', 'error'].includes(s.status)).length,
     active: sessions.filter(s => ['pending', 'starting', 'running'].includes(s.status)).length,
   };
+
+  const authSessionPlatforms = authSession?.browser_profile?.platforms?.map(p => ({
+    value: p.platform,
+    label: p.platform.charAt(0).toUpperCase() + p.platform.slice(1) + (p.username ? ` (${p.username})` : ''),
+  })) || [];
 
   const columns: ColumnsType<BrowserSession> = [
     {
@@ -304,36 +285,29 @@ export default function BrowserSessionsPage() {
       onFilter: (value, record) => record.status === value,
     },
     {
-      title: 'Account',
-      key: 'account',
-      width: 150,
-      render: (_: unknown, record: BrowserSession) => {
-        const acc = record.browser_account;
-        if (!acc) return <span style={{ color: '#bbb' }}>—</span>;
+      title: 'Profile',
+      key: 'profile',
+      width: 180,
+      render: (_, record: BrowserSession) => {
+        const profile = record.browser_profile;
+        if (!profile) return <span style={{ color: '#bbb' }}>—</span>;
         return (
           <div>
-            <Tag style={{ fontSize: 11, margin: 0 }}>{acc.platform}</Tag>
-            <div style={{ fontSize: 12, marginTop: 2 }}>{acc.username}</div>
+            <Link href={`/browser-profiles/${record.browser_profile_id}`}>
+              <strong style={{ fontSize: 12 }}>{profile.name}</strong>
+            </Link>
+            <div style={{ marginTop: 2 }}>
+              <Space size={2} wrap>
+                {profile.platforms?.map(p => (
+                  <Tag key={p.platform} color={PLATFORM_COLORS[p.platform] || 'default'} style={{ fontSize: 10, margin: 0 }}>
+                    {p.platform}
+                  </Tag>
+                ))}
+              </Space>
+            </div>
           </div>
         );
       },
-    },
-    {
-      title: 'Auth',
-      dataIndex: 'auth_status',
-      key: 'auth_status',
-      width: 130,
-      render: (authStatus: string, record: BrowserSession) => (
-        <Space vertical size={2}>
-          <Tag color={AUTH_STATUS_COLORS[authStatus] || 'default'}>{authStatus || 'none'}</Tag>
-          {record.auth_service && (
-            <span style={{ fontSize: 11, color: '#888' }}>{record.auth_service}</span>
-          )}
-          {record.auth_username && (
-            <span style={{ fontSize: 11, color: '#888' }}>{record.auth_username}</span>
-          )}
-        </Space>
-      ),
     },
     {
       title: 'Region',
@@ -391,7 +365,7 @@ export default function BrowserSessionsPage() {
     {
       title: 'Actions',
       key: 'actions',
-      width: 240,
+      width: 180,
       render: (_, record) => {
         const isActive = !['stopped', 'stopping', 'error'].includes(record.status);
         const isInactive = ['stopped', 'error'].includes(record.status);
@@ -405,27 +379,6 @@ export default function BrowserSessionsPage() {
                 onClick={() => { setAuthSession(record); setAuthTab('cookies'); }}
               />
             </Tooltip>
-            {record.auth_status !== 'authenticated' ? (
-              <Tooltip title="Mark as authenticated (after manual VNC login)">
-                <Button
-                  size="small"
-                  type="link"
-                  style={{ color: '#52c41a', padding: '0 4px' }}
-                  loading={markingAuthIds.has(record.id)}
-                  onClick={() => handleSetAuthStatus(record.id, 'authenticated')}
-                >✓</Button>
-              </Tooltip>
-            ) : (
-              <Tooltip title="Reset auth status to none">
-                <Button
-                  size="small"
-                  type="link"
-                  style={{ color: '#8c8c8c', padding: '0 4px' }}
-                  loading={markingAuthIds.has(record.id)}
-                  onClick={() => handleSetAuthStatus(record.id, 'none')}
-                >↺</Button>
-              </Tooltip>
-            )}
             <Tooltip title="View Logs">
               <Button
                 size="small"
@@ -481,12 +434,7 @@ export default function BrowserSessionsPage() {
             onConfirm={handleStopAll}
             disabled={stats.active === 0}
           >
-            <Button
-              icon={<StopOutlined />}
-              danger
-              loading={stoppingAll}
-              disabled={stats.active === 0}
-            >
+            <Button icon={<StopOutlined />} danger loading={stoppingAll} disabled={stats.active === 0}>
               Stop All ({stats.active})
             </Button>
           </Popconfirm>
@@ -495,25 +443,17 @@ export default function BrowserSessionsPage() {
             onConfirm={handleBulkStopErrored}
             disabled={!sessions.some(s => s.status === 'error')}
           >
-            <Button
-              icon={<StopOutlined />}
-              loading={bulkStopping}
-              disabled={!sessions.some(s => s.status === 'error')}
-            >
+            <Button icon={<StopOutlined />} loading={bulkStopping} disabled={!sessions.some(s => s.status === 'error')}>
               Stop Errored ({stats.error})
             </Button>
           </Popconfirm>
           <Popconfirm
-            title={`Delete ${stats.orphans} orphan sessions (no linked account)?`}
-            description="Deletes stopped/errored sessions that are not linked to any browser account."
+            title={`Delete ${stats.orphans} orphan sessions (no linked profile)?`}
+            description="Deletes stopped/errored sessions that are not linked to any browser profile."
             onConfirm={handleDeleteOrphans}
             disabled={stats.orphans === 0}
           >
-            <Button
-              icon={<DeleteOutlined />}
-              loading={deletingOrphans}
-              disabled={stats.orphans === 0}
-            >
+            <Button icon={<DeleteOutlined />} loading={deletingOrphans} disabled={stats.orphans === 0}>
               Delete Unlinked ({stats.orphans})
             </Button>
           </Popconfirm>
@@ -535,21 +475,11 @@ export default function BrowserSessionsPage() {
       </div>
 
       <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col span={5}>
-          <Card><Statistic title="Total" value={stats.total} /></Card>
-        </Col>
-        <Col span={5}>
-          <Card><Statistic title="Running" value={stats.running} valueStyle={{ color: '#52c41a' }} /></Card>
-        </Col>
-        <Col span={5}>
-          <Card><Statistic title="In Progress" value={stats.pending} valueStyle={{ color: '#faad14' }} /></Card>
-        </Col>
-        <Col span={4}>
-          <Card><Statistic title="Stopped" value={stats.stopped} valueStyle={{ color: '#8c8c8c' }} /></Card>
-        </Col>
-        <Col span={5}>
-          <Card><Statistic title="Error" value={stats.error} valueStyle={{ color: '#ff4d4f' }} /></Card>
-        </Col>
+        <Col span={5}><Card><Statistic title="Total" value={stats.total} /></Card></Col>
+        <Col span={5}><Card><Statistic title="Running" value={stats.running} valueStyle={{ color: '#52c41a' }} /></Card></Col>
+        <Col span={5}><Card><Statistic title="In Progress" value={stats.pending} valueStyle={{ color: '#faad14' }} /></Card></Col>
+        <Col span={4}><Card><Statistic title="Stopped" value={stats.stopped} valueStyle={{ color: '#8c8c8c' }} /></Card></Col>
+        <Col span={5}><Card><Statistic title="Error" value={stats.error} valueStyle={{ color: '#ff4d4f' }} /></Card></Col>
       </Row>
 
       <Table
@@ -579,8 +509,17 @@ export default function BrowserSessionsPage() {
               label: 'Cookies + User-Agent',
               children: (
                 <Form form={cookiesForm} layout="vertical" onFinish={handleAuthCookies}>
-                  <Form.Item name="service" label="Service" rules={[{ required: true }]}>
-                    <Select options={SERVICES} placeholder="Select service" />
+                  <Form.Item name="platform" label="Platform" rules={[{ required: true }]}>
+                    <Select
+                      options={authSessionPlatforms.length > 0 ? authSessionPlatforms : [
+                        { value: 'instagram', label: 'Instagram' },
+                        { value: 'youtube', label: 'YouTube' },
+                        { value: 'facebook', label: 'Facebook' },
+                        { value: 'tiktok', label: 'TikTok' },
+                        { value: 'twitter', label: 'Twitter / X' },
+                      ]}
+                      placeholder="Select platform"
+                    />
                   </Form.Item>
                   <Form.Item name="cookies" label="Cookies (JSON array)" rules={[{ required: true }]}>
                     <Input.TextArea
@@ -596,9 +535,7 @@ export default function BrowserSessionsPage() {
                     <Input placeholder="https://www.instagram.com" />
                   </Form.Item>
                   <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
-                    <Button type="primary" htmlType="submit" loading={authLoading}>
-                      Inject Cookies
-                    </Button>
+                    <Button type="primary" htmlType="submit" loading={authLoading}>Inject Cookies</Button>
                   </Form.Item>
                 </Form>
               ),
@@ -608,8 +545,17 @@ export default function BrowserSessionsPage() {
               label: 'Login / Password',
               children: (
                 <Form form={scriptForm} layout="vertical" onFinish={handleAuthScript}>
-                  <Form.Item name="service" label="Service" rules={[{ required: true }]}>
-                    <Select options={SERVICES} placeholder="Select service" />
+                  <Form.Item name="platform" label="Platform" rules={[{ required: true }]}>
+                    <Select
+                      options={authSessionPlatforms.length > 0 ? authSessionPlatforms : [
+                        { value: 'instagram', label: 'Instagram' },
+                        { value: 'youtube', label: 'YouTube' },
+                        { value: 'facebook', label: 'Facebook' },
+                        { value: 'tiktok', label: 'TikTok' },
+                        { value: 'twitter', label: 'Twitter / X' },
+                      ]}
+                      placeholder="Select platform"
+                    />
                   </Form.Item>
                   <Form.Item name="username" label="Username / Email" rules={[{ required: true }]}>
                     <Input placeholder="user@example.com" />
@@ -621,9 +567,7 @@ export default function BrowserSessionsPage() {
                     <Input placeholder="JBSWY3DPEHPK3PXP" />
                   </Form.Item>
                   <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
-                    <Button type="primary" htmlType="submit" loading={authLoading}>
-                      Start Login
-                    </Button>
+                    <Button type="primary" htmlType="submit" loading={authLoading}>Start Login</Button>
                   </Form.Item>
                 </Form>
               ),
@@ -642,9 +586,7 @@ export default function BrowserSessionsPage() {
         okText="Submit Code"
         okButtonProps={{ disabled: twoFaCode.trim().length < 4 }}
       >
-        <p>
-          Session <strong>{twoFaSession?.id?.slice(0, 8)}</strong> is waiting for an SMS 2FA code.
-        </p>
+        <p>Session <strong>{twoFaSession?.id?.slice(0, 8)}</strong> is waiting for an SMS 2FA code.</p>
         {twoFaSession?.two_fa_hint && (
           <p style={{ color: '#888' }}>Hint: {twoFaSession.two_fa_hint}</p>
         )}

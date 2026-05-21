@@ -49,7 +49,7 @@ export default function BrowserLogsPage() {
   const [filterLevel, setFilterLevel] = useState<string | undefined>();
   const [filterEvent, setFilterEvent] = useState<string | undefined>();
   const [filterSession, setFilterSession] = useState(searchParams.get('session_id') || '');
-  const [filterAccount, setFilterAccount] = useState('');
+  const [filterPlatformId, setFilterPlatformId] = useState('');
 
   const getClient = useCallback(() => {
     const token = tokenStorage.get();
@@ -65,7 +65,7 @@ export default function BrowserLogsPage() {
         level: filterLevel,
         event: filterEvent,
         session_id: filterSession || undefined,
-        account_id: filterAccount || undefined,
+        profile_platform_id: filterPlatformId || undefined,
         limit: PAGE_SIZE,
         offset: (p - 1) * PAGE_SIZE,
       });
@@ -76,9 +76,9 @@ export default function BrowserLogsPage() {
     } finally {
       setLoading(false);
     }
-  }, [user, getClient, filterLevel, filterEvent, filterSession, filterAccount, page]);
+  }, [user, getClient, filterLevel, filterEvent, filterSession, filterPlatformId, page]);
 
-  useEffect(() => { setPage(1); fetch(1); }, [filterLevel, filterEvent, filterSession, filterAccount]);
+  useEffect(() => { setPage(1); fetch(1); }, [filterLevel, filterEvent, filterSession, filterPlatformId]);
   useEffect(() => { fetch(page); }, [page]);
 
   // Auto-refresh every 5s
@@ -118,13 +118,13 @@ export default function BrowserLogsPage() {
       render: (v: string) => <Tag color={EVENT_COLOR[v] || 'default'} style={{ fontSize: 12 }}>{v}</Tag>,
     },
     {
-      title: 'Account',
-      key: 'account',
+      title: 'Platform',
+      key: 'platform',
       width: 160,
-      render: (_, log) => log.account ? (
+      render: (_, log) => log.platform ? (
         <div>
-          <Tag style={{ fontSize: 11 }}>{log.account.platform}</Tag>
-          <Text style={{ fontSize: 12 }}>{log.account.username}</Text>
+          <Tag style={{ fontSize: 11 }}>{log.platform.platform}</Tag>
+          <Text style={{ fontSize: 12 }}>{log.platform.username}</Text>
         </div>
       ) : <Text type="secondary" style={{ fontSize: 12 }}>—</Text>,
     },
@@ -169,12 +169,12 @@ export default function BrowserLogsPage() {
     setFilterLevel(undefined);
     setFilterEvent(undefined);
     setFilterSession('');
-    setFilterAccount('');
+    setFilterPlatformId('');
   };
 
   if (!user) return <Loading />;
 
-  const hasFilters = !!(filterLevel || filterEvent || filterSession || filterAccount);
+  const hasFilters = !!(filterLevel || filterEvent || filterSession || filterPlatformId);
 
   return (
     <div>
@@ -212,10 +212,10 @@ export default function BrowserLogsPage() {
         />
         <Input
           allowClear
-          placeholder="Account ID"
+          placeholder="Platform ID"
           style={{ width: 200, fontFamily: 'monospace' }}
-          value={filterAccount}
-          onChange={e => setFilterAccount(e.target.value)}
+          value={filterPlatformId}
+          onChange={e => setFilterPlatformId(e.target.value)}
         />
         {hasFilters && (
           <Button icon={<ClearOutlined />} onClick={clearFilters}>Clear</Button>

@@ -5,7 +5,7 @@ import { Table, Tag, Select, Card, Statistic, Row, Col, Button, Popconfirm, Spac
 import type { ColumnsType } from 'antd/es/table';
 import { useRouter } from 'next/navigation';
 import { DeleteOutlined, ReloadOutlined, RedoOutlined, StopOutlined, PlusOutlined } from '@ant-design/icons';
-import { createBackendClient, tokenStorage, type Task, type BrowserAccount } from '@/lib/api/backend';
+import { createBackendClient, tokenStorage, type Task, type BrowserProfileRecord } from '@/lib/api/backend';
 import { useAuth } from '@/contexts/AuthContext';
 import Loading from '@/components/common/Loading';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
@@ -54,7 +54,7 @@ export default function QueuePage() {
   // Browser task modal
   const [browserModalOpen, setBrowserModalOpen] = useState(false);
   const [browserForm] = Form.useForm();
-  const [browserAccounts, setBrowserAccounts] = useState<BrowserAccount[]>([]);
+  const [browserProfiles, setBrowserProfiles] = useState<BrowserProfileRecord[]>([]);
   const [addingBrowserTask, setAddingBrowserTask] = useState(false);
   const selectedPlatform = Form.useWatch('platform', browserForm);
 
@@ -64,10 +64,10 @@ export default function QueuePage() {
     return createBackendClient(token);
   }, []);
 
-  const loadBrowserAccounts = async () => {
+  const loadBrowserProfiles = async () => {
     try {
-      const accounts = await getClient().getAdminBrowserAccounts({ status: 'active' });
-      setBrowserAccounts(accounts);
+      const profiles = await getClient().getAdminBrowserProfiles();
+      setBrowserProfiles(profiles.filter(p => p.status === 'active'));
     } catch {}
   };
 
@@ -86,7 +86,7 @@ export default function QueuePage() {
       await getClient().addTask({
         platform: values.platform,
         action: 'run_scenario',
-        browser_account_id: values.account_id,
+        browser_profile_id: values.profile_id,
         params: {
           scenario: values.scenario,
           ...scenarioParams,
@@ -459,7 +459,7 @@ export default function QueuePage() {
           <Button
             type="primary"
             icon={<PlusOutlined />}
-            onClick={() => { loadBrowserAccounts(); setBrowserModalOpen(true); }}
+            onClick={() => { loadBrowserProfiles(); setBrowserModalOpen(true); }}
           >
             Browser Task
           </Button>
@@ -601,8 +601,8 @@ export default function QueuePage() {
               {record.batch_id && (
                 <p><strong>Batch ID:</strong> <Tag color="geekblue">{record.batch_id}</Tag></p>
               )}
-              {record.account_id && (
-                <p><strong>Account ID:</strong> {record.account_id}</p>
+              {record.browser_profile_id && (
+                <p><strong>Browser Profile ID:</strong> {record.browser_profile_id}</p>
               )}
               {(record.country_code || record.country_name) && (
                 <p><strong>Country:</strong> {record.country_name || record.country_code}</p>
@@ -688,17 +688,17 @@ export default function QueuePage() {
               ]}
             />
           </Form.Item>
-          <Form.Item name="account_id" label="Account" rules={[{ required: true }]}>
+          <Form.Item name="profile_id" label="Profile" rules={[{ required: true }]}>
             <Select
-              placeholder="Select browser account"
+              placeholder="Select browser profile"
               showSearch
               optionFilterProp="label"
-              options={browserAccounts
-                .filter(a => !selectedPlatform || a.platform === selectedPlatform)
-                .map(a => ({
-                  value: a.id,
-                  label: `${a.platform} / ${a.username}`,
-                }))}
+              options={browserProfiles
+                .filter(p => !selectedPlatform || p.platforms?.some(pl => pl.platform === selectedPlatform))
+                .map(p => {
+                  const platformNames = p.platforms?.map(pl => pl.platform).join(', ') || '—';
+                  return { value: p.id, label: `${p.name} [${platformNames}]` };
+                })}
             />
           </Form.Item>
           <Form.Item name="scenario" label="Scenario" rules={[{ required: true }]}>

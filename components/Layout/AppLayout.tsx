@@ -13,8 +13,8 @@ const { Sider, Content } = Layout;
 const MENU_LEAF_KEYS = [
   '/user-post-clones',
   '/accounts/comments',
+  '/browser-disk-profiles',
   '/browser-sessions',
-  '/browser-accounts',
   '/browser-proxies',
   '/browser-logs',
   '/browser-profiles',
@@ -68,7 +68,7 @@ const MENU_GROUP_BY_LEAF: Record<string, string> = {
   '/proxy-providers': 'grp-proxy',
   '/api-keys': 'grp-proxy',
   '/browser-sessions': 'grp-browser',
-  '/browser-accounts': 'grp-browser',
+  '/browser-disk-profiles': 'grp-browser',
   '/browser-proxies': 'grp-browser',
   '/browser-logs': 'grp-browser',
   '/browser-profiles': 'grp-browser',
@@ -176,11 +176,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
         icon: <ChromeOutlined />,
         label: 'Browser',
         children: [
+          { key: '/browser-profiles', icon: <UserOutlined />, label: 'Browser Profiles' },
           { key: '/browser-sessions', icon: <ChromeOutlined />, label: 'Browser Sessions' },
-          { key: '/browser-accounts', icon: <UserOutlined />, label: 'Browser Accounts' },
+          { key: '/browser-disk-profiles', icon: <FileTextOutlined />, label: 'Disk Profiles' },
           { key: '/browser-proxies', icon: <ApiOutlined />, label: 'Browser Proxies' },
           { key: '/browser-logs', icon: <ProfileOutlined />, label: 'Browser Logs' },
-          { key: '/browser-profiles', icon: <FileTextOutlined />, label: 'Browser Profiles' },
         ],
       },
       {

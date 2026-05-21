@@ -2,40 +2,48 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Table, Tag, Button, Space, Popconfirm, Tooltip, Card, Statistic, message, Typography, Row, Col,
+  Table, Tag, Button, Space, Popconfirm, Tooltip, Card, message, Modal, Form,
+  Input, Select, InputNumber, Switch, Divider, Collapse, Row, Col,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { ReloadOutlined, DeleteOutlined, FolderOutlined } from '@ant-design/icons';
-import { createBackendClient, tokenStorage, type BrowserProfile } from '@/lib/api/backend';
+import {
+  PlusOutlined, ReloadOutlined, EditOutlined, DeleteOutlined, ThunderboltOutlined, UserOutlined,
+} from '@ant-design/icons';
+import {
+  createBackendClient, tokenStorage,
+  type BrowserProfileRecord, type BrowserProxy, type CreateBrowserProfileDto, type CreateBrowserProfileQuickDto,
+} from '@/lib/api/backend';
 import { useAuth } from '@/contexts/AuthContext';
 import Loading from '@/components/common/Loading';
+import Link from 'next/link';
 
-const { Text } = Typography;
+const PLATFORMS = ['instagram', 'youtube', 'facebook', 'tiktok', 'twitter', 'linkedin', 'reddit', 'threads'];
 
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
-}
+const PLATFORM_COLORS: Record<string, string> = {
+  instagram: 'pink', youtube: 'red', facebook: 'blue',
+  tiktok: 'purple', twitter: 'cyan', linkedin: 'geekblue',
+  reddit: 'orange', threads: 'default',
+};
 
-interface AgentProfiles {
-  agentId: string;
-  agentName: string;
-  profiles: BrowserProfile[];
-}
+const STATUS_COLORS: Record<string, string> = {
+  active: 'green', blocked: 'red', archived: 'default',
+};
 
-interface FlatProfile extends BrowserProfile {
-  agentId: string;
-  agentName: string;
-}
+const BROWSER_COLORS: Record<string, string> = {
+  chrome: 'blue', camoufox: 'purple',
+};
+
+type ModalMode = 'profile' | 'quick' | 'edit' | null;
 
 export default function BrowserProfilesPage() {
   const { user } = useAuth();
-  const [agentProfiles, setAgentProfiles] = useState<AgentProfiles[]>([]);
+  const [profiles, setProfiles] = useState<BrowserProfileRecord[]>([]);
+  const [proxies, setProxies] = useState<BrowserProxy[]>([]);
   const [loading, setLoading] = useState(true);
-  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [modal, setModal] = useState<ModalMode>(null);
+  const [editingProfile, setEditingProfile] = useState<BrowserProfileRecord | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [form] = Form.useForm();
 
   const getClient = useCallback(() => {
     const token = tokenStorage.get();
@@ -43,184 +51,294 @@ export default function BrowserProfilesPage() {
     return createBackendClient(token);
   }, []);
 
-  const fetchProfiles = useCallback(async () => {
+  const fetchAll = useCallback(async () => {
     if (!user) return;
     try {
       setLoading(true);
-      const data = await getClient().getAdminBrowserProfiles();
-      setAgentProfiles(data);
+      const client = getClient();
+      const [profilesData, proxiesData] = await Promise.all([
+        client.getAdminBrowserProfiles(),
+        client.getAdminBrowserProxies(),
+      ]);
+      setProfiles(profilesData);
+      setProxies(proxiesData);
     } catch (err: any) {
-      message.error(err.message || 'Error loading profiles');
+      message.error(err.message || 'Error loading data');
     } finally {
       setLoading(false);
     }
   }, [user, getClient]);
 
-  useEffect(() => { fetchProfiles(); }, [fetchProfiles]);
+  useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  const handleDelete = async (agentId: string, profileId: string) => {
-    const key = `${agentId}:${profileId}`;
+  const openProfile = () => { form.resetFields(); setEditingProfile(null); setModal('profile'); };
+  const openQuick = () => { form.resetFields(); setEditingProfile(null); setModal('quick'); };
+  const openEdit = (p: BrowserProfileRecord) => {
+    setEditingProfile(p);
+    form.setFieldsValue({ ...p, proxy_id: p.proxy_id ?? undefined });
+    setModal('edit');
+  };
+  const closeModal = () => { setModal(null); setEditingProfile(null); form.resetFields(); };
+
+  const handleSave = async () => {
     try {
-      setDeletingIds(prev => new Set(prev).add(key));
-      await getClient().deleteAdminBrowserProfile(agentId, profileId);
-      message.success('Profile deleted');
-      setAgentProfiles(prev =>
-        prev.map(a =>
-          a.agentId === agentId
-            ? { ...a, profiles: a.profiles.filter(p => p.id !== profileId) }
-            : a,
-        ),
-      );
+      const values = await form.validateFields();
+      setSaving(true);
+      const client = getClient();
+
+      if (modal === 'quick') {
+        const data: CreateBrowserProfileQuickDto = { ...values, name: values.name || values.username };
+        const created = await client.createAdminBrowserProfileQuick(data);
+        setProfiles(prev => [created, ...prev]);
+        message.success('Account created');
+      } else if (modal === 'edit' && editingProfile) {
+        const updated = await client.updateAdminBrowserProfile(editingProfile.id, values);
+        setProfiles(prev => prev.map(p => p.id === updated.id ? updated : p));
+        message.success('Profile updated');
+      } else {
+        const data: CreateBrowserProfileDto = values;
+        const created = await client.createAdminBrowserProfile(data);
+        setProfiles(prev => [created, ...prev]);
+        message.success('Profile created');
+      }
+      closeModal();
     } catch (err: any) {
-      message.error(err.message || 'Error deleting profile');
+      if (err?.errorFields) return;
+      message.error(err.message || 'Error saving');
     } finally {
-      setDeletingIds(prev => { const s = new Set(prev); s.delete(key); return s; });
+      setSaving(false);
     }
   };
 
-  const flatProfiles: FlatProfile[] = agentProfiles.flatMap(a =>
-    a.profiles.map(p => ({ ...p, agentId: a.agentId, agentName: a.agentName })),
-  );
+  const handleDelete = async (id: string) => {
+    try {
+      await getClient().deleteAdminBrowserProfile(id);
+      setProfiles(prev => prev.filter(p => p.id !== id));
+      message.success('Profile deleted');
+    } catch (err: any) {
+      message.error(err.message || 'Error deleting');
+    }
+  };
 
-  const totalSize = flatProfiles.reduce((sum, p) => sum + p.sizeBytes, 0);
-
-  const columns: ColumnsType<FlatProfile> = [
+  const columns: ColumnsType<BrowserProfileRecord> = [
     {
-      title: 'Profile ID',
-      dataIndex: 'id',
-      key: 'id',
-      render: (id: string) => (
-        <Space>
-          <FolderOutlined style={{ color: '#faad14' }} />
-          <Tooltip title={id}>
-            <Text style={{ fontFamily: 'monospace', fontSize: 12 }}>{id.slice(0, 16)}…</Text>
-          </Tooltip>
+      title: 'Name',
+      key: 'name',
+      render: (_, r) => (
+        <Link href={`/browser-profiles/${r.id}`}>
+          <strong>{r.name}</strong>
+        </Link>
+      ),
+    },
+    {
+      title: 'Browser',
+      key: 'browser_type',
+      width: 110,
+      render: (_, r) => (
+        <Tag color={BROWSER_COLORS[r.browser_type] || 'default'}>{r.browser_type}</Tag>
+      ),
+    },
+    {
+      title: 'Platforms',
+      key: 'platforms',
+      render: (_, r) => (
+        <Space size={4} wrap>
+          {r.platforms && r.platforms.length > 0
+            ? r.platforms.map(p => (
+                <Tag key={p.platform} color={PLATFORM_COLORS[p.platform] || 'default'} style={{ fontSize: 11 }}>
+                  {p.platform}
+                  {p.authenticated_at && ' ✓'}
+                </Tag>
+              ))
+            : <span style={{ color: '#bbb', fontSize: 12 }}>—</span>
+          }
         </Space>
       ),
     },
     {
-      title: 'Agent',
-      dataIndex: 'agentName',
-      key: 'agentName',
-      width: 160,
-      render: (v: string, record) => (
-        <Tooltip title={record.agentId}>
-          <Tag color="blue">{v}</Tag>
-        </Tooltip>
-      ),
+      title: 'Proxy',
+      key: 'proxy',
+      width: 150,
+      render: (_, r) => r.proxy
+        ? <span style={{ fontSize: 12 }}>{r.proxy.label || r.proxy.host}</span>
+        : <span style={{ color: '#bbb', fontSize: 12 }}>—</span>,
     },
     {
-      title: 'Size',
-      dataIndex: 'sizeBytes',
-      key: 'sizeBytes',
-      width: 100,
-      sorter: (a, b) => a.sizeBytes - b.sizeBytes,
-      render: (v: number) => (
-        <Text style={{ fontSize: 12, color: v > 500 * 1024 * 1024 ? '#ff4d4f' : v > 100 * 1024 * 1024 ? '#faad14' : undefined }}>
-          {formatBytes(v)}
-        </Text>
-      ),
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      width: 90,
+      filters: [
+        { text: 'Active', value: 'active' },
+        { text: 'Blocked', value: 'blocked' },
+        { text: 'Archived', value: 'archived' },
+      ],
+      onFilter: (v, r) => r.status === v,
+      render: (v: string) => <Tag color={STATUS_COLORS[v] || 'default'}>{v}</Tag>,
     },
     {
-      title: 'Last Updated',
-      dataIndex: 'updatedAt',
-      key: 'updatedAt',
-      width: 170,
-      sorter: (a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime(),
+      title: 'Created',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      width: 140,
+      sorter: (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
       defaultSortOrder: 'descend',
-      render: (v: string) => <Text style={{ fontSize: 12 }}>{new Date(v).toLocaleString()}</Text>,
+      render: (v: string) => <span style={{ fontSize: 12 }}>{new Date(v).toLocaleDateString()}</span>,
     },
     {
-      title: 'Actions',
+      title: '',
       key: 'actions',
       width: 80,
-      render: (_, record) => {
-        const key = `${record.agentId}:${record.id}`;
-        return (
-          <Popconfirm
-            title="Delete this browser profile?"
-            description="This will permanently remove all cookies and saved data."
-            onConfirm={() => handleDelete(record.agentId, record.id)}
-          >
-            <Button
-              size="small"
-              danger
-              icon={<DeleteOutlined />}
-              loading={deletingIds.has(key)}
-            />
+      render: (_, r) => (
+        <Space size={4}>
+          <Tooltip title="Edit">
+            <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(r)} />
+          </Tooltip>
+          <Popconfirm title="Delete profile?" description="All platforms inside will be removed." onConfirm={() => handleDelete(r.id)}>
+            <Button size="small" danger icon={<DeleteOutlined />} />
           </Popconfirm>
-        );
-      },
+        </Space>
+      ),
     },
   ];
 
   if (!user) return <Loading />;
 
+  const browserTypeValue = Form.useWatch('browser_type', form) || 'chrome';
+  const authTypeValue = Form.useWatch('auth_type', form);
+
+  const browserConfigFields = (
+    <>
+      <Form.Item name="browser_type" label="Browser" initialValue="chrome">
+        <Select options={[{ value: 'chrome', label: 'Chrome' }, { value: 'camoufox', label: 'Camoufox' }]} />
+      </Form.Item>
+      <Form.Item name="proxy_id" label="Proxy">
+        <Select allowClear placeholder="No proxy" options={proxies.map(p => ({ value: p.id, label: `${p.label || p.host}:${p.port}` }))} />
+      </Form.Item>
+      {browserTypeValue === 'camoufox' ? (
+        <Collapse ghost items={[{ key: '1', label: 'Camoufox settings', children: (
+          <>
+            <Form.Item name="camoufox_os" label="OS" initialValue="windows">
+              <Select options={[{ value: 'windows', label: 'Windows' }, { value: 'macos', label: 'macOS' }, { value: 'linux', label: 'Linux' }]} />
+            </Form.Item>
+            <Form.Item name="camoufox_locale" label="Locale"><Input placeholder="uk-UA" /></Form.Item>
+            <Form.Item name="camoufox_fingerprint_preset" label="Fingerprint Preset" valuePropName="checked"><Switch /></Form.Item>
+            <Form.Item name="camoufox_humanize" label="Humanize (0–10)" initialValue={1.5}>
+              <InputNumber min={0} max={10} step={0.1} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item name="camoufox_geoip" label="GeoIP" valuePropName="checked"><Switch /></Form.Item>
+          </>
+        )}]} />
+      ) : (
+        <Collapse ghost items={[{ key: '1', label: 'Chrome settings', children: (
+          <>
+            <Form.Item name="chrome_user_agent" label="User Agent"><Input placeholder="Mozilla/5.0..." /></Form.Item>
+            <Form.Item name="chrome_window_size" label="Window Size" initialValue="1280,800"><Input placeholder="1280,800" /></Form.Item>
+          </>
+        )}]} />
+      )}
+    </>
+  );
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <div>
-          <h1 style={{ margin: 0 }}>Browser Profiles</h1>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            Browser profile directories stored on browser-agent hosts
-          </Text>
-        </div>
-        <Button icon={<ReloadOutlined />} onClick={fetchProfiles} loading={loading}>Refresh</Button>
+        <h1 style={{ margin: 0 }}>Browser Profiles</h1>
+        <Space>
+          <Button icon={<ReloadOutlined />} onClick={fetchAll} loading={loading}>Refresh</Button>
+          <Button icon={<UserOutlined />} onClick={openQuick}>New Account</Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openProfile}>New Profile</Button>
+        </Space>
       </div>
 
-      <Row gutter={16} style={{ marginBottom: 20 }}>
-        <Col span={6}>
-          <Card><Statistic title="Total Profiles" value={flatProfiles.length} /></Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="Total Size"
-              value={formatBytes(totalSize)}
-              valueStyle={{ fontSize: 20 }}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card><Statistic title="Agents" value={agentProfiles.length} /></Card>
-        </Col>
-      </Row>
+      <Table
+        dataSource={profiles}
+        columns={columns}
+        rowKey="id"
+        loading={loading}
+        size="small"
+        pagination={{ pageSize: 20, showSizeChanger: true }}
+      />
 
-      {agentProfiles.map(agent => (
-        <Card
-          key={agent.agentId}
-          title={
-            <Space>
-              <Tag color="blue">{agent.agentName}</Tag>
-              <Text type="secondary" style={{ fontSize: 12 }}>{agent.agentId}</Text>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {agent.profiles.length} profiles · {formatBytes(agent.profiles.reduce((s, p) => s + p.sizeBytes, 0))}
-              </Text>
-            </Space>
-          }
-          style={{ marginBottom: 16 }}
-          size="small"
-        >
-          {agent.profiles.length === 0 ? (
-            <Text type="secondary">No profiles found</Text>
-          ) : (
-            <Table
-              dataSource={agent.profiles.map(p => ({ ...p, agentId: agent.agentId, agentName: agent.agentName }))}
-              columns={columns}
-              rowKey="id"
-              loading={loading}
-              size="small"
-              pagination={false}
-            />
+      {/* New Profile Modal */}
+      <Modal
+        open={modal === 'profile' || modal === 'edit'}
+        title={modal === 'edit' ? 'Edit Profile' : 'New Profile'}
+        onOk={handleSave}
+        onCancel={closeModal}
+        confirmLoading={saving}
+        width={540}
+        destroyOnHidden
+      >
+        <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item name="name" label="Name" rules={[{ required: true }]}>
+            <Input placeholder="User1" />
+          </Form.Item>
+          <Form.Item name="notes" label="Notes">
+            <Input.TextArea rows={2} />
+          </Form.Item>
+          {modal === 'edit' && (
+            <Form.Item name="status" label="Status">
+              <Select options={[{ value: 'active', label: 'Active' }, { value: 'blocked', label: 'Blocked' }, { value: 'archived', label: 'Archived' }]} />
+            </Form.Item>
           )}
-        </Card>
-      ))}
+          <Divider>Browser</Divider>
+          {browserConfigFields}
+        </Form>
+      </Modal>
 
-      {agentProfiles.length === 0 && !loading && (
-        <Card>
-          <Text type="secondary">No browser agents found or no profiles stored yet.</Text>
-        </Card>
-      )}
+      {/* New Account (Quick) Modal */}
+      <Modal
+        open={modal === 'quick'}
+        title={<Space><ThunderboltOutlined />New Account</Space>}
+        onOk={handleSave}
+        onCancel={closeModal}
+        confirmLoading={saving}
+        width={580}
+        destroyOnHidden
+      >
+        <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
+          <Row gutter={12}>
+            <Col span={12}>
+              <Form.Item name="platform" label="Platform" rules={[{ required: true }]}>
+                <Select options={PLATFORMS.map(p => ({ value: p, label: p.charAt(0).toUpperCase() + p.slice(1) }))} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="username" label="Username" rules={[{ required: true }]}>
+                <Input placeholder="user@example.com" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item name="name" label="Profile Name">
+            <Input placeholder="Leave blank to use username" />
+          </Form.Item>
+          <Divider>Auth</Divider>
+          <Form.Item name="requires_auth" label="Requires Auth" valuePropName="checked" initialValue={true}>
+            <Switch />
+          </Form.Item>
+          <Form.Item name="auth_type" label="Auth Type">
+            <Select allowClear placeholder="None" options={[{ value: 'script', label: 'Script (login/password)' }, { value: 'cookies', label: 'Cookies' }]} />
+          </Form.Item>
+          {authTypeValue === 'script' && (
+            <>
+              <Form.Item name="password" label="Password"><Input.Password /></Form.Item>
+              <Form.Item name="two_factor_secret" label="2FA Secret (TOTP)"><Input /></Form.Item>
+            </>
+          )}
+          {authTypeValue === 'cookies' && (
+            <>
+              <Form.Item name="cookies" label="Cookies (JSON array)" getValueFromEvent={(e) => { try { return JSON.parse(e.target.value); } catch { return e.target.value; } }}>
+                <Input.TextArea rows={4} placeholder='[{"name":"...","value":"...","domain":"..."}]' />
+              </Form.Item>
+              <Form.Item name="verify_url" label="Verify URL"><Input placeholder="https://www.instagram.com/" /></Form.Item>
+              <Form.Item name="user_agent" label="User Agent"><Input /></Form.Item>
+            </>
+          )}
+          <Divider>Browser</Divider>
+          {browserConfigFields}
+        </Form>
+      </Modal>
     </div>
   );
 }

@@ -863,7 +863,7 @@ export function createBackendClient(token: string) {
       action: string;
       params?: any;
       account_id?: string;
-      browser_account_id?: string;
+      browser_profile_id?: string;
       emulator_id?: string;
       emulator_type?: string;
       agent_id?: string;
@@ -1382,7 +1382,7 @@ export function createBackendClient(token: string) {
       // Browser Sessions
       async getAdminBrowserLogs(params?: {
         session_id?: string;
-        account_id?: string;
+        profile_platform_id?: string;
         agent_id?: string;
         level?: string;
         event?: string;
@@ -1398,7 +1398,7 @@ export function createBackendClient(token: string) {
         return response.data;
       },
 
-      async createAdminBrowserSession(data: { browser_account_id: string; proxy?: any }): Promise<BrowserSession> {
+      async createAdminBrowserSession(data: { browser_profile_id: string; proxy?: any }): Promise<BrowserSession> {
         const response = await api.post<BrowserSession>('/api/admin/browser-sessions', data);
         return response.data;
       },
@@ -1465,29 +1465,65 @@ export function createBackendClient(token: string) {
         return response.data;
       },
 
-      // Browser Accounts
-      async getAdminBrowserAccounts(params?: { platform?: string; auth_type?: string; status?: string; user_id?: string }): Promise<BrowserAccount[]> {
-        const response = await api.get<BrowserAccount[]>('/api/admin/browser-accounts', { params });
+      // Browser Profiles
+      async getAdminBrowserProfiles(params?: { status?: string; browser_type?: string; user_id?: string }): Promise<BrowserProfileRecord[]> {
+        const response = await api.get<BrowserProfileRecord[]>('/api/admin/browser-profiles', { params });
         return response.data;
       },
 
-      async getAdminBrowserAccount(id: string): Promise<BrowserAccount> {
-        const response = await api.get<BrowserAccount>(`/api/admin/browser-accounts/${id}`);
+      async getAdminBrowserProfileById(id: string): Promise<BrowserProfileRecord> {
+        const response = await api.get<BrowserProfileRecord>(`/api/admin/browser-profiles/${id}`);
         return response.data;
       },
 
-      async createAdminBrowserAccount(data: CreateBrowserAccountDto): Promise<BrowserAccount> {
-        const response = await api.post<BrowserAccount>('/api/admin/browser-accounts', data);
+      async createAdminBrowserProfile(data: CreateBrowserProfileDto): Promise<BrowserProfileRecord> {
+        const response = await api.post<BrowserProfileRecord>('/api/admin/browser-profiles', data);
         return response.data;
       },
 
-      async updateAdminBrowserAccount(id: string, data: Partial<CreateBrowserAccountDto> & { status?: string }): Promise<BrowserAccount> {
-        const response = await api.patch<BrowserAccount>(`/api/admin/browser-accounts/${id}`, data);
+      async createAdminBrowserProfileQuick(data: CreateBrowserProfileQuickDto): Promise<BrowserProfileRecord> {
+        const response = await api.post<BrowserProfileRecord>('/api/admin/browser-profiles/quick', data);
         return response.data;
       },
 
-      async deleteAdminBrowserAccount(id: string): Promise<{ message: string }> {
-        const response = await api.delete(`/api/admin/browser-accounts/${id}`);
+      async updateAdminBrowserProfile(id: string, data: Partial<CreateBrowserProfileDto> & { status?: string }): Promise<BrowserProfileRecord> {
+        const response = await api.patch<BrowserProfileRecord>(`/api/admin/browser-profiles/${id}`, data);
+        return response.data;
+      },
+
+      async deleteAdminBrowserProfile(id: string): Promise<{ message: string }> {
+        const response = await api.delete(`/api/admin/browser-profiles/${id}`);
+        return response.data;
+      },
+
+      async addAdminBrowserProfilePlatform(profileId: string, data: CreateBrowserProfilePlatformDto): Promise<BrowserProfilePlatform> {
+        const response = await api.post<BrowserProfilePlatform>(`/api/admin/browser-profiles/${profileId}/platforms`, data);
+        return response.data;
+      },
+
+      async updateAdminBrowserProfilePlatform(profileId: string, platformId: string, data: Partial<CreateBrowserProfilePlatformDto> & { status?: string }): Promise<BrowserProfilePlatform> {
+        const response = await api.patch<BrowserProfilePlatform>(`/api/admin/browser-profiles/${profileId}/platforms/${platformId}`, data);
+        return response.data;
+      },
+
+      async markAdminBrowserProfilePlatformAuthenticated(profileId: string, platformId: string): Promise<BrowserProfilePlatform> {
+        const response = await api.post<BrowserProfilePlatform>(`/api/admin/browser-profiles/${profileId}/platforms/${platformId}/mark-authenticated`);
+        return response.data;
+      },
+
+      async deleteAdminBrowserProfilePlatform(profileId: string, platformId: string): Promise<{ message: string }> {
+        const response = await api.delete(`/api/admin/browser-profiles/${profileId}/platforms/${platformId}`);
+        return response.data;
+      },
+
+      // Browser Agent Disk Profiles (on-disk, per browser-agent)
+      async getAdminBrowserAgentDiskProfiles(): Promise<{ agentId: string; agentName: string; profiles: BrowserDiskProfile[] }[]> {
+        const response = await api.get('/api/admin/browser-agent-disk-profiles');
+        return response.data;
+      },
+
+      async deleteAdminBrowserAgentDiskProfile(agentId: string, profileId: string): Promise<{ ok: boolean }> {
+        const response = await api.delete(`/api/admin/browser-agent-disk-profiles/${agentId}/${profileId}`);
         return response.data;
       },
 
@@ -1517,15 +1553,6 @@ export function createBackendClient(token: string) {
         return response.data;
       },
 
-      async getAdminBrowserProfiles(): Promise<{ agentId: string; agentName: string; profiles: BrowserProfile[] }[]> {
-        const response = await api.get('/api/admin/browser-profiles');
-        return response.data;
-      },
-
-      async deleteAdminBrowserProfile(agentId: string, profileId: string): Promise<{ ok: boolean }> {
-        const response = await api.delete(`/api/admin/browser-profiles/${agentId}/${profileId}`);
-        return response.data;
-      },
     };
   }
 
@@ -1537,7 +1564,7 @@ export interface Task {
   action: string;
   params?: any;
   account_id?: string;
-  browser_account_id?: string;
+  browser_profile_id?: string;
   account?: {
     id: string;
     username: string;
@@ -1822,24 +1849,111 @@ export interface AccountCommentWithAccount extends AccountComment {
   social_accounts?: { id: string; username: string; platform: string } | null;
 }
 
-export interface BrowserProfile {
+// On-disk profile from browser-agent host
+export interface BrowserDiskProfile {
   id: string;
   sizeBytes: number;
   updatedAt: string;
+  type?: 'profile' | 'ephemeral' | 'unknown';
+  browser_profile_id?: string | null;
+  session_id?: string | null;
+}
+
+/** @deprecated Use BrowserDiskProfile */
+export type BrowserProfile = BrowserDiskProfile;
+
+export interface BrowserProfilePlatform {
+  id: string;
+  profile_id: string;
+  platform: string;
+  username: string;
+  requires_auth: boolean;
+  auth_type?: 'script' | 'cookies';
+  password?: string;
+  two_factor_secret?: string;
+  cookies?: any[];
+  user_agent?: string;
+  verify_url?: string;
+  notes?: string;
+  status: 'active' | 'blocked' | 'expired';
+  authenticated_at?: string | null;
+  authenticated_via?: 'manual' | 'automatic' | null;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface BrowserProfileRecord {
+  id: string;
+  user_id: string;
+  name: string;
+  notes?: string;
+  status: 'active' | 'blocked' | 'archived';
+  browser_type: 'chrome' | 'camoufox';
+  proxy_id?: string | null;
+  proxy?: Pick<BrowserProxy, 'id' | 'label' | 'host' | 'port' | 'username'> | null;
+  camoufox_os?: 'windows' | 'macos' | 'linux';
+  camoufox_locale?: string;
+  camoufox_fingerprint_preset?: boolean;
+  camoufox_humanize?: number;
+  camoufox_geoip?: boolean;
+  chrome_user_agent?: string;
+  chrome_window_size?: string;
+  platforms?: BrowserProfilePlatform[];
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface CreateBrowserProfileDto {
+  name: string;
+  notes?: string;
+  browser_type?: 'chrome' | 'camoufox';
+  proxy_id?: string;
+  camoufox_os?: 'windows' | 'macos' | 'linux';
+  camoufox_locale?: string;
+  camoufox_fingerprint_preset?: boolean;
+  camoufox_humanize?: number;
+  camoufox_geoip?: boolean;
+  chrome_user_agent?: string;
+  chrome_window_size?: string;
+}
+
+export interface CreateBrowserProfileQuickDto extends CreateBrowserProfileDto {
+  platform: string;
+  username: string;
+  requires_auth?: boolean;
+  auth_type?: 'script' | 'cookies';
+  password?: string;
+  two_factor_secret?: string;
+  cookies?: any[];
+  user_agent?: string;
+  verify_url?: string;
+}
+
+export interface CreateBrowserProfilePlatformDto {
+  platform: string;
+  username?: string;
+  requires_auth?: boolean;
+  auth_type?: 'script' | 'cookies';
+  password?: string;
+  two_factor_secret?: string;
+  cookies?: any[];
+  user_agent?: string;
+  verify_url?: string;
+  notes?: string;
 }
 
 export interface BrowserLog {
   id: string;
   agent_id: string;
   session_id?: string | null;
-  account_id?: string | null;
+  profile_platform_id?: string | null;
   level: 'info' | 'warn' | 'error';
   event: string;
   message?: string | null;
   data?: any;
   created_at: string;
-  session?: { id: string; status: string; auth_status?: string } | null;
-  account?: { id: string; platform: string; username: string } | null;
+  session?: { id: string; status: string } | null;
+  platform?: { id: string; platform: string; username: string } | null;
 }
 
 export interface BrowserSession {
@@ -1848,7 +1962,7 @@ export interface BrowserSession {
   task_id?: string;
   agent_id?: string;
   container_id?: string;
-  browser_account_id?: string;
+  browser_profile_id?: string;
   vnc_port?: number;
   debug_port?: number;
   status: 'pending' | 'starting' | 'running' | 'stopping' | 'stopped' | 'error';
@@ -1861,12 +1975,15 @@ export interface BrowserSession {
   created_at: string;
   updated_at?: string;
   stopped_at?: string;
-  auth_status?: 'none' | 'in_progress' | 'waiting_2fa' | 'authenticated' | 'auth_failed';
-  auth_service?: string;
-  auth_username?: string;
   two_fa_pending?: boolean;
   two_fa_hint?: string;
-  browser_account?: Pick<BrowserAccount, 'id' | 'platform' | 'username' | 'auth_type' | 'status'>;
+  browser_profile?: {
+    id: string;
+    name: string;
+    browser_type: string;
+    status: string;
+    platforms?: Pick<BrowserProfilePlatform, 'platform' | 'username' | 'status'>[];
+  } | null;
 }
 
 export interface BrowserProxy {
@@ -1880,7 +1997,7 @@ export interface BrowserProxy {
   password?: string;
   created_at: string;
   updated_at?: string;
-  accounts?: Pick<BrowserAccount, 'id' | 'username' | 'platform' | 'status'>[];
+  profiles?: Pick<BrowserProfileRecord, 'id' | 'name' | 'browser_type' | 'status'>[];
 }
 
 export interface CreateBrowserProxyDto {
@@ -1893,6 +2010,7 @@ export interface CreateBrowserProxyDto {
   password?: string;
 }
 
+/** @deprecated Use BrowserProfileRecord */
 export interface BrowserAccount {
   id: string;
   user_id?: string;
@@ -1900,28 +2018,17 @@ export interface BrowserAccount {
   username: string;
   auth_type: 'script' | 'cookies';
   requires_auth: boolean;
-  /** Last time the saved browser profile was considered logged in (manual or after successful agent auth). */
   authenticated_at?: string | null;
   authenticated_via?: 'manual' | 'automatic' | null;
   status: 'active' | 'blocked' | 'expired';
-  password?: string;
-  two_factor_secret?: string;
-  cookies?: any[];
-  user_agent?: string;
-  verify_url?: string;
-  notes?: string;
   browser_type?: 'chrome' | 'camoufox';
-  camoufox_os?: 'windows' | 'macos' | 'linux';
-  camoufox_locale?: string;
-  camoufox_fingerprint_preset?: boolean;
-  camoufox_humanize?: number;
-  camoufox_geoip?: boolean;
   proxy_id?: string;
   proxy?: Pick<BrowserProxy, 'id' | 'label' | 'type' | 'host' | 'port' | 'username'> | null;
   created_at: string;
   updated_at?: string;
 }
 
+/** @deprecated Use CreateBrowserProfileQuickDto */
 export interface CreateBrowserAccountDto {
   platform: string;
   username: string;
