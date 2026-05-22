@@ -8,10 +8,12 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import {
   PlusOutlined, ReloadOutlined, EditOutlined, DeleteOutlined, ThunderboltOutlined, UserOutlined,
+  PlayCircleOutlined, StopOutlined, DesktopOutlined, LoadingOutlined,
 } from '@ant-design/icons';
 import {
   createBackendClient, tokenStorage,
-  type BrowserProfileRecord, type BrowserProxy, type CreateBrowserProfileDto, type CreateBrowserProfileQuickDto,
+  type BrowserProfileRecord, type BrowserProxy, type BrowserSession,
+  type CreateBrowserProfileDto, type CreateBrowserProfileQuickDto,
 } from '@/lib/api/backend';
 import { useAuth } from '@/contexts/AuthContext';
 import Loading from '@/components/common/Loading';
@@ -39,6 +41,8 @@ export default function BrowserProfilesPage() {
   const { user } = useAuth();
   const [profiles, setProfiles] = useState<BrowserProfileRecord[]>([]);
   const [proxies, setProxies] = useState<BrowserProxy[]>([]);
+  const [sessions, setSessions] = useState<Record<string, BrowserSession>>({});
+  const [sessionLoading, setSessionLoading] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<ModalMode>(null);
   const [editingProfile, setEditingProfile] = useState<BrowserProfileRecord | null>(null);
@@ -56,18 +60,51 @@ export default function BrowserProfilesPage() {
     try {
       setLoading(true);
       const client = getClient();
-      const [profilesData, proxiesData] = await Promise.all([
+      const [profilesData, proxiesData, sessionsData] = await Promise.all([
         client.getAdminBrowserProfiles(),
         client.getAdminBrowserProxies(),
+        client.getAdminBrowserSessions(),
       ]);
       setProfiles(profilesData);
       setProxies(proxiesData);
+      const activeStatuses = ['pending', 'starting', 'running', 'stopping'];
+      const sessionMap: Record<string, BrowserSession> = {};
+      for (const s of sessionsData) {
+        if (s.browser_profile_id && activeStatuses.includes(s.status)) {
+          sessionMap[s.browser_profile_id] = s;
+        }
+      }
+      setSessions(sessionMap);
     } catch (err: any) {
       message.error(err.message || 'Error loading data');
     } finally {
       setLoading(false);
     }
   }, [user, getClient]);
+
+  const handleStartSession = async (profileId: string) => {
+    setSessionLoading(prev => ({ ...prev, [profileId]: true }));
+    try {
+      const session = await getClient().createAdminBrowserSession({ browser_profile_id: profileId });
+      setSessions(prev => ({ ...prev, [profileId]: session }));
+    } catch (err: any) {
+      message.error(err.message || 'Error starting session');
+    } finally {
+      setSessionLoading(prev => ({ ...prev, [profileId]: false }));
+    }
+  };
+
+  const handleStopSession = async (profileId: string, sessionId: string) => {
+    setSessionLoading(prev => ({ ...prev, [profileId]: true }));
+    try {
+      await getClient().stopAdminBrowserSession(sessionId);
+      setSessions(prev => ({ ...prev, [profileId]: { ...prev[profileId], status: 'stopping' } }));
+    } catch (err: any) {
+      message.error(err.message || 'Error stopping session');
+    } finally {
+      setSessionLoading(prev => ({ ...prev, [profileId]: false }));
+    }
+  };
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -184,6 +221,51 @@ export default function BrowserProfilesPage() {
       sorter: (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
       defaultSortOrder: 'descend',
       render: (v: string) => <span style={{ fontSize: 12 }}>{new Date(v).toLocaleDateString()}</span>,
+    },
+    {
+      title: 'Session',
+      key: 'session',
+      width: 140,
+      render: (_, r) => {
+        const session = sessions[r.id];
+        const busy = sessionLoading[r.id];
+        if (busy) return <LoadingOutlined style={{ color: '#1677ff' }} />;
+        if (!session) {
+          return (
+            <Button
+              size="small"
+              type="primary"
+              ghost
+              icon={<PlayCircleOutlined />}
+              disabled={r.status !== 'active'}
+              onClick={() => handleStartSession(r.id)}
+            >
+              Start
+            </Button>
+          );
+        }
+        const isRunning = session.status === 'running';
+        const isBusy = ['pending', 'starting', 'stopping'].includes(session.status);
+        return (
+          <Space size={4}>
+            {isRunning && session.vnc_url && (
+              <Tooltip title="Open VNC">
+                <a href={session.vnc_url} target="_blank" rel="noreferrer">
+                  <Button size="small" icon={<DesktopOutlined />} type="primary">VNC</Button>
+                </a>
+              </Tooltip>
+            )}
+            {isBusy && <Tag color="processing">{session.status}</Tag>}
+            {session.status !== 'stopping' && (
+              <Tooltip title="Stop session">
+                <Popconfirm title="Stop session?" onConfirm={() => handleStopSession(r.id, session.id)}>
+                  <Button size="small" danger icon={<StopOutlined />} />
+                </Popconfirm>
+              </Tooltip>
+            )}
+          </Space>
+        );
+      },
     },
     {
       title: '',

@@ -9,6 +9,7 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, DesktopOutlined, CheckCircleOutlined, ArrowLeftOutlined,
+  PlayCircleOutlined, StopOutlined, ReloadOutlined,
 } from '@ant-design/icons';
 import {
   createBackendClient, tokenStorage,
@@ -48,6 +49,7 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
   const [platformModal, setPlatformModal] = useState<'add' | 'edit' | null>(null);
   const [editingPlatform, setEditingPlatform] = useState<BrowserProfilePlatform | null>(null);
   const [saving, setSaving] = useState(false);
+  const [startingSession, setStartingSession] = useState(false);
   const [form] = Form.useForm();
 
   const getClient = useCallback(() => {
@@ -127,6 +129,39 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
     }
   };
 
+  const handleStartSession = async () => {
+    try {
+      setStartingSession(true);
+      const session = await getClient().createAdminBrowserSession({ browser_profile_id: id });
+      setSessions(prev => [session, ...prev]);
+      message.success('Session started');
+    } catch (err: any) {
+      message.error(err.message || 'Error starting session');
+    } finally {
+      setStartingSession(false);
+    }
+  };
+
+  const handleStopSession = async (sessionId: string) => {
+    try {
+      await getClient().stopAdminBrowserSession(sessionId);
+      setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, status: 'stopping' as const } : s));
+      message.success('Session stopping…');
+    } catch (err: any) {
+      message.error(err.message || 'Error stopping session');
+    }
+  };
+
+  const handleDeleteSession = async (sessionId: string) => {
+    try {
+      await getClient().deleteAdminBrowserSession(sessionId);
+      setSessions(prev => prev.filter(s => s.id !== sessionId));
+      message.success('Session deleted');
+    } catch (err: any) {
+      message.error(err.message || 'Error deleting session');
+    }
+  };
+
   const handleMarkAuthenticated = async (platformId: string) => {
     try {
       const updated = await getClient().markAdminBrowserProfilePlatformAuthenticated(id, platformId);
@@ -203,11 +238,12 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
     {
       title: 'Status',
       key: 'status',
-      width: 110,
+      width: 120,
       render: (_, r) => (
-        <Space>
+        <Space size={4}>
           <Badge status={SESSION_STATUS[r.status as keyof typeof SESSION_STATUS] || 'default'} />
           <span>{r.status}</span>
+          {r.error && <Tooltip title={r.error}><span style={{ color: '#ff4d4f', fontSize: 11 }}>(!)</span></Tooltip>}
         </Space>
       ),
     },
@@ -215,7 +251,7 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
       title: 'VNC',
       key: 'vnc',
       width: 80,
-      render: (_, r) => r.vnc_url && ['running'].includes(r.status) ? (
+      render: (_, r) => r.vnc_url && r.status === 'running' ? (
         <a href={r.vnc_url} target="_blank" rel="noreferrer">
           <Button size="small" icon={<DesktopOutlined />}>VNC</Button>
         </a>
@@ -233,6 +269,29 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
       key: 'created_at',
       width: 140,
       render: (v: string) => <span style={{ fontSize: 12 }}>{new Date(v).toLocaleString()}</span>,
+    },
+    {
+      title: '',
+      key: 'actions',
+      width: 100,
+      render: (_, r) => (
+        <Space size={4}>
+          {['running', 'starting', 'pending'].includes(r.status) && (
+            <Tooltip title="Stop">
+              <Popconfirm title="Stop this session?" onConfirm={() => handleStopSession(r.id)}>
+                <Button size="small" danger icon={<StopOutlined />} />
+              </Popconfirm>
+            </Tooltip>
+          )}
+          {['stopped', 'error'].includes(r.status) && (
+            <Tooltip title="Delete">
+              <Popconfirm title="Delete this session?" onConfirm={() => handleDeleteSession(r.id)}>
+                <Button size="small" icon={<DeleteOutlined />} />
+              </Popconfirm>
+            </Tooltip>
+          )}
+        </Space>
+      ),
     },
   ];
 
@@ -309,14 +368,31 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
             key: 'sessions',
             label: `Sessions (${sessions.length})`,
             children: (
-              <Table
-                dataSource={sessions}
-                columns={sessionColumns}
-                rowKey="id"
-                size="small"
-                pagination={false}
-                locale={{ emptyText: 'No sessions for this profile' }}
-              />
+              <Card
+                extra={
+                  <Space>
+                    <Button icon={<ReloadOutlined />} size="small" onClick={fetchAll}>Refresh</Button>
+                    <Button
+                      type="primary"
+                      icon={<PlayCircleOutlined />}
+                      loading={startingSession}
+                      onClick={handleStartSession}
+                      disabled={profile.status !== 'active'}
+                    >
+                      Start Session
+                    </Button>
+                  </Space>
+                }
+              >
+                <Table
+                  dataSource={sessions}
+                  columns={sessionColumns}
+                  rowKey="id"
+                  size="small"
+                  pagination={false}
+                  locale={{ emptyText: 'No sessions yet — click "Start Session" to launch one' }}
+                />
+              </Card>
             ),
           },
         ]}
