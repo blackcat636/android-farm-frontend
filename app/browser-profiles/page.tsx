@@ -250,7 +250,7 @@ export default function BrowserProfilesPage() {
           <Space size={4}>
             {isRunning && session.vnc_url && (
               <Tooltip title="Open VNC">
-                <a href={session.vnc_url} target="_blank" rel="noreferrer">
+                <a href={`${session.vnc_url}?autoconnect=1`} target="_blank" rel="noreferrer">
                   <Button size="small" icon={<DesktopOutlined />} type="primary">VNC</Button>
                 </a>
               </Tooltip>

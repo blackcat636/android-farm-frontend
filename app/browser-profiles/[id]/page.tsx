@@ -252,7 +252,7 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
       key: 'vnc',
       width: 80,
       render: (_, r) => r.vnc_url && r.status === 'running' ? (
-        <a href={r.vnc_url} target="_blank" rel="noreferrer">
+        <a href={`${r.vnc_url}?autoconnect=1`} target="_blank" rel="noreferrer">
           <Button size="small" icon={<DesktopOutlined />}>VNC</Button>
         </a>
       ) : null,

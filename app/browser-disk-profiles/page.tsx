@@ -196,7 +196,7 @@ export default function BrowserDiskProfilesPage() {
               <Text style={{ fontSize: 11 }}>{s.status}</Text>
             </Space>
             {isActive && s.vnc_url && (
-              <a href={s.vnc_url} target="_blank" rel="noreferrer">
+              <a href={`${s.vnc_url}?autoconnect=1`} target="_blank" rel="noreferrer">
                 <Button size="small" icon={<DesktopOutlined />} style={{ fontSize: 11, height: 20, padding: '0 6px' }}>
                   VNC
                 </Button>
