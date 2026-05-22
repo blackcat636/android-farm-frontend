@@ -140,6 +140,8 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
     }
   };
 
+  const authTypeValue = Form.useWatch('auth_type', form);
+
   const platformColumns: ColumnsType<BrowserProfilePlatform> = [
     {
       title: 'Platform',
@@ -237,8 +239,6 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
   if (!user) return <Loading />;
   if (loading) return <Loading />;
   if (!profile) return <div style={{ padding: 24 }}>Profile not found</div>;
-
-  const authTypeValue = Form.useWatch('auth_type', form);
 
   return (
     <div>
