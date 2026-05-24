@@ -5,23 +5,19 @@ import { Table, Tag, Select, Card, Statistic, Row, Col, Button, Popconfirm, Spac
 import type { ColumnsType } from 'antd/es/table';
 import { useRouter } from 'next/navigation';
 import { DeleteOutlined, ReloadOutlined, RedoOutlined, StopOutlined, PlusOutlined } from '@ant-design/icons';
-import { createBackendClient, tokenStorage, type Task, type BrowserProfileRecord } from '@/lib/api/backend';
+import {
+  createBackendClient,
+  tokenStorage,
+  type Task,
+  type BrowserProfileRecord,
+  type BrowserCatalogResponse,
+  type Agent,
+} from '@/lib/api/backend';
 import { useAuth } from '@/contexts/AuthContext';
 import Loading from '@/components/common/Loading';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import { message } from 'antd';
 import { maskEmail } from '@/utils/maskEmail';
-
-const BROWSER_SCENARIOS: Record<string, { value: string; label: string }[]> = {
-  instagram: [
-    { value: 'check_auth',  label: 'Check Auth' },
-    { value: 'browse_feed', label: 'Browse Feed' },
-    { value: 'like_post',   label: 'Like Post' },
-  ],
-  youtube: [
-    { value: 'watch_and_like', label: 'Watch & Like' },
-  ],
-};
 
 export default function QueuePage() {
   const { user } = useAuth();
@@ -55,8 +51,12 @@ export default function QueuePage() {
   const [browserModalOpen, setBrowserModalOpen] = useState(false);
   const [browserForm] = Form.useForm();
   const [browserProfiles, setBrowserProfiles] = useState<BrowserProfileRecord[]>([]);
+  const [browserAgents, setBrowserAgents] = useState<Agent[]>([]);
+  const [browserCatalog, setBrowserCatalog] = useState<BrowserCatalogResponse | null>(null);
+  const [catalogLoading, setCatalogLoading] = useState(false);
   const [addingBrowserTask, setAddingBrowserTask] = useState(false);
   const selectedPlatform = Form.useWatch('platform', browserForm);
+  const selectedAgentId = Form.useWatch('agent_id', browserForm);
 
   const getClient = useCallback(() => {
     const token = tokenStorage.get();
@@ -69,6 +69,47 @@ export default function QueuePage() {
       const profiles = await getClient().getAdminBrowserProfiles();
       setBrowserProfiles(profiles.filter(p => p.status === 'active'));
     } catch {}
+  };
+
+  const loadBrowserAgents = async () => {
+    try {
+      const agents = await getClient().getAgents(true);
+      const browserOnly = agents.filter((a) => a.type === 'browser');
+      setBrowserAgents(browserOnly);
+      if (browserOnly.length > 0 && !browserForm.getFieldValue('agent_id')) {
+        browserForm.setFieldValue('agent_id', browserOnly[0].id);
+      }
+    } catch {
+      setBrowserAgents([]);
+    }
+  };
+
+  const loadBrowserCatalog = async (agentId: string) => {
+    if (!agentId) {
+      setBrowserCatalog(null);
+      return;
+    }
+    setCatalogLoading(true);
+    try {
+      const catalog = await getClient().getBrowserCatalog(agentId, 'admin');
+      setBrowserCatalog(catalog);
+    } catch {
+      setBrowserCatalog(null);
+    } finally {
+      setCatalogLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedAgentId) {
+      loadBrowserCatalog(selectedAgentId);
+    }
+  }, [selectedAgentId]);
+
+  const openBrowserModal = () => {
+    setBrowserModalOpen(true);
+    loadBrowserProfiles();
+    loadBrowserAgents();
   };
 
   const handleAddBrowserTask = async () => {
@@ -459,7 +500,7 @@ export default function QueuePage() {
           <Button
             type="primary"
             icon={<PlusOutlined />}
-            onClick={() => { loadBrowserProfiles(); setBrowserModalOpen(true); }}
+            onClick={openBrowserModal}
           >
             Browser Task
           </Button>
@@ -678,14 +719,28 @@ export default function QueuePage() {
         destroyOnHidden
       >
         <Form form={browserForm} layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item name="agent_id" label="Browser agent" rules={[{ required: true }]}>
+            <Select
+              placeholder="Select browser agent"
+              options={browserAgents.map((a) => ({
+                value: a.id,
+                label: a.name || a.id,
+              }))}
+              onChange={() => {
+                browserForm.setFieldsValue({ platform: undefined, scenario: undefined });
+              }}
+            />
+          </Form.Item>
           <Form.Item name="platform" label="Platform" rules={[{ required: true }]}>
             <Select
+              loading={catalogLoading}
               placeholder="Select platform"
               onChange={() => browserForm.setFieldValue('scenario', undefined)}
-              options={[
-                { value: 'instagram', label: 'Instagram' },
-                { value: 'youtube',   label: 'YouTube' },
-              ]}
+              options={(browserCatalog?.platforms || []).map((p) => ({
+                value: p.name,
+                label: p.label || p.name,
+              }))}
+              disabled={!selectedAgentId}
             />
           </Form.Item>
           <Form.Item name="profile_id" label="Profile" rules={[{ required: true }]}>
@@ -703,8 +758,16 @@ export default function QueuePage() {
           </Form.Item>
           <Form.Item name="scenario" label="Scenario" rules={[{ required: true }]}>
             <Select
+              loading={catalogLoading}
               placeholder="Select scenario"
-              options={BROWSER_SCENARIOS[selectedPlatform] || []}
+              options={
+                browserCatalog?.platforms
+                  .find((p) => p.name === selectedPlatform)
+                  ?.scenarios.map((s) => ({
+                    value: s.name,
+                    label: s.label || s.name,
+                  })) || []
+              }
               disabled={!selectedPlatform}
             />
           </Form.Item>

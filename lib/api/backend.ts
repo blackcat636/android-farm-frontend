@@ -1527,6 +1527,45 @@ export function createBackendClient(token: string) {
         return response.data;
       },
 
+      // Browser catalog (from browser-agent via backend proxy)
+      async getBrowserCatalog(agentId: string, audience?: 'user' | 'admin' | 'operator'): Promise<BrowserCatalogResponse> {
+        const response = await api.get<BrowserCatalogResponse>('/api/browser-catalog', {
+          params: { agentId, ...(audience ? { audience } : {}) },
+        });
+        return response.data;
+      },
+
+      async getBrowserCapabilityOverrides(): Promise<BrowserCapabilityOverride[]> {
+        const response = await api.get<BrowserCapabilityOverride[]>('/api/admin/browser-capability-overrides');
+        return response.data;
+      },
+
+      async createBrowserCapabilityOverride(
+        data: CreateBrowserCapabilityOverrideDto,
+      ): Promise<BrowserCapabilityOverride> {
+        const response = await api.post<BrowserCapabilityOverride>(
+          '/api/admin/browser-capability-overrides',
+          data,
+        );
+        return response.data;
+      },
+
+      async updateBrowserCapabilityOverride(
+        id: string,
+        data: UpdateBrowserCapabilityOverrideDto,
+      ): Promise<BrowserCapabilityOverride> {
+        const response = await api.patch<BrowserCapabilityOverride>(
+          `/api/admin/browser-capability-overrides/${id}`,
+          data,
+        );
+        return response.data;
+      },
+
+      async deleteBrowserCapabilityOverride(id: string): Promise<{ ok: boolean }> {
+        const response = await api.delete(`/api/admin/browser-capability-overrides/${id}`);
+        return response.data;
+      },
+
       // Browser Proxies
       async getAdminBrowserProxies(): Promise<BrowserProxy[]> {
         const response = await api.get<BrowserProxy[]>('/api/admin/browser-proxies');
@@ -1880,6 +1919,67 @@ export interface BrowserProfilePlatform {
   authenticated_via?: 'manual' | 'automatic' | null;
   created_at: string;
   updated_at?: string;
+}
+
+export type BrowserVisibility = 'user' | 'admin' | 'operator' | 'internal' | 'hidden';
+
+export interface BrowserCatalogAction {
+  name: string;
+  label: string;
+  requiresSessionId: boolean;
+  visibility: BrowserVisibility;
+  params?: Array<Record<string, unknown>>;
+}
+
+export interface BrowserCatalogScenario {
+  name: string;
+  label: string;
+  requiresAuth?: boolean;
+  visibility: BrowserVisibility;
+  params?: Array<Record<string, unknown>>;
+}
+
+export interface BrowserCatalogPlatform {
+  name: string;
+  label?: string;
+  visibility: BrowserVisibility;
+  scenarios: BrowserCatalogScenario[];
+}
+
+export interface BrowserCatalogResponse {
+  ok: boolean;
+  catalogVersion: string;
+  audience: string;
+  agentId?: string;
+  actions: BrowserCatalogAction[];
+  platforms: BrowserCatalogPlatform[];
+}
+
+export interface BrowserCapabilityOverride {
+  id: string;
+  scope: 'action' | 'scenario' | 'platform';
+  platform: string | null;
+  name: string;
+  visibility_override: BrowserVisibility | null;
+  enabled: boolean;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateBrowserCapabilityOverrideDto {
+  scope: 'action' | 'scenario' | 'platform';
+  platform?: string;
+  name: string;
+  visibility_override?: BrowserVisibility;
+  enabled?: boolean;
+  note?: string;
+}
+
+export interface UpdateBrowserCapabilityOverrideDto {
+  visibility_override?: BrowserVisibility | null;
+  enabled?: boolean;
+  note?: string | null;
 }
 
 export interface BrowserProfileRecord {
