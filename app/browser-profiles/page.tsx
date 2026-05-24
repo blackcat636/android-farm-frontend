@@ -138,7 +138,7 @@ export default function BrowserProfilesPage() {
         setProfiles(prev => prev.map(p => p.id === updated.id ? updated : p));
         message.success('Profile updated');
       } else {
-        const data: CreateBrowserProfileDto = values;
+        const data = values as CreateBrowserProfileDto;
         const created = await client.createAdminBrowserProfile(data);
         setProfiles(prev => [created, ...prev]);
         message.success('Profile created');
@@ -309,7 +309,7 @@ export default function BrowserProfilesPage() {
     });
   };
 
-  const normalizeQuickPayload = (values: Record<string, unknown>) => {
+  const normalizeQuickPayload = <T extends { requires_auth?: boolean }>(values: T): T => {
     if (!values.requires_auth) {
       return {
         ...values,
@@ -319,7 +319,7 @@ export default function BrowserProfilesPage() {
         cookies: undefined,
         verify_url: undefined,
         user_agent: undefined,
-      };
+      } as T;
     }
     return values;
   };

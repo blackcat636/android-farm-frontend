@@ -108,7 +108,11 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
     });
   };
 
-  const normalizePlatformPayload = (values: Record<string, unknown>) => {
+  type AdminPlatformFormValues = CreateBrowserProfilePlatformDto & { status?: string };
+
+  const normalizePlatformPayload = (
+    values: AdminPlatformFormValues,
+  ): AdminPlatformFormValues => {
     if (!values.requires_auth) {
       return {
         ...values,
@@ -125,7 +129,9 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
 
   const handleSavePlatform = async () => {
     try {
-      const values = normalizePlatformPayload(await form.validateFields());
+      const values = normalizePlatformPayload(
+        (await form.validateFields()) as AdminPlatformFormValues,
+      );
       setSaving(true);
       const client = getClient();
 
@@ -137,8 +143,7 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
         } : prev);
         message.success('Platform updated');
       } else {
-        const data: CreateBrowserProfilePlatformDto = values;
-        const created = await client.addAdminBrowserProfilePlatform(id, data);
+        const created = await client.addAdminBrowserProfilePlatform(id, values);
         setProfile(prev => prev ? { ...prev, platforms: [...(prev.platforms || []), created] } : prev);
         message.success('Platform added');
       }
