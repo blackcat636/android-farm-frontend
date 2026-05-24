@@ -245,7 +245,7 @@ export default function BrowserProfilesPage() {
               type="primary"
               ghost
               icon={<PlayCircleOutlined />}
-              disabled={r.status !== 'active' || !r.proxy_id}
+              disabled={r.status !== 'active'}
               onClick={() => handleStartSession(r.id)}
             >
               Start

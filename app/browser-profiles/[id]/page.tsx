@@ -410,7 +410,7 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
                       icon={<PlayCircleOutlined />}
                       loading={startingSession}
                       onClick={handleStartSession}
-                      disabled={profile.status !== 'active' || !profile.proxy_id}
+                      disabled={profile.status !== 'active'}
                     >
                       Start Session
                     </Button>
