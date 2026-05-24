@@ -97,9 +97,35 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
   };
   const closeModal = () => { setPlatformModal(null); setEditingPlatform(null); form.resetFields(); };
 
+  const clearAuthFields = () => {
+    form.setFieldsValue({
+      auth_type: undefined,
+      password: undefined,
+      two_factor_secret: undefined,
+      cookies: undefined,
+      verify_url: undefined,
+      user_agent: undefined,
+    });
+  };
+
+  const normalizePlatformPayload = (values: Record<string, unknown>) => {
+    if (!values.requires_auth) {
+      return {
+        ...values,
+        auth_type: undefined,
+        password: undefined,
+        two_factor_secret: undefined,
+        cookies: undefined,
+        verify_url: undefined,
+        user_agent: undefined,
+      };
+    }
+    return values;
+  };
+
   const handleSavePlatform = async () => {
     try {
-      const values = await form.validateFields();
+      const values = normalizePlatformPayload(await form.validateFields());
       setSaving(true);
       const client = getClient();
 
@@ -181,6 +207,7 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
     }
   };
 
+  const requiresAuth = Form.useWatch('requires_auth', form);
   const authTypeValue = Form.useWatch('auth_type', form);
 
   const platformColumns: ColumnsType<BrowserProfilePlatform> = [
@@ -432,29 +459,33 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
             </Form.Item>
           )}
           <Form.Item name="requires_auth" label="Requires Auth" valuePropName="checked" initialValue={true}>
-            <Switch />
+            <Switch onChange={(checked) => { if (!checked) clearAuthFields(); }} />
           </Form.Item>
-          <Form.Item name="auth_type" label="Auth Type">
-            <Select allowClear placeholder="None" options={[{ value: 'script', label: 'Script (login/password)' }, { value: 'cookies', label: 'Cookies' }]} />
-          </Form.Item>
-          {authTypeValue === 'script' && (
+          {requiresAuth && (
             <>
-              <Form.Item name="password" label="Password"><Input.Password /></Form.Item>
-              <Form.Item name="two_factor_secret" label="2FA Secret (TOTP)"><Input /></Form.Item>
-            </>
-          )}
-          {authTypeValue === 'cookies' && (
-            <>
-              <Form.Item
-                name="cookies"
-                label="Cookies (JSON array)"
-                getValueFromEvent={(e) => { try { return JSON.parse(e.target.value); } catch { return e.target.value; } }}
-                getValueProps={(v) => ({ value: v ? JSON.stringify(v, null, 2) : '' })}
-              >
-                <Input.TextArea rows={5} placeholder='[{"name":"...","value":"...","domain":"..."}]' />
+              <Form.Item name="auth_type" label="Auth Type">
+                <Select allowClear placeholder="None" options={[{ value: 'script', label: 'Script (login/password)' }, { value: 'cookies', label: 'Cookies' }]} />
               </Form.Item>
-              <Form.Item name="verify_url" label="Verify URL"><Input placeholder="https://www.instagram.com/" /></Form.Item>
-              <Form.Item name="user_agent" label="User Agent"><Input /></Form.Item>
+              {authTypeValue === 'script' && (
+                <>
+                  <Form.Item name="password" label="Password"><Input.Password /></Form.Item>
+                  <Form.Item name="two_factor_secret" label="2FA Secret (TOTP)"><Input /></Form.Item>
+                </>
+              )}
+              {authTypeValue === 'cookies' && (
+                <>
+                  <Form.Item
+                    name="cookies"
+                    label="Cookies (JSON array)"
+                    getValueFromEvent={(e) => { try { return JSON.parse(e.target.value); } catch { return e.target.value; } }}
+                    getValueProps={(v) => ({ value: v ? JSON.stringify(v, null, 2) : '' })}
+                  >
+                    <Input.TextArea rows={5} placeholder='[{"name":"...","value":"...","domain":"..."}]' />
+                  </Form.Item>
+                  <Form.Item name="verify_url" label="Verify URL"><Input placeholder="https://www.instagram.com/" /></Form.Item>
+                  <Form.Item name="user_agent" label="User Agent"><Input /></Form.Item>
+                </>
+              )}
             </>
           )}
           <Form.Item name="notes" label="Notes">

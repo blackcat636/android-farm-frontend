@@ -124,7 +124,7 @@ export default function BrowserProfilesPage() {
 
   const handleSave = async () => {
     try {
-      const values = await form.validateFields();
+      const values = normalizeQuickPayload(await form.validateFields());
       setSaving(true);
       const client = getClient();
 
@@ -295,7 +295,34 @@ export default function BrowserProfilesPage() {
   if (!user) return <Loading />;
 
   const browserTypeValue = Form.useWatch('browser_type', form) || 'chrome';
+  const requiresAuth = Form.useWatch('requires_auth', form);
   const authTypeValue = Form.useWatch('auth_type', form);
+
+  const clearAuthFields = () => {
+    form.setFieldsValue({
+      auth_type: undefined,
+      password: undefined,
+      two_factor_secret: undefined,
+      cookies: undefined,
+      verify_url: undefined,
+      user_agent: undefined,
+    });
+  };
+
+  const normalizeQuickPayload = (values: Record<string, unknown>) => {
+    if (!values.requires_auth) {
+      return {
+        ...values,
+        auth_type: undefined,
+        password: undefined,
+        two_factor_secret: undefined,
+        cookies: undefined,
+        verify_url: undefined,
+        user_agent: undefined,
+      };
+    }
+    return values;
+  };
 
   const browserConfigFields = (
     <>
@@ -412,24 +439,28 @@ export default function BrowserProfilesPage() {
           </Form.Item>
           <Divider>Auth</Divider>
           <Form.Item name="requires_auth" label="Requires Auth" valuePropName="checked" initialValue={true}>
-            <Switch />
+            <Switch onChange={(checked) => { if (!checked) clearAuthFields(); }} />
           </Form.Item>
-          <Form.Item name="auth_type" label="Auth Type">
-            <Select allowClear placeholder="None" options={[{ value: 'script', label: 'Script (login/password)' }, { value: 'cookies', label: 'Cookies' }]} />
-          </Form.Item>
-          {authTypeValue === 'script' && (
+          {requiresAuth && (
             <>
-              <Form.Item name="password" label="Password"><Input.Password /></Form.Item>
-              <Form.Item name="two_factor_secret" label="2FA Secret (TOTP)"><Input /></Form.Item>
-            </>
-          )}
-          {authTypeValue === 'cookies' && (
-            <>
-              <Form.Item name="cookies" label="Cookies (JSON array)" getValueFromEvent={(e) => { try { return JSON.parse(e.target.value); } catch { return e.target.value; } }}>
-                <Input.TextArea rows={4} placeholder='[{"name":"...","value":"...","domain":"..."}]' />
+              <Form.Item name="auth_type" label="Auth Type">
+                <Select allowClear placeholder="None" options={[{ value: 'script', label: 'Script (login/password)' }, { value: 'cookies', label: 'Cookies' }]} />
               </Form.Item>
-              <Form.Item name="verify_url" label="Verify URL"><Input placeholder="https://www.instagram.com/" /></Form.Item>
-              <Form.Item name="user_agent" label="User Agent"><Input /></Form.Item>
+              {authTypeValue === 'script' && (
+                <>
+                  <Form.Item name="password" label="Password"><Input.Password /></Form.Item>
+                  <Form.Item name="two_factor_secret" label="2FA Secret (TOTP)"><Input /></Form.Item>
+                </>
+              )}
+              {authTypeValue === 'cookies' && (
+                <>
+                  <Form.Item name="cookies" label="Cookies (JSON array)" getValueFromEvent={(e) => { try { return JSON.parse(e.target.value); } catch { return e.target.value; } }}>
+                    <Input.TextArea rows={4} placeholder='[{"name":"...","value":"...","domain":"..."}]' />
+                  </Form.Item>
+                  <Form.Item name="verify_url" label="Verify URL"><Input placeholder="https://www.instagram.com/" /></Form.Item>
+                  <Form.Item name="user_agent" label="User Agent"><Input /></Form.Item>
+                </>
+              )}
             </>
           )}
           <Divider>Browser</Divider>
