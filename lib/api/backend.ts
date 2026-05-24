@@ -1887,7 +1887,7 @@ export interface BrowserProfileRecord {
   user_id: string;
   name: string;
   notes?: string;
-  status: 'active' | 'blocked' | 'archived';
+  status: 'preparing' | 'active' | 'blocked' | 'disabled' | 'stopped' | 'archived';
   browser_type: 'chrome' | 'camoufox';
   proxy_id?: string | null;
   proxy?: Pick<BrowserProxy, 'id' | 'label' | 'host' | 'port' | 'username'> | null;

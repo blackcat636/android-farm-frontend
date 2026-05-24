@@ -30,7 +30,13 @@ const PLATFORM_COLORS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  active: 'green', blocked: 'red', expired: 'orange', archived: 'default',
+  preparing: 'gold',
+  active: 'green',
+  blocked: 'red',
+  disabled: 'default',
+  stopped: 'blue',
+  expired: 'orange',
+  archived: 'default',
 };
 
 const SESSION_STATUS = {
@@ -377,7 +383,7 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
                       icon={<PlayCircleOutlined />}
                       loading={startingSession}
                       onClick={handleStartSession}
-                      disabled={profile.status !== 'active'}
+                      disabled={profile.status !== 'active' || !profile.proxy_id}
                     >
                       Start Session
                     </Button>

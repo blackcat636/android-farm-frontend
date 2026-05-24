@@ -28,7 +28,12 @@ const PLATFORM_COLORS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  active: 'green', blocked: 'red', archived: 'default',
+  preparing: 'gold',
+  active: 'green',
+  blocked: 'red',
+  disabled: 'default',
+  stopped: 'blue',
+  archived: 'default',
 };
 
 const BROWSER_COLORS: Record<string, string> = {
@@ -206,8 +211,11 @@ export default function BrowserProfilesPage() {
       key: 'status',
       width: 90,
       filters: [
+        { text: 'Preparing', value: 'preparing' },
         { text: 'Active', value: 'active' },
+        { text: 'Stopped', value: 'stopped' },
         { text: 'Blocked', value: 'blocked' },
+        { text: 'Disabled', value: 'disabled' },
         { text: 'Archived', value: 'archived' },
       ],
       onFilter: (v, r) => r.status === v,
@@ -237,7 +245,7 @@ export default function BrowserProfilesPage() {
               type="primary"
               ghost
               icon={<PlayCircleOutlined />}
-              disabled={r.status !== 'active'}
+              disabled={r.status !== 'active' || !r.proxy_id}
               onClick={() => handleStartSession(r.id)}
             >
               Start
@@ -361,7 +369,14 @@ export default function BrowserProfilesPage() {
           </Form.Item>
           {modal === 'edit' && (
             <Form.Item name="status" label="Status">
-              <Select options={[{ value: 'active', label: 'Active' }, { value: 'blocked', label: 'Blocked' }, { value: 'archived', label: 'Archived' }]} />
+              <Select options={[
+                { value: 'preparing', label: 'Preparing' },
+                { value: 'active', label: 'Active' },
+                { value: 'stopped', label: 'Stopped' },
+                { value: 'blocked', label: 'Blocked' },
+                { value: 'disabled', label: 'Disabled' },
+                { value: 'archived', label: 'Archived' },
+              ]} />
             </Form.Item>
           )}
           <Divider>Browser</Divider>
