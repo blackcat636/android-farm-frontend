@@ -1,37 +1,71 @@
 'use client';
 
-import { DeleteOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
-import { App, Button, Form, Input, Modal, Select, Space, Switch, Table, Tag, Typography } from 'antd';
+import {
+  ApiOutlined,
+  CheckCircleOutlined,
+  EyeInvisibleOutlined,
+  ReloadOutlined,
+} from '@ant-design/icons';
+import {
+  App,
+  Badge,
+  Button,
+  Card,
+  Descriptions,
+  Input,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Typography,
+} from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   createBackendClient,
   tokenStorage,
+  type Agent,
   type BrowserCapabilityOverride,
-  type CreateBrowserCapabilityOverrideDto,
+  type BrowserCatalogInputField,
+  type BrowserCatalogScenario,
+  type BrowserVisibility,
 } from '@/lib/api/backend';
 import { useAuth } from '@/contexts/AuthContext';
 import Loading from '@/components/common/Loading';
-import ErrorDisplay from '@/components/common/ErrorDisplay';
 
-const VISIBILITY_OPTIONS = [
-  { value: 'user', label: 'user' },
-  { value: 'admin', label: 'admin' },
-  { value: 'operator', label: 'operator' },
-  { value: 'internal', label: 'internal' },
-  { value: 'hidden', label: 'hidden' },
+const VISIBILITY_OPTIONS: { value: BrowserVisibility; label: string; color: string }[] = [
+  { value: 'hidden', label: 'hidden', color: 'default' },
+  { value: 'admin', label: 'admin', color: 'orange' },
+  { value: 'user', label: 'user', color: 'green' },
+  { value: 'operator', label: 'operator', color: 'blue' },
+  { value: 'internal', label: 'internal', color: 'purple' },
 ];
 
-export default function BrowserCatalogOverridesPage() {
+type ScenarioRow = {
+  key: string;
+  platform: string;
+  scenario: string;
+  label: string;
+  minTier?: string;
+  visibility: BrowserVisibility;
+  override?: BrowserCapabilityOverride;
+  input?: Record<string, BrowserCatalogInputField>;
+  isNew: boolean;
+};
+
+export default function CatalogManagementPage() {
   const { message } = App.useApp();
   const { user } = useAuth();
-  const [rows, setRows] = useState<BrowserCapabilityOverride[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [form] = Form.useForm<CreateBrowserCapabilityOverrideDto>();
-  const scopeWatch = Form.useWatch('scope', form);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [scenarios, setScenarios] = useState<ScenarioRow[]>([]);
+  const [overrides, setOverrides] = useState<BrowserCapabilityOverride[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [agentsLoading, setAgentsLoading] = useState(true);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [searchText, setSearchText] = useState('');
+  const [filterPlatform, setFilterPlatform] = useState<string | null>(null);
+  const [filterVisibility, setFilterVisibility] = useState<BrowserVisibility | null>(null);
 
   const getClient = useCallback(() => {
     const token = tokenStorage.get();
@@ -39,160 +73,328 @@ export default function BrowserCatalogOverridesPage() {
     return createBackendClient(token);
   }, []);
 
-  const load = useCallback(async () => {
+  // Load browser agents list
+  useEffect(() => {
     if (!user) return;
+    getClient()
+      .getAgents(true)
+      .then((all) => {
+        const browserAgents = all.filter((a) => a.type === 'browser');
+        setAgents(browserAgents);
+        if (browserAgents.length > 0) setSelectedAgentId(browserAgents[0].id);
+      })
+      .catch(() => setAgents([]))
+      .finally(() => setAgentsLoading(false));
+  }, [user, getClient]);
+
+  const buildRows = useCallback(
+    (
+      platforms: Array<{ name: string; label?: string; scenarios: BrowserCatalogScenario[] }>,
+      ovs: BrowserCapabilityOverride[],
+    ): ScenarioRow[] => {
+      const rows: ScenarioRow[] = [];
+      for (const plat of platforms) {
+        for (const scen of plat.scenarios) {
+          const override = ovs.find(
+            (o) => o.scope === 'scenario' && o.platform === plat.name && o.name === scen.name,
+          );
+          const isNew = !override;
+          const visibility: BrowserVisibility = override?.visibility_override ?? 'hidden';
+
+          rows.push({
+            key: `${plat.name}:${scen.name}`,
+            platform: plat.name,
+            scenario: scen.name,
+            label: scen.label || scen.name,
+            minTier: scen.minTier,
+            visibility,
+            override,
+            input: scen.input,
+            isNew,
+          });
+        }
+      }
+      return rows;
+    },
+    [],
+  );
+
+  const loadCatalog = useCallback(async () => {
+    if (!selectedAgentId) return;
     setLoading(true);
-    setError(null);
     try {
-      const data = await getClient().getBrowserCapabilityOverrides();
-      setRows(data);
+      const client = getClient();
+      const [catalog, ovs] = await Promise.all([
+        client.getBrowserCatalog(selectedAgentId, 'operator'),
+        client.getBrowserCapabilityOverrides(),
+      ]);
+      setOverrides(ovs);
+      setScenarios(buildRows(catalog.platforms, ovs));
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load overrides');
+      message.error(err instanceof Error ? err.message : 'Failed to load catalog');
     } finally {
       setLoading(false);
     }
-  }, [user, getClient]);
+  }, [selectedAgentId, getClient, buildRows, message]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    loadCatalog();
+  }, [loadCatalog]);
 
-  const onSave = async () => {
+  const handleRefresh = async () => {
+    if (!selectedAgentId) return;
     try {
-      const values = await form.validateFields();
-      setSaving(true);
-      await getClient().createBrowserCapabilityOverride(values);
-      message.success('Override created');
-      setModalOpen(false);
-      form.resetFields();
-      load();
+      await getClient().invalidateBrowserCatalogCache(selectedAgentId);
+      await loadCatalog();
+      message.success('Cache invalidated, catalog refreshed');
+    } catch (err: unknown) {
+      message.error(err instanceof Error ? err.message : 'Refresh failed');
+    }
+  };
+
+  const handleVisibilityChange = async (row: ScenarioRow, visibility: BrowserVisibility) => {
+    setSavingKey(row.key);
+    try {
+      await getClient().upsertCatalogOverride(row.platform, row.scenario, visibility, overrides);
+      message.success(`${row.platform}/${row.scenario} → ${visibility}`);
+      await loadCatalog();
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : 'Save failed');
     } finally {
-      setSaving(false);
+      setSavingKey(null);
     }
   };
 
-  const onToggleEnabled = async (row: BrowserCapabilityOverride, enabled: boolean) => {
-    try {
-      await getClient().updateBrowserCapabilityOverride(row.id, { enabled });
-      load();
-    } catch (err: unknown) {
-      message.error(err instanceof Error ? err.message : 'Update failed');
-    }
-  };
+  const platforms = useMemo(
+    () => [...new Set(scenarios.map((s) => s.platform))],
+    [scenarios],
+  );
 
-  const onDelete = async (id: string) => {
-    try {
-      await getClient().deleteBrowserCapabilityOverride(id);
-      message.success('Deleted');
-      load();
-    } catch (err: unknown) {
-      message.error(err instanceof Error ? err.message : 'Delete failed');
-    }
-  };
+  const filteredRows = useMemo(() => {
+    return scenarios.filter((row) => {
+      if (filterPlatform && row.platform !== filterPlatform) return false;
+      if (filterVisibility && row.visibility !== filterVisibility) return false;
+      if (searchText) {
+        const q = searchText.toLowerCase();
+        return (
+          row.platform.includes(q) ||
+          row.scenario.includes(q) ||
+          row.label.toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+  }, [scenarios, filterPlatform, filterVisibility, searchText]);
 
-  const columns: ColumnsType<BrowserCapabilityOverride> = [
-    { title: 'Scope', dataIndex: 'scope', key: 'scope', width: 100 },
-    { title: 'Platform', dataIndex: 'platform', key: 'platform', render: (v) => v || '—' },
-    { title: 'Name', dataIndex: 'name', key: 'name' },
+  const newCount = useMemo(() => scenarios.filter((s) => s.isNew).length, [scenarios]);
+  const enabledCount = useMemo(
+    () => scenarios.filter((s) => s.visibility !== 'hidden').length,
+    [scenarios],
+  );
+
+  const columns: ColumnsType<ScenarioRow> = [
     {
-      title: 'Visibility override',
-      dataIndex: 'visibility_override',
-      key: 'visibility_override',
-      render: (v) => (v ? <Tag>{v}</Tag> : '—'),
+      title: 'Platform',
+      dataIndex: 'platform',
+      key: 'platform',
+      width: 120,
+      render: (v) => <Tag color="blue">{v}</Tag>,
     },
     {
-      title: 'Enabled',
-      dataIndex: 'enabled',
-      key: 'enabled',
-      render: (v, r) => (
-        <Switch checked={v} onChange={(checked) => onToggleEnabled(r, checked)} />
+      title: 'Scenario',
+      dataIndex: 'scenario',
+      key: 'scenario',
+      render: (v, row) => (
+        <Space>
+          <span style={{ fontFamily: 'monospace' }}>{v}</span>
+          {row.isNew && <Badge count="new" style={{ backgroundColor: '#faad14', fontSize: 10 }} />}
+        </Space>
       ),
     },
-    { title: 'Note', dataIndex: 'note', key: 'note', ellipsis: true },
     {
-      title: 'Actions',
-      key: 'actions',
-      width: 90,
-      render: (_, r) => (
-        <Button size="small" danger icon={<DeleteOutlined />} onClick={() => onDelete(r.id)} />
+      title: 'Label',
+      dataIndex: 'label',
+      key: 'label',
+      render: (v, row) => (
+        <span style={{ color: row.label === row.scenario ? '#999' : undefined }}>{v}</span>
       ),
+    },
+    {
+      title: 'Min tier',
+      dataIndex: 'minTier',
+      key: 'minTier',
+      width: 110,
+      render: (v) => {
+        if (!v) return <span style={{ color: '#ccc' }}>—</span>;
+        const color = v === 'curl' ? 'green' : v === 'playwright' ? 'orange' : 'red';
+        return <Tag color={color}>{v}</Tag>;
+      },
+    },
+    {
+      title: 'Visibility',
+      dataIndex: 'visibility',
+      key: 'visibility',
+      width: 180,
+      render: (v: BrowserVisibility, row) => {
+        const isSaving = savingKey === row.key;
+        return (
+          <Select
+            size="small"
+            value={v}
+            loading={isSaving}
+            disabled={isSaving}
+            style={{ width: 140 }}
+            onChange={(val) => handleVisibilityChange(row, val)}
+            options={VISIBILITY_OPTIONS.map((opt) => ({
+              value: opt.value,
+              label: (
+                <Space size={4}>
+                  {opt.value === 'hidden' ? (
+                    <EyeInvisibleOutlined style={{ color: '#999' }} />
+                  ) : (
+                    <CheckCircleOutlined style={{ color: opt.color === 'green' ? '#52c41a' : opt.color === 'orange' ? '#fa8c16' : '#1677ff' }} />
+                  )}
+                  <span>{opt.label}</span>
+                </Space>
+              ),
+            }))}
+          />
+        );
+      },
     },
   ];
 
   if (!user) return <Loading />;
-  if (error) return <ErrorDisplay message={error} />;
 
   return (
     <div>
       <Space style={{ marginBottom: 16, width: '100%', justifyContent: 'space-between' }}>
         <div>
           <Typography.Title level={4} style={{ margin: 0 }}>
-            Browser catalog overrides
+            Catalog Management
           </Typography.Title>
           <Typography.Text type="secondary">
-            Adjust visibility or disable actions/scenarios without redeploying the browser-agent.
+            All scenarios from the browser-agent. Set visibility to enable them in Queue modal or Cabinet.
           </Typography.Text>
         </div>
         <Space>
-          <Button icon={<ReloadOutlined />} onClick={load}>
-            Refresh
-          </Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>
-            Add override
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={handleRefresh}
+            disabled={!selectedAgentId || loading}
+          >
+            Refresh from agent
           </Button>
         </Space>
       </Space>
 
-      <Table
-        rowKey="id"
-        loading={loading}
-        dataSource={rows}
-        columns={columns}
-        pagination={{ pageSize: 20, showTotal: (t) => `Total ${t}` }}
-      />
+      {/* Stats + agent selector */}
+      <Space style={{ marginBottom: 16, width: '100%' }} wrap>
+        {agents.length > 1 && (
+          <Select
+            loading={agentsLoading}
+            value={selectedAgentId}
+            onChange={setSelectedAgentId}
+            style={{ minWidth: 200 }}
+            placeholder="Select agent"
+            options={agents.map((a) => ({
+              value: a.id,
+              label: (
+                <Space>
+                  <ApiOutlined />
+                  <span>{a.name || a.id.slice(0, 8)}</span>
+                  {a.visibility === 0 && <Tag color="red">hidden</Tag>}
+                </Space>
+              ),
+            }))}
+          />
+        )}
 
-      <Modal
-        title="New catalog override"
-        open={modalOpen}
-        onCancel={() => {
-          setModalOpen(false);
-          form.resetFields();
+        <Space>
+          <Tag color="blue">{scenarios.length} total</Tag>
+          <Tag color="green">{enabledCount} enabled</Tag>
+          {newCount > 0 && <Tag color="gold">{newCount} new</Tag>}
+        </Space>
+      </Space>
+
+      {/* Filters */}
+      <Space style={{ marginBottom: 12 }}>
+        <Input.Search
+          placeholder="Search scenario..."
+          allowClear
+          style={{ width: 220 }}
+          onSearch={setSearchText}
+          onChange={(e) => !e.target.value && setSearchText('')}
+        />
+        <Select
+          allowClear
+          placeholder="Platform"
+          style={{ width: 140 }}
+          value={filterPlatform}
+          onChange={(v) => setFilterPlatform(v ?? null)}
+          options={platforms.map((p) => ({ value: p, label: p }))}
+        />
+        <Select
+          allowClear
+          placeholder="Visibility"
+          style={{ width: 130 }}
+          value={filterVisibility}
+          onChange={(v) => setFilterVisibility(v ?? null)}
+          options={VISIBILITY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+        />
+      </Space>
+
+      <Table
+        rowKey="key"
+        loading={loading}
+        dataSource={filteredRows}
+        columns={columns}
+        size="small"
+        pagination={{ pageSize: 50, showTotal: (t) => `Total ${t}` }}
+        expandable={{
+          rowExpandable: (row) => !!row.input && Object.keys(row.input).length > 0,
+          expandedRowRender: (row) => {
+            if (!row.input) return null;
+            const fields = Object.entries(row.input);
+            return (
+              <Card size="small" style={{ margin: '4px 0', background: '#fafafa' }}>
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  Input schema ({fields.length} fields):
+                </Typography.Text>
+                <Descriptions
+                  size="small"
+                  column={3}
+                  style={{ marginTop: 6 }}
+                  items={fields.map(([key, field]) => ({
+                    key,
+                    label: (
+                      <Space size={4}>
+                        <code style={{ fontSize: 11 }}>{key}</code>
+                        {field.required && <Tag color="red" style={{ fontSize: 10 }}>required</Tag>}
+                      </Space>
+                    ),
+                    children: (
+                      <span style={{ fontSize: 12 }}>
+                        <Tag>{field.type || 'string'}</Tag>
+                        {field.description && (
+                          <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+                            {field.description}
+                          </Typography.Text>
+                        )}
+                        {field.default !== undefined && (
+                          <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+                            {' '}default: <code>{String(field.default)}</code>
+                          </Typography.Text>
+                        )}
+                      </span>
+                    ),
+                  }))}
+                />
+              </Card>
+            );
+          },
         }}
-        onOk={onSave}
-        confirmLoading={saving}
-        destroyOnHidden
-      >
-        <Form form={form} layout="vertical" initialValues={{ enabled: true }}>
-          <Form.Item name="scope" label="Scope" rules={[{ required: true }]}>
-            <Select
-              options={[
-                { value: 'action', label: 'action' },
-                { value: 'scenario', label: 'scenario' },
-                { value: 'platform', label: 'platform' },
-              ]}
-            />
-          </Form.Item>
-          {scopeWatch === 'scenario' && (
-            <Form.Item name="platform" label="Platform" rules={[{ required: true }]}>
-              <Input placeholder="youtube" />
-            </Form.Item>
-          )}
-          <Form.Item name="name" label="Name" rules={[{ required: true }]}>
-            <Input placeholder="warmup / run_scenario / youtube" />
-          </Form.Item>
-          <Form.Item name="visibility_override" label="Visibility override">
-            <Select allowClear options={VISIBILITY_OPTIONS} placeholder="Leave empty to only use enabled flag" />
-          </Form.Item>
-          <Form.Item name="enabled" label="Enabled" valuePropName="checked">
-            <Switch />
-          </Form.Item>
-          <Form.Item name="note" label="Note">
-            <Input.TextArea rows={2} />
-          </Form.Item>
-        </Form>
-      </Modal>
+      />
     </div>
   );
 }

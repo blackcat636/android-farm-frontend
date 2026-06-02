@@ -1,16 +1,18 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Table, Tag, Select, Card, Statistic, Row, Col, Button, Popconfirm, Space, Modal, Form, Input } from 'antd';
+import { Table, Tag, Select, Card, Statistic, Row, Col, Button, Popconfirm, Space, Modal, Form, Input, Drawer, Collapse, InputNumber } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useRouter } from 'next/navigation';
-import { DeleteOutlined, ReloadOutlined, RedoOutlined, StopOutlined, PlusOutlined } from '@ant-design/icons';
+import { DeleteOutlined, ReloadOutlined, RedoOutlined, StopOutlined, PlusOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import {
   createBackendClient,
   tokenStorage,
   type Task,
   type BrowserProfileRecord,
   type BrowserCatalogResponse,
+  type BrowserCatalogScenario,
+  type BrowserExecutionChunk,
   type Agent,
 } from '@/lib/api/backend';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,6 +20,9 @@ import Loading from '@/components/common/Loading';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import { message } from 'antd';
 import { maskEmail } from '@/utils/maskEmail';
+import BrowserScenarioInputForm from '@/components/browser/BrowserScenarioInputForm';
+
+const BROWSER_AGENT_PLATFORMS = ['reddit','youtube','generic','news-portal','twitter','instagram','tiktok'];
 
 export default function QueuePage() {
   const { user } = useAuth();
@@ -57,6 +62,20 @@ export default function QueuePage() {
   const [addingBrowserTask, setAddingBrowserTask] = useState(false);
   const selectedPlatform = Form.useWatch('platform', browserForm);
   const selectedAgentId = Form.useWatch('agent_id', browserForm);
+  const selectedScenarioName = Form.useWatch('scenario', browserForm);
+
+  const selectedScenario: BrowserCatalogScenario | undefined = browserCatalog?.platforms
+    .find((p) => p.name === selectedPlatform)
+    ?.scenarios.find((s) => s.name === selectedScenarioName);
+  const profileRequired = !selectedScenario?.minTier || selectedScenario.minTier !== 'curl';
+  const hasDynamicInput = !!(selectedScenario?.input && Object.keys(selectedScenario.input).length > 0);
+
+  // Chunks drawer
+  const [chunksDrawerTask, setChunksDrawerTask] = useState<Task | null>(null);
+  const [chunks, setChunks] = useState<BrowserExecutionChunk[]>([]);
+  const [chunksTotal, setChunksTotal] = useState(0);
+  const [chunksItemsTotal, setChunksItemsTotal] = useState(0);
+  const [chunksLoading, setChunksLoading] = useState(false);
 
   const getClient = useCallback(() => {
     const token = tokenStorage.get();
@@ -115,22 +134,28 @@ export default function QueuePage() {
   const handleAddBrowserTask = async () => {
     let values: any;
     try { values = await browserForm.validateFields(); } catch { return; }
-    let scenarioParams: any = {};
-    if (values.params_json) {
-      try { scenarioParams = JSON.parse(values.params_json); } catch {
+
+    // Build input from dynamic fields or JSON
+    let input: Record<string, unknown> = {};
+    if (hasDynamicInput && values.input_fields) {
+      input = values.input_fields;
+    } else if (values.params_json) {
+      try { input = JSON.parse(values.params_json); } catch {
         message.error('Invalid JSON in params');
         return;
       }
     }
+
     try {
       setAddingBrowserTask(true);
       await getClient().addTask({
         platform: values.platform,
         action: 'run_scenario',
-        browser_profile_id: values.profile_id,
+        browser_profile_id: values.profile_id || undefined,
         params: {
           scenario: values.scenario,
-          ...scenarioParams,
+          input,
+          ...(values.forceTier ? { forceTier: values.forceTier } : {}),
         },
         priority: values.priority ?? 5,
       });
@@ -142,6 +167,22 @@ export default function QueuePage() {
       message.error(err.message || 'Failed to add task');
     } finally {
       setAddingBrowserTask(false);
+    }
+  };
+
+  const openChunksDrawer = async (task: Task) => {
+    setChunksDrawerTask(task);
+    setChunks([]);
+    setChunksLoading(true);
+    try {
+      const result = await getClient().getQueueTaskChunks(task.id);
+      setChunks(result.chunks);
+      setChunksTotal(result.total);
+      setChunksItemsTotal(result.itemsTotal);
+    } catch (err: any) {
+      message.error(err.message || 'Failed to load chunks');
+    } finally {
+      setChunksLoading(false);
     }
   };
 
@@ -394,6 +435,17 @@ export default function QueuePage() {
       key: 'actions',
       render: (_: any, record: Task) => (
         <Space>
+          {record.action === 'run_scenario' && BROWSER_AGENT_PLATFORMS.includes(record.platform) && (
+            <Button
+              type="text"
+              icon={<UnorderedListOutlined />}
+              size="small"
+              onClick={() => openChunksDrawer(record)}
+              title="View execution chunks"
+            >
+              Chunks
+            </Button>
+          )}
           {['pending', 'assigned', 'processing'].includes(record.status) && (
             <Popconfirm
               title="Cancel task?"
@@ -715,7 +767,7 @@ export default function QueuePage() {
         onOk={handleAddBrowserTask}
         confirmLoading={addingBrowserTask}
         okText="Add to Queue"
-        width={500}
+        width={560}
         destroyOnHidden
       >
         <Form form={browserForm} layout="vertical" style={{ marginTop: 16 }}>
@@ -727,7 +779,7 @@ export default function QueuePage() {
                 label: a.name || a.id,
               }))}
               onChange={() => {
-                browserForm.setFieldsValue({ platform: undefined, scenario: undefined });
+                browserForm.setFieldsValue({ platform: undefined, scenario: undefined, input_fields: undefined });
               }}
             />
           </Form.Item>
@@ -735,7 +787,7 @@ export default function QueuePage() {
             <Select
               loading={catalogLoading}
               placeholder="Select platform"
-              onChange={() => browserForm.setFieldValue('scenario', undefined)}
+              onChange={() => browserForm.setFieldsValue({ scenario: undefined, input_fields: undefined })}
               options={(browserCatalog?.platforms || []).map((p) => ({
                 value: p.name,
                 label: p.label || p.name,
@@ -743,23 +795,11 @@ export default function QueuePage() {
               disabled={!selectedAgentId}
             />
           </Form.Item>
-          <Form.Item name="profile_id" label="Profile" rules={[{ required: true }]}>
-            <Select
-              placeholder="Select browser profile"
-              showSearch
-              optionFilterProp="label"
-              options={browserProfiles
-                .filter(p => !selectedPlatform || p.platforms?.some(pl => pl.platform === selectedPlatform))
-                .map(p => {
-                  const platformNames = p.platforms?.map(pl => pl.platform).join(', ') || '—';
-                  return { value: p.id, label: `${p.name} [${platformNames}]` };
-                })}
-            />
-          </Form.Item>
           <Form.Item name="scenario" label="Scenario" rules={[{ required: true }]}>
             <Select
               loading={catalogLoading}
               placeholder="Select scenario"
+              onChange={() => browserForm.setFieldsValue({ input_fields: undefined })}
               options={
                 browserCatalog?.platforms
                   .find((p) => p.name === selectedPlatform)
@@ -771,14 +811,173 @@ export default function QueuePage() {
               disabled={!selectedPlatform}
             />
           </Form.Item>
-          <Form.Item name="params_json" label="Params (JSON, optional)" extra='e.g. {"url":"https://youtu.be/...","watchSeconds":30}'>
-            <Input.TextArea rows={3} placeholder="{}" style={{ fontFamily: 'monospace', fontSize: 12 }} />
+          <Form.Item
+            name="profile_id"
+            label={profileRequired ? 'Profile' : 'Profile (optional for curl tier)'}
+            rules={[{ required: profileRequired, message: 'Profile is required for this scenario' }]}
+          >
+            <Select
+              placeholder={profileRequired ? 'Select browser profile' : 'Optional'}
+              allowClear={!profileRequired}
+              showSearch
+              optionFilterProp="label"
+              options={browserProfiles
+                .filter(p => !selectedPlatform || p.platforms?.some(pl => pl.platform === selectedPlatform))
+                .map(p => {
+                  const platformNames = p.platforms?.map(pl => pl.platform).join(', ') || '—';
+                  return { value: p.id, label: `${p.name} [${platformNames}]` };
+                })}
+            />
           </Form.Item>
-          <Form.Item name="priority" label="Priority" initialValue={5}>
-            <Select options={[{ value: 10, label: '10 — High' }, { value: 5, label: '5 — Normal' }, { value: 1, label: '1 — Low' }]} />
-          </Form.Item>
+
+          {/* Dynamic input fields from catalog schema */}
+          {hasDynamicInput && selectedScenario?.input && (
+            <BrowserScenarioInputForm
+              input={selectedScenario.input}
+              namePrefix={['input_fields']}
+            />
+          )}
+
+          {/* Advanced JSON (always available as fallback) */}
+          <Collapse
+            ghost
+            items={[{
+              key: 'advanced',
+              label: <span style={{ fontSize: 12, color: '#999' }}>Advanced JSON params</span>,
+              children: (
+                <Form.Item
+                  name="params_json"
+                  extra={hasDynamicInput ? 'Overrides dynamic fields above if filled' : 'e.g. {"url":"https://...","max_pages":3}'}
+                >
+                  <Input.TextArea rows={3} placeholder="{}" style={{ fontFamily: 'monospace', fontSize: 12 }} />
+                </Form.Item>
+              ),
+            }]}
+          />
+
+          <Row gutter={12}>
+            <Col span={12}>
+              <Form.Item name="forceTier" label="Force tier (optional)">
+                <Select
+                  allowClear
+                  placeholder="auto"
+                  options={[
+                    { value: 'curl', label: 'curl (fastest)' },
+                    { value: 'playwright', label: 'playwright' },
+                    { value: 'browser', label: 'browser (full)' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="priority" label="Priority" initialValue={5}>
+                <Select options={[{ value: 10, label: '10 — High' }, { value: 5, label: '5 — Normal' }, { value: 1, label: '1 — Low' }]} />
+              </Form.Item>
+            </Col>
+          </Row>
         </Form>
       </Modal>
+
+      {/* Chunks Drawer */}
+      <Drawer
+        title={
+          <Space>
+            <UnorderedListOutlined />
+            <span>Execution chunks</span>
+            {chunksDrawerTask && (
+              <Tag color="blue">{chunksDrawerTask.platform}/{chunksDrawerTask.params?.scenario}</Tag>
+            )}
+            {chunksItemsTotal > 0 && <Tag color="green">{chunksItemsTotal} items</Tag>}
+          </Space>
+        }
+        open={!!chunksDrawerTask}
+        onClose={() => setChunksDrawerTask(null)}
+        width={700}
+        extra={
+          chunksDrawerTask && (
+            <Button size="small" icon={<ReloadOutlined />} onClick={() => openChunksDrawer(chunksDrawerTask)}>
+              Refresh
+            </Button>
+          )
+        }
+      >
+        <Table
+          loading={chunksLoading}
+          dataSource={chunks}
+          rowKey="seq"
+          size="small"
+          pagination={{ pageSize: 50, showTotal: (t) => `${t} chunks` }}
+          columns={[
+            { title: '#', dataIndex: 'seq', key: 'seq', width: 50 },
+            {
+              title: 'Type',
+              dataIndex: 'chunkType',
+              key: 'chunkType',
+              width: 160,
+              render: (v) => {
+                const color = v === 'discovered_items' ? 'blue' : v === 'done' ? 'green' : v === 'error' ? 'red' : 'default';
+                return <Tag color={color}>{v}</Tag>;
+              },
+            },
+            {
+              title: 'Items',
+              key: 'items',
+              width: 70,
+              render: (_, row) => {
+                const items = (row.data as any)?.items;
+                return Array.isArray(items) ? items.length : '—';
+              },
+            },
+            {
+              title: 'Page',
+              key: 'page',
+              width: 70,
+              render: (_, row) => (row.data as any)?.page ?? '—',
+            },
+            {
+              title: 'Engine',
+              key: 'engine',
+              width: 100,
+              render: (_, row) => (row.data as any)?.engineUsed ?? '—',
+            },
+            {
+              title: 'Time',
+              dataIndex: 'createdAt',
+              key: 'createdAt',
+              render: (v) => v ? new Date(v).toLocaleTimeString() : '—',
+            },
+          ]}
+          expandable={{
+            rowExpandable: (row) => {
+              const items = (row.data as any)?.items;
+              return Array.isArray(items) && items.length > 0;
+            },
+            expandedRowRender: (row) => {
+              const items = (row.data as any)?.items || [];
+              return (
+                <Table
+                  dataSource={items}
+                  rowKey={(item: any) => item.externalId || item.url || Math.random().toString()}
+                  size="small"
+                  pagination={{ pageSize: 20 }}
+                  columns={[
+                    { title: 'Title', dataIndex: 'title', key: 'title', ellipsis: true },
+                    {
+                      title: 'URL',
+                      dataIndex: 'url',
+                      key: 'url',
+                      ellipsis: true,
+                      render: (v) => v ? <a href={v} target="_blank" rel="noreferrer" style={{ fontSize: 11 }}>{v}</a> : '—',
+                    },
+                    { title: 'Type', dataIndex: 'outputType', key: 'outputType', width: 100 },
+                    { title: 'Published', dataIndex: 'publishedAt', key: 'publishedAt', width: 120, render: (v) => v ? new Date(v).toLocaleDateString() : '—' },
+                  ]}
+                />
+              );
+            },
+          }}
+        />
+      </Drawer>
     </div>
   );
 }

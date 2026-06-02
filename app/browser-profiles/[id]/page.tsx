@@ -14,12 +14,17 @@ import {
 import {
   createBackendClient, tokenStorage,
   type BrowserProfileRecord, type BrowserProfilePlatform, type BrowserProxy,
-  type BrowserSession, type CreateBrowserProfilePlatformDto,
+  type BrowserSession, type CreateBrowserProfilePlatformDto, type Agent,
 } from '@/lib/api/backend';
 import { useAuth } from '@/contexts/AuthContext';
 import Loading from '@/components/common/Loading';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import {
+  canStartBrowserSessionAdmin,
+  HOME_AGENT_STATUS_COLORS,
+  HOME_AGENT_STATUS_LABELS,
+} from '@/lib/browser-profile-agent';
 
 const PLATFORMS = ['instagram', 'youtube', 'facebook', 'tiktok', 'twitter', 'linkedin', 'reddit', 'threads'];
 
@@ -56,6 +61,10 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
   const [editingPlatform, setEditingPlatform] = useState<BrowserProfilePlatform | null>(null);
   const [saving, setSaving] = useState(false);
   const [startingSession, setStartingSession] = useState(false);
+  const [browserAgents, setBrowserAgents] = useState<Agent[]>([]);
+  const [reassignOpen, setReassignOpen] = useState(false);
+  const [reassigning, setReassigning] = useState(false);
+  const [reassignAgentId, setReassignAgentId] = useState<string | null>(null);
   const [form] = Form.useForm();
 
   const getClient = useCallback(() => {
@@ -69,14 +78,17 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
     try {
       setLoading(true);
       const client = getClient();
-      const [profileData, sessionsData, proxiesData] = await Promise.all([
+      const [profileData, sessionsData, proxiesData, agentsData] = await Promise.all([
         client.getAdminBrowserProfileById(id),
         client.getAdminBrowserSessions(),
         client.getAdminBrowserProxies(),
+        client.getAgents(),
       ]);
       setProfile(profileData);
       setSessions(sessionsData.filter((s: BrowserSession) => s.browser_profile_id === id));
       setProxies(proxiesData);
+      setBrowserAgents(agentsData.filter((a) => a.type === 'browser'));
+      setReassignAgentId(profileData.home_agent_id ?? null);
     } catch (err: any) {
       message.error(err.message || 'Error loading profile');
     } finally {
@@ -196,6 +208,24 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
       message.success('Session deleted');
     } catch (err: any) {
       message.error(err.message || 'Error deleting session');
+    }
+  };
+
+  const handleReassignAgent = async () => {
+    try {
+      setReassigning(true);
+      const updated = await getClient().reassignAdminBrowserProfileAgent(id, reassignAgentId);
+      setProfile(updated);
+      setReassignOpen(false);
+      message.success(
+        reassignAgentId
+          ? `Profile bound to agent ${reassignAgentId}`
+          : 'Profile unbound — next start will bind to whichever agent runs it',
+      );
+    } catch (err: any) {
+      message.error(err.response?.data?.message || err.message || 'Reassign failed');
+    } finally {
+      setReassigning(false);
     }
   };
 
@@ -337,6 +367,9 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
   if (loading) return <Loading />;
   if (!profile) return <div style={{ padding: 24 }}>Profile not found</div>;
 
+  const homeAgentStatus = profile.home_agent_status ?? 'unbound';
+  const canStartSession = canStartBrowserSessionAdmin(profile);
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
@@ -344,6 +377,11 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
         <h1 style={{ margin: 0 }}>{profile.name}</h1>
         <Tag color={STATUS_COLORS[profile.status] || 'default'}>{profile.status}</Tag>
         <Tag color={profile.browser_type === 'camoufox' ? 'purple' : 'blue'}>{profile.browser_type}</Tag>
+        {homeAgentStatus !== 'unbound' && (
+          <Tag color={HOME_AGENT_STATUS_COLORS[homeAgentStatus]}>
+            Host: {HOME_AGENT_STATUS_LABELS[homeAgentStatus]}
+          </Tag>
+        )}
       </div>
 
       <Tabs
@@ -382,6 +420,22 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
               <Card>
                 <Descriptions bordered column={2} size="small">
                   <Descriptions.Item label="ID"><span style={{ fontFamily: 'monospace', fontSize: 12 }}>{profile.id}</span></Descriptions.Item>
+                  <Descriptions.Item label="Home agent">
+                    <Space wrap>
+                      <Tag color={HOME_AGENT_STATUS_COLORS[homeAgentStatus]}>
+                        {HOME_AGENT_STATUS_LABELS[homeAgentStatus]}
+                      </Tag>
+                      {profile.home_agent_id && (
+                        <span style={{ fontFamily: 'monospace', fontSize: 11 }}>{profile.home_agent_id}</span>
+                      )}
+                      <Button size="small" onClick={() => {
+                        setReassignAgentId(profile.home_agent_id ?? null);
+                        setReassignOpen(true);
+                      }}>
+                        Reassign…
+                      </Button>
+                    </Space>
+                  </Descriptions.Item>
                   <Descriptions.Item label="Browser">{profile.browser_type}</Descriptions.Item>
                   <Descriptions.Item label="Proxy">{profile.proxy ? `${profile.proxy.label || profile.proxy.host}:${profile.proxy.port}` : '—'}</Descriptions.Item>
                   <Descriptions.Item label="Status"><Tag color={STATUS_COLORS[profile.status]}>{profile.status}</Tag></Descriptions.Item>
@@ -395,7 +449,12 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
                     <Descriptions.Item label="Window Size">{profile.chrome_window_size || '—'}</Descriptions.Item>
                     <Descriptions.Item label="User Agent" span={2}><span style={{ fontSize: 11, wordBreak: 'break-all' }}>{profile.chrome_user_agent || '—'}</span></Descriptions.Item>
                   </>}
-                  <Descriptions.Item label="Notes" span={2}>{profile.notes || '—'}</Descriptions.Item>
+                  <Descriptions.Item label="Notes" span={2}>
+                    {profile.notes || '—'}
+                    <div style={{ marginTop: 8, fontSize: 12, color: '#888' }}>
+                      Reassigning the home agent does not copy on-disk cookies to the new host. The next session starts a fresh profile folder on the target agent.
+                    </div>
+                  </Descriptions.Item>
                   <Descriptions.Item label="Created">{new Date(profile.created_at).toLocaleString()}</Descriptions.Item>
                   <Descriptions.Item label="Updated">{profile.updated_at ? new Date(profile.updated_at).toLocaleString() : '—'}</Descriptions.Item>
                 </Descriptions>
@@ -410,15 +469,25 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
                 extra={
                   <Space>
                     <Button icon={<ReloadOutlined />} size="small" onClick={fetchAll}>Refresh</Button>
-                    <Button
-                      type="primary"
-                      icon={<PlayCircleOutlined />}
-                      loading={startingSession}
-                      onClick={handleStartSession}
-                      disabled={profile.status !== 'active'}
+                    <Tooltip
+                      title={
+                        !canStartSession && homeAgentStatus === 'offline'
+                          ? 'Browser host is offline — reassign or wait for it to come back'
+                          : profile.status !== 'active'
+                            ? 'Profile must be active'
+                            : undefined
+                      }
                     >
-                      Start Session
-                    </Button>
+                      <Button
+                        type="primary"
+                        icon={<PlayCircleOutlined />}
+                        loading={startingSession}
+                        onClick={handleStartSession}
+                        disabled={profile.status !== 'active' || !canStartSession}
+                      >
+                        Start Session
+                      </Button>
+                    </Tooltip>
                   </Space>
                 }
               >
@@ -435,6 +504,31 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
           },
         ]}
       />
+
+      <Modal
+        open={reassignOpen}
+        title="Reassign home browser-agent"
+        onOk={handleReassignAgent}
+        onCancel={() => setReassignOpen(false)}
+        confirmLoading={reassigning}
+        okText="Save"
+      >
+        <p style={{ marginBottom: 12, color: '#666' }}>
+          Logical binding only — profile data on the previous agent disk is not moved.
+        </p>
+        <Select
+          allowClear
+          showSearch
+          placeholder="Select browser agent (clear = unbind)"
+          style={{ width: '100%' }}
+          value={reassignAgentId}
+          onChange={(v) => setReassignAgentId(v ?? null)}
+          options={browserAgents.map((a) => ({
+            value: a.id,
+            label: `${a.name || a.id} (${a.status})`,
+          }))}
+        />
+      </Modal>
 
       {/* Add/Edit Platform Modal */}
       <Modal

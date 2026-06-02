@@ -18,6 +18,11 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import Loading from '@/components/common/Loading';
 import Link from 'next/link';
+import {
+  canStartBrowserSessionAdmin,
+  HOME_AGENT_STATUS_COLORS,
+  HOME_AGENT_STATUS_LABELS,
+} from '@/lib/browser-profile-agent';
 
 const PLATFORMS = ['instagram', 'youtube', 'facebook', 'tiktok', 'twitter', 'linkedin', 'reddit', 'threads'];
 
@@ -222,6 +227,16 @@ export default function BrowserProfilesPage() {
       render: (v: string) => <Tag color={STATUS_COLORS[v] || 'default'}>{v}</Tag>,
     },
     {
+      title: 'Host',
+      key: 'host',
+      width: 90,
+      render: (_, r) => {
+        const st = r.home_agent_status ?? 'unbound';
+        if (st === 'unbound') return '—';
+        return <Tag color={HOME_AGENT_STATUS_COLORS[st]}>{HOME_AGENT_STATUS_LABELS[st]}</Tag>;
+      },
+    },
+    {
       title: 'Created',
       dataIndex: 'created_at',
       key: 'created_at',
@@ -239,17 +254,28 @@ export default function BrowserProfilesPage() {
         const busy = sessionLoading[r.id];
         if (busy) return <LoadingOutlined style={{ color: '#1677ff' }} />;
         if (!session) {
+          const mayStart = canStartBrowserSessionAdmin(r);
           return (
-            <Button
-              size="small"
-              type="primary"
-              ghost
-              icon={<PlayCircleOutlined />}
-              disabled={r.status !== 'active'}
-              onClick={() => handleStartSession(r.id)}
+            <Tooltip
+              title={
+                !mayStart && r.home_agent_status === 'offline'
+                  ? 'Browser host is offline'
+                  : r.status !== 'active'
+                    ? 'Profile must be active'
+                    : undefined
+              }
             >
-              Start
-            </Button>
+              <Button
+                size="small"
+                type="primary"
+                ghost
+                icon={<PlayCircleOutlined />}
+                disabled={!mayStart}
+                onClick={() => handleStartSession(r.id)}
+              >
+                Start
+              </Button>
+            </Tooltip>
           );
         }
         const isRunning = session.status === 'running';

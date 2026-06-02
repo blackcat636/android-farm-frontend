@@ -1516,6 +1516,17 @@ export function createBackendClient(token: string) {
         return response.data;
       },
 
+      async reassignAdminBrowserProfileAgent(
+        profileId: string,
+        agentId: string | null,
+      ): Promise<BrowserProfileRecord> {
+        const response = await api.post<BrowserProfileRecord>(
+          `/api/admin/browser-profiles/${profileId}/reassign-agent`,
+          { agent_id: agentId },
+        );
+        return response.data;
+      },
+
       // Browser Agent Disk Profiles (on-disk, per browser-agent)
       async getAdminBrowserAgentDiskProfiles(): Promise<{ agentId: string; agentName: string; profiles: BrowserDiskProfile[] }[]> {
         const response = await api.get('/api/admin/browser-agent-disk-profiles');
@@ -1563,6 +1574,42 @@ export function createBackendClient(token: string) {
 
       async deleteBrowserCapabilityOverride(id: string): Promise<{ ok: boolean }> {
         const response = await api.delete(`/api/admin/browser-capability-overrides/${id}`);
+        return response.data;
+      },
+
+      async upsertCatalogOverride(
+        platform: string,
+        scenario: string,
+        visibility: BrowserVisibility,
+        existingOverrides?: BrowserCapabilityOverride[],
+      ): Promise<BrowserCapabilityOverride> {
+        const existing = existingOverrides?.find(
+          (o) => o.scope === 'scenario' && o.platform === platform && o.name === scenario,
+        );
+        if (existing) {
+          const response = await api.patch<BrowserCapabilityOverride>(
+            `/api/admin/browser-capability-overrides/${existing.id}`,
+            { visibility_override: visibility, enabled: true },
+          );
+          return response.data;
+        }
+        const response = await api.post<BrowserCapabilityOverride>(
+          '/api/admin/browser-capability-overrides',
+          { scope: 'scenario', platform, name: scenario, visibility_override: visibility, enabled: true },
+        );
+        return response.data;
+      },
+
+      async getQueueTaskChunks(
+        taskId: string,
+        params?: { page?: number; limit?: number },
+      ): Promise<TaskChunksResponse> {
+        const response = await api.get<TaskChunksResponse>(`/api/queue/${taskId}/chunks`, { params });
+        return response.data;
+      },
+
+      async invalidateBrowserCatalogCache(agentId: string): Promise<{ ok: boolean }> {
+        const response = await api.post<{ ok: boolean }>('/api/browser-catalog/invalidate-cache', { agentId });
         return response.data;
       },
 
@@ -1931,12 +1978,51 @@ export interface BrowserCatalogAction {
   params?: Array<Record<string, unknown>>;
 }
 
+export interface BrowserCatalogInputField {
+  type?: 'string' | 'number' | 'boolean' | 'url';
+  required?: boolean;
+  default?: unknown;
+  description?: string;
+}
+
 export interface BrowserCatalogScenario {
   name: string;
   label: string;
   requiresAuth?: boolean;
   visibility: BrowserVisibility;
   params?: Array<Record<string, unknown>>;
+  // v2 fields
+  minTier?: 'curl' | 'playwright' | 'browser';
+  input?: Record<string, BrowserCatalogInputField>;
+  chunks?: Record<string, string>;
+  legacy?: boolean;
+}
+
+export interface DiscoveredItem {
+  externalId: string;
+  url: string;
+  outputType: string;
+  title?: string | null;
+  excerpt?: string | null;
+  publishedAt?: string | null;
+  author?: string | null;
+  body?: string | null;
+  images?: string[];
+  rawData?: Record<string, unknown>;
+}
+
+export interface BrowserExecutionChunk {
+  seq: number;
+  chunkType: string;
+  data: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface TaskChunksResponse {
+  taskId: string;
+  total: number;
+  itemsTotal: number;
+  chunks: BrowserExecutionChunk[];
 }
 
 export interface BrowserCatalogPlatform {
@@ -1988,6 +2074,9 @@ export interface BrowserProfileRecord {
   name: string;
   notes?: string;
   status: 'preparing' | 'active' | 'blocked' | 'disabled' | 'stopped' | 'archived';
+  /** Browser-agent that owns on-disk profile data (sticky bind). */
+  home_agent_id?: string | null;
+  home_agent_status?: 'unbound' | 'online' | 'offline';
   browser_type: 'chrome' | 'camoufox';
   proxy_id?: string | null;
   proxy?: Pick<BrowserProxy, 'id' | 'label' | 'host' | 'port' | 'username'> | null;
