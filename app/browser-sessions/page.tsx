@@ -26,6 +26,13 @@ const STATUS_COLORS: Record<string, string> = {
   error: 'error',
 };
 
+function formatBytes(bytes?: number): string {
+  if (!bytes) return '—';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
 const PLATFORM_COLORS: Record<string, string> = {
   instagram: 'pink', youtube: 'red', facebook: 'blue',
   tiktok: 'purple', twitter: 'cyan', linkedin: 'geekblue',
@@ -322,6 +329,27 @@ export default function BrowserSessionsPage() {
       key: 'agent_id',
       width: 120,
       render: (v: string) => v ? <Tooltip title={v}>{v.slice(0, 12)}…</Tooltip> : '—',
+    },
+    {
+      title: 'Traffic ↓',
+      dataIndex: 'total_traffic_rx_bytes',
+      key: 'total_traffic_rx_bytes',
+      width: 90,
+      render: (v: number) => <Tooltip title="Received">{formatBytes(v)}</Tooltip>,
+    },
+    {
+      title: 'Traffic ↑',
+      dataIndex: 'total_traffic_tx_bytes',
+      key: 'total_traffic_tx_bytes',
+      width: 90,
+      render: (v: number) => <Tooltip title="Sent">{formatBytes(v)}</Tooltip>,
+    },
+    {
+      title: 'Runs',
+      dataIndex: 'run_count',
+      key: 'run_count',
+      width: 70,
+      render: (v: number) => v || '—',
     },
     {
       title: 'VNC',

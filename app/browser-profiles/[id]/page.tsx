@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { use } from 'react';
 import {
   Tabs, Tag, Button, Space, Popconfirm, Table, Card, message, Modal, Form,
-  Input, Select, Switch, Badge, Tooltip, Divider, Row, Col, Descriptions,
+  Input, Select, Switch, Badge, Tooltip, Divider, Row, Col, Descriptions, Statistic, Spin,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -15,6 +15,7 @@ import {
   createBackendClient, tokenStorage,
   type BrowserProfileRecord, type BrowserProfilePlatform, type BrowserProxy,
   type BrowserSession, type CreateBrowserProfilePlatformDto, type Agent,
+  type BrowserTaskRunStat,
 } from '@/lib/api/backend';
 import { useAuth } from '@/contexts/AuthContext';
 import Loading from '@/components/common/Loading';
@@ -27,6 +28,13 @@ import {
 } from '@/lib/browser-profile-agent';
 
 const PLATFORMS = ['instagram', 'youtube', 'facebook', 'tiktok', 'twitter', 'linkedin', 'reddit', 'threads'];
+
+function formatBytes(bytes?: number): string {
+  if (!bytes) return '—';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
 
 const PLATFORM_COLORS: Record<string, string> = {
   instagram: 'pink', youtube: 'red', facebook: 'blue',
@@ -66,6 +74,9 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
   const [reassigning, setReassigning] = useState(false);
   const [reassignAgentId, setReassignAgentId] = useState<string | null>(null);
   const [form] = Form.useForm();
+  const [runStats, setRunStats] = useState<BrowserTaskRunStat[]>([]);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [statsLoaded, setStatsLoaded] = useState(false);
 
   const getClient = useCallback(() => {
     const token = tokenStorage.get();
@@ -100,6 +111,21 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
 
   const usedPlatforms = profile?.platforms?.map(p => p.platform) || [];
   const availablePlatforms = PLATFORMS.filter(p => !usedPlatforms.includes(p));
+
+  const loadStats = useCallback(async () => {
+    if (statsLoaded) return;
+    try {
+      setStatsLoading(true);
+      const client = getClient();
+      const res = await client.getAdminBrowserTaskRunStats({ profile_id: id, limit: 100 });
+      setRunStats(res.items);
+      setStatsLoaded(true);
+    } catch (err: any) {
+      message.error(err.message || 'Failed to load stats');
+    } finally {
+      setStatsLoading(false);
+    }
+  }, [id, statsLoaded, getClient]);
 
   const openAddPlatform = () => { form.resetFields(); setEditingPlatform(null); setPlatformModal('add'); };
   const openEditPlatform = (p: BrowserProfilePlatform) => {
@@ -502,7 +528,91 @@ export default function BrowserProfileDetailPage({ params }: { params: Promise<{
               </Card>
             ),
           },
+          {
+            key: 'stats',
+            label: 'Stats',
+            children: (
+              <Spin spinning={statsLoading}>
+                {(() => {
+                  const totalRx = runStats.reduce((s, r) => s + (r.traffic_rx_bytes || 0), 0);
+                  const totalTx = runStats.reduce((s, r) => s + (r.traffic_tx_bytes || 0), 0);
+                  const avgDur = runStats.length
+                    ? Math.round(runStats.reduce((s, r) => s + (r.duration_sec || 0), 0) / runStats.length)
+                    : 0;
+                  const runCols: ColumnsType<BrowserTaskRunStat> = [
+                    {
+                      title: 'Session',
+                      dataIndex: 'session_id',
+                      key: 'session_id',
+                      width: 110,
+                      render: (v: string) => v ? <Tooltip title={v}>{v.slice(0, 8)}…</Tooltip> : '—',
+                    },
+                    {
+                      title: 'Engine',
+                      dataIndex: 'engine_used',
+                      key: 'engine_used',
+                      width: 100,
+                      render: (v: string) => v ? <Tag color={v === 'browser' ? 'blue' : v === 'playwright' ? 'purple' : 'default'}>{v}</Tag> : '—',
+                    },
+                    {
+                      title: 'Traffic ↓',
+                      dataIndex: 'traffic_rx_bytes',
+                      key: 'traffic_rx_bytes',
+                      width: 90,
+                      render: (v: number) => formatBytes(v),
+                    },
+                    {
+                      title: 'Traffic ↑',
+                      dataIndex: 'traffic_tx_bytes',
+                      key: 'traffic_tx_bytes',
+                      width: 90,
+                      render: (v: number) => formatBytes(v),
+                    },
+                    {
+                      title: 'Duration',
+                      dataIndex: 'duration_sec',
+                      key: 'duration_sec',
+                      width: 90,
+                      render: (v: number) => v ? `${v}s` : '—',
+                    },
+                    {
+                      title: 'Active',
+                      dataIndex: 'active_duration_sec',
+                      key: 'active_duration_sec',
+                      width: 80,
+                      render: (v: number) => v ? `${v}s` : '—',
+                    },
+                    {
+                      title: 'Date',
+                      dataIndex: 'ended_at',
+                      key: 'ended_at',
+                      render: (v: string) => v ? new Date(v).toLocaleString() : '—',
+                    },
+                  ];
+                  return (
+                    <>
+                      <Row gutter={16} style={{ marginBottom: 16 }}>
+                        <Col span={6}><Card size="small"><Statistic title="Total Runs" value={runStats.length} /></Card></Col>
+                        <Col span={6}><Card size="small"><Statistic title="Traffic ↓" value={formatBytes(totalRx)} /></Card></Col>
+                        <Col span={6}><Card size="small"><Statistic title="Traffic ↑" value={formatBytes(totalTx)} /></Card></Col>
+                        <Col span={6}><Card size="small"><Statistic title="Avg Duration" value={avgDur ? `${avgDur}s` : '—'} /></Card></Col>
+                      </Row>
+                      <Table
+                        dataSource={runStats}
+                        columns={runCols}
+                        rowKey="id"
+                        size="small"
+                        pagination={{ pageSize: 20 }}
+                        locale={{ emptyText: 'No runs yet' }}
+                      />
+                    </>
+                  );
+                })()}
+              </Spin>
+            ),
+          },
         ]}
+        onChange={(key) => { if (key === 'stats') loadStats(); }}
       />
 
       <Modal

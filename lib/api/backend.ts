@@ -1398,6 +1398,19 @@ export function createBackendClient(token: string) {
         return response.data;
       },
 
+      async getAdminBrowserTaskRunStats(params?: {
+        profile_id?: string;
+        session_id?: string;
+        user_id?: string;
+        from?: string;
+        to?: string;
+        limit?: number;
+        offset?: number;
+      }): Promise<BrowserTaskRunStatsResponse> {
+        const response = await api.get<BrowserTaskRunStatsResponse>('/api/admin/browser-task-run-stats', { params });
+        return response.data;
+      },
+
       async createAdminBrowserSession(data: { browser_profile_id: string; proxy?: any }): Promise<BrowserSession> {
         const response = await api.post<BrowserSession>('/api/admin/browser-sessions', data);
         return response.data;
@@ -2166,6 +2179,11 @@ export interface BrowserSession {
   stopped_at?: string;
   two_fa_pending?: boolean;
   two_fa_hint?: string;
+  total_traffic_rx_bytes?: number;
+  total_traffic_tx_bytes?: number;
+  total_duration_sec?: number;
+  total_active_sec?: number;
+  run_count?: number;
   browser_profile?: {
     id: string;
     name: string;
@@ -2173,6 +2191,34 @@ export interface BrowserSession {
     status: string;
     platforms?: Pick<BrowserProfilePlatform, 'platform' | 'username' | 'status'>[];
   } | null;
+}
+
+export interface BrowserTaskRunStat {
+  id: string;
+  task_id: string | null;
+  session_id: string | null;
+  browser_profile_id: string | null;
+  browser_profile?: { id: string; name: string } | null;
+  user_id: string | null;
+  agent_id: string | null;
+  run_id: string | null;
+  kind: string | null;
+  engine_used: 'curl' | 'playwright' | 'browser' | null;
+  traffic_rx_bytes: number;
+  traffic_tx_bytes: number;
+  duration_sec: number;
+  active_duration_sec: number;
+  stop_reason: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+  created_at: string;
+}
+
+export interface BrowserTaskRunStatsResponse {
+  items: BrowserTaskRunStat[];
+  total: number;
+  limit: number;
+  offset: number;
 }
 
 export interface BrowserProxy {
