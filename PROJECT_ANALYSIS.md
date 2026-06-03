@@ -39,6 +39,9 @@ frontend/
 │   │   └── ...
 │   ├── posts/               # Пости та лайки
 │   ├── queue/               # Черга завдань
+│   ├── browser-profiles/    # Browser profiles (+ reassign на [id]/Info)
+│   ├── browser-sessions/    # Браузерні сесії
+│   ├── browser-disk-profiles/ # Disk-профілі на агентах
 │   ├── api-keys/            # API ключі
 │   ├── api/agents/          # API route (Cloudflare KV, legacy)
 │   ├── layout.tsx
@@ -274,6 +277,24 @@ npm run build && npm start
 
 ---
 
+## Browser Profiles (адмінка)
+
+Сторінки: `app/browser-profiles/` (список), `app/browser-profiles/[id]/` (деталі).
+
+| Вкладка | Призначення |
+|---------|-------------|
+| Platforms | Платформи профілю (Instagram тощо) |
+| Info | Метадані, **Home agent** (статус + **Reassign…**) |
+| Sessions | Історія сесій, **Start Session** (disabled якщо home agent offline) |
+
+**Reassign home browser-agent:** меню **Browser → Browser Profiles** → профіль → **Info** → **Reassign…** → вибір browser-agent або clear (unbind). Логічна зміна в БД; disk на попередньому агенті не переноситься.
+
+API: `POST /api/admin/browser-profiles/:id/reassign-agent` — див. `lib/api/backend.ts` (`reassignAdminBrowserProfileAgent`).
+
+Деталі sticky binding: `docs/PLAN_browser_profile_home_agent.md`, backend §16.
+
+---
+
 ## 🔗 Пов'язані документи
 
 - **Backend API**: `backend/PROJECT_ANALYSIS.md`, `backend/README.md`
@@ -283,4 +304,4 @@ npm run build && npm start
 
 ---
 
-**Останнє оновлення:** 2025-02-25
+**Останнє оновлення:** 2026-06-02
