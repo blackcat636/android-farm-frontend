@@ -36,8 +36,9 @@
 
 ### Queue (`/queue`)
 - Черга завдань
-- Статуси: pending, processing, completed, failed
+- Статуси: pending, processing, **waiting_input**, completed, failed
 - Скасування задач
+- **Interactive prompts**: коли browser-сценарій зупиняється і чекає вводу (SMS-код, підтвердження, вибір, QR), задача отримує статус `waiting_input` (золотий тег) і кнопку **Answer**. Клік відкриває форму з полями сценарію (текст/вибір/підтвердження/QR/картинка); після відповіді сценарій продовжується. Список pending-prompts опитується кожні 5с.
 
 ### History (`/history`)
 - Історія виконання дій

@@ -1626,6 +1626,17 @@ export function createBackendClient(token: string) {
         return response.data;
       },
 
+      // Interactive prompts (bag.prompt)
+      async getAdminPrompts(status = 'pending'): Promise<TaskPrompt[]> {
+        const response = await api.get<TaskPrompt[]>('/api/admin/prompts', { params: { status } });
+        return response.data;
+      },
+
+      async answerPromptAdmin(taskId: string, answers: Record<string, unknown>): Promise<{ ok: boolean }> {
+        const response = await api.post<{ ok: boolean }>(`/api/admin/tasks/${taskId}/prompt-answer`, { answers });
+        return response.data;
+      },
+
       // Browser Proxies
       async getAdminBrowserProxies(): Promise<BrowserProxy[]> {
         const response = await api.get<BrowserProxy[]>('/api/admin/browser-proxies');
@@ -1675,7 +1686,7 @@ export interface Task {
   emulator_id?: string;
   emulator_type?: string;
   agent_id?: string;
-  status: 'pending' | 'assigned' | 'processing' | 'completed' | 'failed' | 'cancelled';
+  status: 'pending' | 'assigned' | 'processing' | 'in_progress' | 'waiting_input' | 'completed' | 'failed' | 'cancelled';
   assigned_agent_id?: string;
   assigned_emulator_id?: string;
   priority: number;
@@ -2036,6 +2047,32 @@ export interface TaskChunksResponse {
   total: number;
   itemsTotal: number;
   chunks: BrowserExecutionChunk[];
+}
+
+export interface TaskPromptField {
+  name: string;
+  type?: 'text' | 'textarea' | 'choice' | 'confirm' | 'number' | 'image' | 'qrcode';
+  label?: string;
+  required?: boolean;
+  choices?: string[];
+  hint?: string;
+  content?: string; // image (base64/data-uri) or qrcode (data to encode)
+}
+
+export interface TaskPrompt {
+  id: string;
+  task_id: string;
+  user_id?: string | null;
+  browser_account_id?: string | null;
+  agent_id?: string | null;
+  prompt_id?: string | null;
+  title: string;
+  fields: TaskPromptField[];
+  status: 'pending' | 'answered' | 'timeout' | 'cancelled';
+  answers?: Record<string, unknown> | null;
+  timeout_ms?: number;
+  created_at: string;
+  answered_at?: string | null;
 }
 
 export interface BrowserCatalogPlatform {

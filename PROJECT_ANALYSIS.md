@@ -138,7 +138,7 @@ frontend/
 | `/emulators` | Список емуляторів (з backend) |
 | `/emulators/[id]` | Деталі емулятора: інформація, прив'язані аккаунти, черга, історія |
 | `/accounts` | Соціальні аккаунти |
-| `/queue` | Черга завдань |
+| `/queue` | Черга завдань (+ interactive prompts: статус `waiting_input`, кнопка Answer → модалка з формою; API `getAdminPrompts`/`answerPromptAdmin`) |
 | `/history` | Історія виконання |
 | `/posts` | Пости та лайки |
 | `/captcha` | Капча |

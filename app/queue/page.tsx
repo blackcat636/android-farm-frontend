@@ -14,6 +14,8 @@ import {
   type BrowserCatalogScenario,
   type BrowserExecutionChunk,
   type Agent,
+  type TaskPrompt,
+  type TaskPromptField,
 } from '@/lib/api/backend';
 import { useAuth } from '@/contexts/AuthContext';
 import Loading from '@/components/common/Loading';
@@ -23,6 +25,41 @@ import { maskEmail } from '@/utils/maskEmail';
 import BrowserScenarioInputForm from '@/components/browser/BrowserScenarioInputForm';
 
 const BROWSER_AGENT_PLATFORMS = ['reddit','youtube','generic','news-portal','twitter','instagram','tiktok'];
+
+const PROMPT_DISPLAY_TYPES = new Set(['image', 'qrcode']);
+const isPromptDisplayField = (t?: string) => !!t && PROMPT_DISPLAY_TYPES.has(t);
+
+function PromptQrImage({ value }: { value: string }) {
+  const [src, setSrc] = useState('');
+  useEffect(() => {
+    let alive = true;
+    import('qrcode')
+      .then((QR) => QR.toDataURL(value, { width: 220, margin: 1 }))
+      .then((url) => { if (alive) setSrc(url); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [value]);
+  return src
+    ? <img src={src} width={220} height={220} alt="QR code" style={{ borderRadius: 4 }} />
+    : <span style={{ color: '#888', fontSize: 12 }}>Generating QR…</span>;
+}
+
+function PromptDisplayField({ field }: { field: TaskPromptField }) {
+  const content = field.content || '';
+  const imgSrc = content.startsWith('data:') ? content : `data:image/png;base64,${content}`;
+  return (
+    <div>
+      {field.label && <div style={{ marginBottom: 4, fontSize: 13 }}>{field.label}</div>}
+      {field.type === 'image' && content ? (
+        <img src={imgSrc} alt={field.label || 'image'} style={{ maxWidth: '100%', borderRadius: 8 }} />
+      ) : field.type === 'qrcode' && content ? (
+        <PromptQrImage value={content} />
+      ) : (
+        <span style={{ color: '#888', fontSize: 12 }}>No content</span>
+      )}
+    </div>
+  );
+}
 
 export default function QueuePage() {
   const { user } = useAuth();
@@ -76,6 +113,12 @@ export default function QueuePage() {
   const [chunksTotal, setChunksTotal] = useState(0);
   const [chunksItemsTotal, setChunksItemsTotal] = useState(0);
   const [chunksLoading, setChunksLoading] = useState(false);
+
+  // Interactive prompts (bag.prompt)
+  const [prompts, setPrompts] = useState<Record<string, TaskPrompt>>({});
+  const [promptModal, setPromptModal] = useState<TaskPrompt | null>(null);
+  const [promptAnswers, setPromptAnswers] = useState<Record<string, unknown>>({});
+  const [promptSubmitting, setPromptSubmitting] = useState(false);
 
   const getClient = useCallback(() => {
     const token = tokenStorage.get();
@@ -247,6 +290,59 @@ export default function QueuePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, JSON.stringify(filters.status), filters.platform, filters.action]);
 
+  // Poll pending interactive prompts → map taskId → prompt
+  const loadPrompts = useCallback(async () => {
+    if (!user) return;
+    try {
+      const list = await getClient().getAdminPrompts('pending');
+      const map: Record<string, TaskPrompt> = {};
+      for (const p of list) map[p.task_id] = p;
+      setPrompts(map);
+    } catch {
+      // silent — prompts are best-effort
+    }
+  }, [user, getClient]);
+
+  useEffect(() => {
+    if (!user) return;
+    loadPrompts();
+    const t = setInterval(loadPrompts, 5000);
+    return () => clearInterval(t);
+  }, [user, loadPrompts]);
+
+  const openPromptModal = (prompt: TaskPrompt) => {
+    const defaults: Record<string, unknown> = {};
+    for (const f of prompt.fields || []) {
+      if (f.type === 'confirm') defaults[f.name] = false;
+    }
+    setPromptAnswers(defaults);
+    setPromptModal(prompt);
+  };
+
+  const handleSubmitPrompt = async () => {
+    if (!promptModal) return;
+    const missing = (promptModal.fields || [])
+      .filter((f) => !isPromptDisplayField(f.type) && f.required && (promptAnswers[f.name] == null || promptAnswers[f.name] === ''))
+      .map((f) => f.name);
+    if (missing.length) {
+      message.warning(`Fill required fields: ${missing.join(', ')}`);
+      return;
+    }
+    setPromptSubmitting(true);
+    try {
+      await getClient().answerPromptAdmin(promptModal.task_id, promptAnswers);
+      message.success('Answer submitted — scenario resumed');
+      setPromptModal(null);
+      setPromptAnswers({});
+      await loadPrompts();
+      await fetchTasks(pagination.current);
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || err?.message || 'Failed to submit answer');
+    } finally {
+      setPromptSubmitting(false);
+    }
+  };
+
   const handleCancel = async (taskId: string) => {
     try {
       const token = tokenStorage.get();
@@ -304,6 +400,8 @@ export default function QueuePage() {
       pending: 'orange',
       assigned: 'blue',
       processing: 'cyan',
+      in_progress: 'cyan',
+      waiting_input: 'gold',
       completed: 'green',
       failed: 'red',
       cancelled: 'default',
@@ -316,6 +414,8 @@ export default function QueuePage() {
       pending: 'Pending',
       assigned: 'Assigned',
       processing: 'Processing',
+      in_progress: 'In progress',
+      waiting_input: 'Waiting input',
       completed: 'Completed',
       failed: 'Failed',
       cancelled: 'Cancelled',
@@ -435,6 +535,16 @@ export default function QueuePage() {
       key: 'actions',
       render: (_: any, record: Task) => (
         <Space>
+          {record.status === 'waiting_input' && prompts[record.id] && (
+            <Button
+              type="primary"
+              size="small"
+              onClick={() => openPromptModal(prompts[record.id])}
+              style={{ fontWeight: 600, backgroundColor: '#faad14', borderColor: '#faad14' }}
+            >
+              Answer
+            </Button>
+          )}
           {record.action === 'run_scenario' && BROWSER_AGENT_PLATFORMS.includes(record.platform) && (
             <Button
               type="text"
@@ -978,6 +1088,75 @@ export default function QueuePage() {
           }}
         />
       </Drawer>
+
+      {/* Interactive prompt answer modal */}
+      <Modal
+        title={promptModal?.title || 'Scenario question'}
+        open={!!promptModal}
+        onOk={handleSubmitPrompt}
+        onCancel={() => { setPromptModal(null); setPromptAnswers({}); }}
+        confirmLoading={promptSubmitting}
+        okText="Submit"
+        destroyOnClose
+      >
+        {promptModal && (
+          <Space direction="vertical" style={{ width: '100%' }} size="middle">
+            <Tag color="gold">task {promptModal.task_id.slice(0, 8)}…</Tag>
+            {(promptModal.fields || []).map((field) => (
+              isPromptDisplayField(field.type) ? (
+                <PromptDisplayField key={field.name} field={field} />
+              ) : (
+              <div key={field.name}>
+                <div style={{ marginBottom: 4, fontSize: 13 }}>
+                  {field.label || field.name}
+                  {field.required && <span style={{ color: '#ff4d4f' }}> *</span>}
+                </div>
+                {field.hint && (
+                  <div style={{ marginBottom: 6, fontSize: 12, wordBreak: 'break-all' }}>
+                    {field.hint.startsWith('http')
+                      ? <a href={field.hint} target="_blank" rel="noreferrer">{field.hint}</a>
+                      : <span style={{ color: '#888' }}>{field.hint}</span>}
+                  </div>
+                )}
+                {field.type === 'confirm' ? (
+                  <Select
+                    style={{ width: '100%' }}
+                    value={promptAnswers[field.name] as boolean}
+                    onChange={(v) => setPromptAnswers((prev) => ({ ...prev, [field.name]: v }))}
+                    options={[{ value: true, label: 'Yes / Confirmed' }, { value: false, label: 'No' }]}
+                  />
+                ) : field.type === 'choice' && field.choices ? (
+                  <Select
+                    style={{ width: '100%' }}
+                    value={promptAnswers[field.name] as string}
+                    onChange={(v) => setPromptAnswers((prev) => ({ ...prev, [field.name]: v }))}
+                    options={field.choices.map((c) => ({ value: c, label: c }))}
+                  />
+                ) : field.type === 'number' ? (
+                  <InputNumber
+                    style={{ width: '100%' }}
+                    value={promptAnswers[field.name] as number}
+                    onChange={(v) => setPromptAnswers((prev) => ({ ...prev, [field.name]: v }))}
+                  />
+                ) : field.type === 'textarea' ? (
+                  <Input.TextArea
+                    rows={3}
+                    value={promptAnswers[field.name] as string}
+                    onChange={(e) => setPromptAnswers((prev) => ({ ...prev, [field.name]: e.target.value }))}
+                  />
+                ) : (
+                  <Input
+                    value={promptAnswers[field.name] as string}
+                    onChange={(e) => setPromptAnswers((prev) => ({ ...prev, [field.name]: e.target.value }))}
+                    placeholder={field.name}
+                  />
+                )}
+              </div>
+              )
+            ))}
+          </Space>
+        )}
+      </Modal>
     </div>
   );
 }
